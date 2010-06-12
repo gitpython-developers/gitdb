@@ -1,12 +1,14 @@
 """Test for object db"""
-from test.testlib import *
-from lib import ZippedStoreShaWriter
+from lib import (
+	with_rw_directory,
+	ZippedStoreShaWriter,
+	TestBase
+	)
 
-from git.odb import *
-from git.odb.stream import Sha1Writer
-from git import Blob
-from git.errors import BadObject
-
+from gitdb import *
+from gitdb.stream import Sha1Writer
+from gitdb.exc import BadObject
+from gitdb.typ import str_blob_type
 
 from cStringIO import StringIO
 import os
@@ -36,7 +38,7 @@ class TestDB(TestBase):
 				prev_ostream = db.set_ostream(ostream)
 				assert type(prev_ostream) in ostreams or prev_ostream in ostreams 
 					
-				istream = IStream(Blob.type, len(data), StringIO(data))
+				istream = IStream(str_blob_type, len(data), StringIO(data))
 				
 				# store returns same istream instance, with new sha set
 				my_istream = db.store(istream)
@@ -48,12 +50,12 @@ class TestDB(TestBase):
 				# verify data - the slow way, we want to run code
 				if not dry_run:
 					info = db.info(sha)
-					assert Blob.type == info.type
+					assert str_blob_type == info.type
 					assert info.size == len(data)
 					
 					ostream = db.stream(sha)
 					assert ostream.read() == data
-					assert ostream.type == Blob.type
+					assert ostream.type == str_blob_type
 					assert ostream.size == len(data)
 				else:
 					self.failUnlessRaises(BadObject, db.info, sha)
@@ -81,9 +83,9 @@ class TestDB(TestBase):
 			# END for each data set
 		# END for each dry_run mode
 				
-	@with_bare_rw_repo
-	def test_writing(self, rwrepo):
-		ldb = LooseObjectDB(os.path.join(rwrepo.git_dir, 'objects'))
+	@with_rw_directory
+	def test_writing(self, path):
+		ldb = LooseObjectDB(path)
 		
 		# write data
 		self._assert_object_writing(ldb)

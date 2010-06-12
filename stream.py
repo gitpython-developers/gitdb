@@ -1,11 +1,11 @@
 import zlib
 from cStringIO import StringIO
-from git.utils import make_sha
 import errno
 
-from utils import (
+from util import (
 		to_hex_sha,
-		to_bin_sha, 
+		to_bin_sha,
+		make_sha,
 		write, 
 		close
 	)

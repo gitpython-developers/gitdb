@@ -1,6 +1,5 @@
 """Contains implementations of database retrieveing objects"""
-from git.utils import IndexFileSHA1Writer
-from git.errors import (
+from exc import (
 	InvalidDBRoot, 
 	BadObject, 
 	BadObjectType
@@ -14,7 +13,7 @@ from stream import (
 		OInfo
 	)
 
-from utils import (
+from util import (
 		ENOENT,
 		to_hex_sha,
 		exists,

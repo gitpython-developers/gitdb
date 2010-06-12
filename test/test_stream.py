@@ -1,13 +1,22 @@
 """Test for object db"""
-from test.testlib import *
 from lib import (
+		TestBase,
 		DummyStream,
 		DeriveTest, 
-		Sha1Writer
+		Sha1Writer, 
+		make_bytes, 
+		make_object
 	)
 
-from git.odb import *
-from git import Blob
+from gitdb import *
+from gitdb.util import (
+	NULL_HEX_SHA
+	)
+
+from gitdb.typ import (
+	str_blob_type
+	)
+
 from cStringIO import StringIO
 import tempfile
 import os
@@ -23,11 +32,11 @@ class TestStream(TestBase):
 	
 	def test_streams(self):
 		# test info
-		sha = Blob.NULL_HEX_SHA
+		sha = NULL_HEX_SHA
 		s = 20
-		info = OInfo(sha, Blob.type, s)
+		info = OInfo(sha, str_blob_type, s)
 		assert info.sha == sha
-		assert info.type == Blob.type
+		assert info.type == str_blob_type
 		assert info.size == s
 		
 		# test ostream
@@ -40,10 +49,10 @@ class TestStream(TestBase):
 		assert stream.bytes == 20
 		
 		# derive with own args
-		DeriveTest(sha, Blob.type, s, stream, 'mine',myarg = 3)._assert()
+		DeriveTest(sha, str_blob_type, s, stream, 'mine',myarg = 3)._assert()
 		
 		# test istream
-		istream = IStream(Blob.type, s, stream)
+		istream = IStream(str_blob_type, s, stream)
 		assert istream.sha == None
 		istream.sha = sha
 		assert istream.sha == sha
@@ -54,7 +63,7 @@ class TestStream(TestBase):
 		assert istream.size == s
 		istream.size = s * 2
 		istream.size == s * 2
-		assert istream.type == Blob.type
+		assert istream.type == str_blob_type
 		istream.type = "something"
 		assert istream.type == "something"
 		assert istream.stream is stream
@@ -104,10 +113,10 @@ class TestStream(TestBase):
 					# create reader
 					if with_size:
 						# need object data
-						zdata = zlib.compress(make_object(Blob.type, cdata))
+						zdata = zlib.compress(make_object(str_blob_type, cdata))
 						type, size, reader = DecompressMemMapReader.new(zdata, close_on_deletion)
 						assert size == len(cdata)
-						assert type == Blob.type
+						assert type == str_blob_type
 					else:
 						# here we need content data
 						zdata = zlib.compress(cdata)

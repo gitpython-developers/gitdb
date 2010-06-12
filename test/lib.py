@@ -1,11 +1,74 @@
 """Utilities used in ODB testing"""
-from git.odb import (
+from gitdb import (
 	OStream, 
 	)
-from git.odb.stream import Sha1Writer
+from gitdb.stream import Sha1Writer
 
+import sys
 import zlib
+import random
+from array import array
 from cStringIO import StringIO
+
+import unittest
+import tempfile
+import shutil
+import os
+
+
+#{ Bases
+
+class TestBase(unittest.TestCase):
+	"""Base class for all tests"""
+	
+
+#} END bases
+
+#{ Decorators
+
+def with_rw_directory(func):
+	"""Create a temporary directory which can be written to, remove it if the 
+	test suceeds, but leave it otherwise to aid additional debugging"""
+	def wrapper(self):
+		path = tempfile.mktemp(suffix=func.__name__)
+		os.mkdir(path)
+		try:
+			return func(self, path)
+		except Exception:
+			print >> sys.stderr, "Test %s.%s failed, output is at %r" % (type(self).__name__, func.__name__, path)
+			raise
+		else:
+			shutil.rmtree(path)
+		# END handle exception
+	# END wrapper
+	
+	wrapper.__name__ = func.__name__
+	return wrapper
+
+
+#} END decorators
+
+#{ Routines
+
+def make_bytes(size_in_bytes, randomize=False):
+	""":return: string with given size in bytes
+	:param randomize: try to produce a very random stream"""
+	actual_size = size_in_bytes / 4
+	producer = xrange(actual_size)
+	if randomize:
+		producer = list(producer)
+		random.shuffle(producer)
+	# END randomize
+	a = array('i', producer)
+	return a.tostring()
+
+
+def make_object(type, data):
+	""":return: bytes resembling an uncompressed object"""
+	odata = "blob %i\0" % len(data)
+	return odata + data
+
+#} END routines
 
 #{ Stream Utilities
 

@@ -2,7 +2,7 @@
 Keeping this code separate from the beginning makes it easier to out-source
 it into c later, if required"""
 
-from git.errors import (
+from exc import (
 	BadObjectType
 	)
 
