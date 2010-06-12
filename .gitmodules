@@ -1,0 +1,3 @@
+[submodule "ext/async"]
+	path = ext/async
+	url = git://gitorious.org/git-python/async.git
