@@ -2,10 +2,20 @@ import binascii
 import os
 import errno
 
+from async import ThreadPool
+
 try:
     import hashlib
 except ImportError:
     import sha
+
+#{ Globals
+
+# A pool distributing tasks, initially with zero threads, hence everything 
+# will be handled in the main thread
+pool = ThreadPool(0)
+
+#} END globals
 
 
 #{ Aliases

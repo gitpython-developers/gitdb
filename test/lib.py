@@ -30,7 +30,7 @@ def with_rw_directory(func):
 	"""Create a temporary directory which can be written to, remove it if the 
 	test suceeds, but leave it otherwise to aid additional debugging"""
 	def wrapper(self):
-		path = tempfile.mktemp(suffix=func.__name__)
+		path = tempfile.mktemp(prefix=func.__name__)
 		os.mkdir(path)
 		try:
 			return func(self, path)
