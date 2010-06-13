@@ -13,6 +13,7 @@ from gitdb.util import (
 	NULL_HEX_SHA
 	)
 
+from gitdb.util import zlib
 from gitdb.typ import (
 	str_blob_type
 	)
@@ -20,7 +21,6 @@ from gitdb.typ import (
 from cStringIO import StringIO
 import tempfile
 import os
-import zlib
 
 
 

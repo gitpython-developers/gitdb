@@ -1,4 +1,4 @@
-import zlib
+
 from cStringIO import StringIO
 import errno
 
@@ -7,7 +7,8 @@ from util import (
 		to_bin_sha,
 		make_sha,
 		write, 
-		close
+		close,
+		zlib
 	)
 
 __all__ = ('OInfo', 'OStream', 'IStream', 'InvalidOInfo', 'InvalidOStream', 

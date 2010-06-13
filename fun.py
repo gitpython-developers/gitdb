@@ -6,7 +6,7 @@ from exc import (
 	BadObjectType
 	)
 
-import zlib
+from util import zlib
 decompressobj = zlib.decompressobj
 
 

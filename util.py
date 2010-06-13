@@ -2,6 +2,12 @@ import binascii
 import os
 import errno
 
+try:
+	import async.mod.zlib as zlib
+except ImportError:
+	import zlib
+# END try async zlib
+
 from async import ThreadPool
 
 try:

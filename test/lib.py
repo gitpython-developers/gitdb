@@ -3,9 +3,9 @@ from gitdb import (
 	OStream, 
 	)
 from gitdb.stream import Sha1Writer
+from gitdb.util import zlib
 
 import sys
-import zlib
 import random
 from array import array
 from cStringIO import StringIO

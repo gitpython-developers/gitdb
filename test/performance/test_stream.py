@@ -1,5 +1,4 @@
 """Performance data streaming performance"""
-
 from lib import TestBigRepoR
 from gitdb.db import *
 from gitdb.stream import *
@@ -53,7 +52,7 @@ class TestStreamReader(ChannelThreadTask):
 
 class TestObjDBPerformance(TestBigRepoR):
 	
-	large_data_size_bytes = 1000*1000*10		# some MiB should do it
+	large_data_size_bytes = 1000*1000*50		# some MiB should do it
 	moderate_data_size_bytes = 1000*1000*1		# just 1 MiB
 	
 	@with_rw_directory
@@ -147,19 +146,22 @@ class TestObjDBPerformance(TestBigRepoR):
 		
 		print >> sys.stderr, "Threads(%i): Compressed %i KiB of data in loose odb in %f s ( %f Write KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed)
 		
-		
 		# decompress multiple at once, by reading them
+		# chunk size is not important as the stream will not really be decompressed
+		
+		# until its read
 		istream_reader = IteratorReader(iter([ i.sha for i in istreams ]))
 		ostream_reader = ldb.stream_async(istream_reader)
 		
 		chunk_task = TestStreamReader(ostream_reader, "chunker", None)
 		output_reader = pool.add_task(chunk_task)
+		output_reader.task().max_chunksize = 1
 		
 		st = time()
 		assert len(output_reader.read(nsios)) == nsios
 		elapsed = time() - st
 		
-		print >> sys.stderr, "Threads(%i): Decompressed %i KiB of data in loose odb in %f s ( %f Write KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed)
+		print >> sys.stderr, "Threads(%i): Decompressed %i KiB of data in loose odb in %f s ( %f Read KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed)
 		
 		# store the files, and read them back. For the reading, we use a task 
 		# as well which is chunked into one item per task. Reading all will
@@ -167,13 +169,16 @@ class TestObjDBPerformance(TestBigRepoR):
 		# chained compression/decompression streams
 		reader = IteratorReader(istream_iter())
 		istream_reader = ldb.store_async(reader)
+		istream_reader.task().max_chunksize = 1
 		
 		istream_to_sha = lambda items: [ i.sha for i in items ]
 		istream_reader.set_post_cb(istream_to_sha)
 		
 		ostream_reader = ldb.stream_async(istream_reader)
+		
 		chunk_task = TestStreamReader(ostream_reader, "chunker", None)
 		output_reader = pool.add_task(chunk_task)
+		output_reader.max_chunksize = 1
 		
 		st = time()
 		assert len(output_reader.read(nsios)) == nsios
