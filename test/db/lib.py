@@ -1,22 +1,29 @@
-"""Test for object db"""
-from lib import (
+"""Base classes for object db testing"""
+from gitdb.test.lib import (
 	with_rw_directory,
 	ZippedStoreShaWriter,
 	TestBase
 	)
 
-from gitdb import *
-from gitdb.stream import Sha1Writer
+from gitdb.stream import (
+							Sha1Writer,
+							IStream,
+							OStream,
+							OInfo
+						)
+				
 from gitdb.exc import BadObject
 from gitdb.typ import str_blob_type
 
 from async import IteratorReader
 
 from cStringIO import StringIO
-import os
+
+
+__all__ = ('TestDBBase', 'with_rw_directory' )
 		
-class TestDB(TestBase):
-	"""Test the different db class implementations"""
+class TestDBBase(TestBase):
+	"""Base class providing testing routines on databases"""
 	
 	# data
 	two_lines = "1234\nhello world"
@@ -166,13 +173,3 @@ class TestDB(TestBase):
 		assert count == nni
 		
 		
-		
-				
-	@with_rw_directory
-	def test_writing(self, path):
-		ldb = LooseObjectDB(path)
-		
-		# write data
-		self._assert_object_writing(ldb)
-		self._assert_object_writing_async(ldb)
-	
