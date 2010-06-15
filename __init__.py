@@ -14,5 +14,6 @@ _init_externals()
 
 # default imports
 from db import *
+from base import *
 from stream import *
 

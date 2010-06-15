@@ -6,8 +6,9 @@ from gitdb.test.lib import (
 	TestBase
 	)
 
-from gitdb.stream import (
-							Sha1Writer,
+from gitdb.stream import Sha1Writer
+
+from gitdb.base import (
 							IStream,
 							OStream,
 							OInfo
