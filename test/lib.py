@@ -47,7 +47,7 @@ def with_rw_directory(func):
 	return wrapper
 
 
-def with_packs(func):
+def with_packs_rw(func):
 	"""Function that provides a path into which the packs for testing should be 
 	copied. Will pass on the path to the actual function afterwards"""
 	def wrapper(self, path):

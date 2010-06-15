@@ -1,7 +1,7 @@
 """Base classes for object db testing"""
 from gitdb.test.lib import (
 	with_rw_directory,
-	with_packs,
+	with_packs_rw,
 	ZippedStoreShaWriter,
 	TestBase
 	)
@@ -20,7 +20,7 @@ from async import IteratorReader
 from cStringIO import StringIO
 
 
-__all__ = ('TestDBBase', 'with_rw_directory', 'with_packs' )
+__all__ = ('TestDBBase', 'with_rw_directory', 'with_packs_rw' )
 		
 class TestDBBase(TestBase):
 	"""Base class providing testing routines on databases"""

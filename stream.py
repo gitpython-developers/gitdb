@@ -361,7 +361,9 @@ class DecompressMemMapReader(object):
 		if win_size < 8:
 			self._cwe = self._cws + 8
 		# END adjust winsize
-		indata = self._m[self._cws:self._cwe]		# another copy ... :(
+		
+		# takes a slice, but doesn't copy the data, it says ... 
+		indata = buffer(self._m, self._cws, self._cwe - self._cws)
 		
 		# get the actual window end to be sure we don't use it for computations
 		self._cwe = self._cws + len(indata)
