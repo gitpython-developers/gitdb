@@ -11,11 +11,17 @@ decompressobj = zlib.decompressobj
 
 
 # INVARIANTS
+OFS_DELTA = 6
+REF_DELTA = 7
 type_id_to_type_map = 	{
+							0 : "",				# EXT 1
 							1 : "commit",
 							2 : "tree",
 							3 : "blob",
-							4 : "tag"
+							4 : "tag",
+							5 : "",				# EXT 2
+							OFS_DELTA : "OFS_DELTA", 	# OFFSET DELTA
+							REF_DELTA : "REF_DELTA"		# REFERENCE DELTA
 						}
 
 # used when dealing with larger streams
@@ -42,30 +48,23 @@ def loose_object_header_info(m):
 	type_name, size = hdr[:hdr.find("\0")].split(" ")
 	return type_name, int(size)
 	
-def object_header_info(m):
-	""":return: tuple(type_string, uncompressed_size_in_bytes 
-	:param mmap: mapped memory map. It will be 
-		seeked to the actual start of the object contents, which can be used
-		to initialize a zlib decompress object.
-	:note: This routine can only handle new-style objects which are assumably contained
-		in packs
-		"""
-	assert not is_loose_object(m), "Use loose_object_header_info instead"
-	
+def pack_object_header_info(data):
+	""":return: tuple(type_id, uncompressed_size_in_bytes, byte_offset)
+	The type_id should be interpreted according to the ``type_id_to_type_map`` map
+	The byte-offset specifies the start of the actual zlib compressed datastream
+	:param m: random-access memory, like a string or memory map"""
 	c = b0							# first byte
 	i = 1							# next char to read
 	type_id = (c >> 4) & 7			# numeric type
 	size = c & 15					# starting size
 	s = 4							# starting bit-shift size
 	while c & 0x80:
-		c = ord(m[i])
+		c = ord(data[i])
 		i += 1
 		size += (c & 0x7f) << s
 		s += 7
 	# END character loop
 	
-	# finally seek the map to the start of the data stream
-	m.seek(i)
 	try:
 		return (type_id_to_type_map[type_id], size)
 	except KeyError:

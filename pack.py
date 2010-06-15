@@ -1,4 +1,4 @@
-"""Contains PackIndex and PackFile implementations"""
+"""Contains PackIndexFile and PackFile implementations"""
 from util import (
 					LockedFD,
 					LazyMixin,
@@ -6,14 +6,17 @@ from util import (
 					unpack_from
 					)
 
+from fun import (
+					pack_object_header_info
+				)
 from struct import (
 						pack,
 					)
 
-__all__ = ('PackIndex', 'Pack')
+__all__ = ('PackIndexFile', 'PackFile')
 
 
-class PackIndex(LazyMixin):
+class PackIndexFile(LazyMixin):
 	"""A pack index provides offsets into the corresponding pack, allowing to find
 	locations for offsets faster."""
 	
@@ -26,7 +29,7 @@ class PackIndex(LazyMixin):
 	_sha_list_offset = 8 + 1024
 
 	def __init__(self, indexpath):
-		super(PackIndex, self).__init__()
+		super(PackIndexFile, self).__init__()
 		self._indexpath = indexpath
 	
 	def _set_cache_(self, attr):
@@ -121,9 +124,9 @@ class PackIndex(LazyMixin):
 		self._fanout_table = self._read_fanout((self._version == 2) * 8)
 		
 		if self._version == 2:
-			self._crc_list_offset = self._sha_list_offset + self.size * 20
-			self._pack_offset = self._crc_list_offset + self.size * 4
-			self._pack_64_offset = self._pack_offset + self.size * 4
+			self._crc_list_offset = self._sha_list_offset + self.size() * 20
+			self._pack_offset = self._crc_list_offset + self.size() * 4
+			self._pack_64_offset = self._pack_offset + self.size() * 4
 		# END setup base
 		
 	def _read_fanout(self, byte_offset):
@@ -139,21 +142,17 @@ class PackIndex(LazyMixin):
 	#} END initialization
 		
 	#{ Properties
-	@property
 	def version(self):
 		return self._version
 		
-	@property
 	def size(self):
 		""":return: amount of objects referred to by this index"""
 		return self._fanout_table[255]
 		
-	@property
 	def packfile_checksum(self):
 		""":return: 20 byte sha representing the sha1 hash of the pack file"""
 		return self._data[-40:-20]
 		
-	@property
 	def indexfile_checksum(self):
 		""":return: 20 byte sha representing the sha1 hash of this index file"""
 		return self._data[-20:]
@@ -186,6 +185,128 @@ class PackIndex(LazyMixin):
 	#} END properties
 	
 	
-class Pack(LazyMixin):
-	"""A pack is a file written according to the Version 2 for git packs"""
+class PackFile(LazyMixin):
+	"""A pack is a file written according to the Version 2 for git packs
 	
+	As we currently use memory maps, it could be assumed that the maximum size of
+	packs therefor is 32 bit on 32 bit systems. On 64 bit systems, this should be 
+	fine though.
+	
+	:note: at some point, this might be implemented using streams as well, or 
+		streams are an alternate path in the case memory maps cannot be created
+		for some reason - one clearly doesn't want to read 10GB at once in that 
+		case"""
+	
+	__slots__ = ('_packpath', '_data', '_size', '_version')
+	
+	# offset into our data at which the first object starts
+	_first_object_offset = 3*4 + 8
+	
+	def __init__(self, packpath):
+		self._packpath = packpath
+		
+	def _set_cache_(self, attr):
+		if attr == '_data':
+			ldb = LockedFD(self._packpath)
+			fd = ldb.open()
+			self._data = file_contents_ro(fd)
+			ldb.rollback()
+			# TODO: figure out whether we should better keep the lock, or maybe
+			# add a .keep file instead ?
+		else:
+			# read the header information
+			type_id, self._version, self._size = unpack_from(">4sLL", self._data, 0)
+			assert type_id == "PACK", "Pack file format is invalid: %r" % type_id
+			assert self._version in (2, 3), "Cannot handle pack format version %i" % self._version
+		# END handle header
+		
+	def _iter_objects(self, start_offset, as_stream):
+		"""Handle the actual iteration of objects within this pack"""
+		size = len(self._data)
+		cur_offset = start_offset or self._first_object_offset
+		
+		while cur_offset < size:
+			type_id, uncomp_size, data_offset = pack_object_header_info(buffer(self._data, cur_offset))
+			
+			# if type_id 
+		# END until we have read everything
+		
+	#{ Interface
+	
+	def size(self):
+		""":return: The amount of objects stored in this pack""" 
+		return self._size
+		
+	def version(self):
+		""":return: the version of this pack"""
+		return self._version
+		
+	def checksum(self):
+		""":return: 20 byte sha1 hash on all object sha's contained in this file"""
+		return self._data[-20:]
+		
+	#} END interface
+	
+	#{ Read-Database like Interface
+	
+	def info(self, offset):
+		"""Retrieve information about the object at the given file-absolute offset
+		:param offset: byte offset
+		:return: OPackInfo instance, the actual type differs depending on the type_id attribute"""
+		raise NotImplementedError()
+		
+	def stream(self, offset):
+		"""Retrieve an object at the given file-relative offset as stream along with its information
+		:param offset: byte offset
+		:return: OPackStream instance, the actual type differs depending on the type_id attribute"""
+		raise NotImplementedError()
+		
+	#} END Read-Database like Interface
+	
+	
+class PackFileEntity(object):
+	"""Combines the PackIndexFile and the PackFile into one, allowing the 
+	actual objects to be resolved and iterated"""
+	
+	__slots__ = ('_index', '_pack')
+	
+	IndexFileCls = PackIndexFile
+	PackFileCls = PackFile
+	
+	def __init__(self, basename):
+		self._index = self.IndexFileCls("%s.idx" % basename)			# PackIndexFile instance
+		self._pack = self.PackFileCls("%s.pack" % basename)			# corresponding PackFile instance
+	
+	
+	def _iter_objects(self, as_stream):
+		raise NotImplementedError
+	
+	#{ Read-Database like Interface
+	
+	def info(self, sha):
+		"""Retrieve information about the object identified by the given sha
+		:param sha: 20 byte sha1
+		:return: OInfo instance"""
+		raise NotImplementedError()
+		
+	def stream(self, sha):
+		"""Retrieve an object stream along with its information as identified by the given sha
+		:param sha: 20 byte sha1
+		:return: OStream instance"""
+		raise NotImplementedError()
+		
+	#} END Read-Database like Interface
+	
+	#{ Interface 
+	
+	def info_iter(self):
+		""":return: Iterator over all objects in this pack. The iterator yields
+			OInfo instances"""
+		return self._iter_objects(as_stream=False)
+		
+	def stream_iter(self):
+		""":return: iterator over all objects in this pack. The iterator yields
+		OStream instances"""
+		return self._iter_objects(as_stream=True)
+		
+	#} Interface

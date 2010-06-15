@@ -39,14 +39,42 @@ class TestStream(TestBase):
 		assert info.type == str_blob_type
 		assert info.size == s
 		
+		# test pack info
+		# provides type_id
+		blob_id = 3
+		pinfo = OPackInfo(sha, blob_id, s)
+		assert pinfo.type == str_blob_type
+		assert pinfo.type_id == blob_id
+		
+		dpinfo = ODeltaPackInfo(sha, blob_id, s, sha)
+		assert dpinfo.type == str_blob_type
+		assert dpinfo.type_id == blob_id
+		assert dpinfo.delta_info == sha
+		
+		
 		# test ostream
 		stream = DummyStream()
 		ostream = OStream(*(info + (stream, )))
+		assert ostream.stream is stream
 		ostream.read(15)
 		stream._assert()
 		assert stream.bytes == 15
 		ostream.read(20)
 		assert stream.bytes == 20
+		
+		# test packstream
+		postream = OPackStream(*(pinfo + (stream, )))
+		assert postream.stream is stream
+		postream.read(10)
+		stream._assert()
+		assert stream.bytes == 10
+		
+		# test deltapackstream
+		dpostream = ODeltaPackStream(*(dpinfo + (stream, )))
+		dpostream.stream is stream
+		dpostream.read(5)
+		stream._assert()
+		assert stream.bytes == 5
 		
 		# derive with own args
 		DeriveTest(sha, str_blob_type, s, stream, 'mine',myarg = 3)._assert()

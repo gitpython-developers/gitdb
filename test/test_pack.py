@@ -6,23 +6,35 @@ from lib import (
 					fixture_path
 				)
 from gitdb.pack import (
-							PackIndex
+							PackIndexFile,
+							PackFile
 						)
+from gitdb.util import to_bin_sha
 import os
 
 
+#{ Utilities
+def bin_sha_from_filename(filename):
+	return to_bin_sha(os.path.splitext(os.path.basename(filename))[0][5:])
+#} END utilities
+
 class TestPack(TestBase):
 	
-	packindexfile_v2 = fixture_path('packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.idx')
-	packindexfile_v1 = fixture_path('packs/pack-c0438c19fb16422b6bbcce24387b3264416d485b.idx')
+	packindexfile_v1 = (fixture_path('packs/pack-c0438c19fb16422b6bbcce24387b3264416d485b.idx'), 1, 67)
+	packindexfile_v2 = (fixture_path('packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.idx'), 2, 30)
+	packfile_v2_1 = (fixture_path('packs/pack-c0438c19fb16422b6bbcce24387b3264416d485b.pack'), 2, packindexfile_v1[2])
+	packfile_v2_2 = (fixture_path('packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.pack'), 2, packindexfile_v2[2])
+	
 	
 	def _assert_index_file(self, index, version, size):
-		assert index.packfile_checksum != index.indexfile_checksum
-		assert index.version == version
-		assert index.size == size
+		assert index.packfile_checksum() != index.indexfile_checksum()
+		assert len(index.packfile_checksum()) == 20
+		assert len(index.indexfile_checksum()) == 20
+		assert index.version() == version
+		assert index.size() == size
 		
 		# get all data of all objects
-		for oidx in xrange(index.size):
+		for oidx in xrange(index.size()):
 			sha = index.sha(oidx)
 			assert oidx == index.sha_to_index(sha)
 			
@@ -34,14 +46,32 @@ class TestPack(TestBase):
 			assert entry[2] == index.crc(oidx)
 		# END for each object index in indexfile
 		
+		
+	def _assert_pack_file(self, pack, version, size):
+		assert pack.version() == 2
+		assert pack.size() == size
+		assert len(pack.checksum()) == 20
+		
 	
 	def test_pack_index(self):
 		# check version 1 and 2
-		index = PackIndex(self.packindexfile_v1)
-		self._assert_index_file(index, 1, 67)
+		for indexfile, version, size in (self.packindexfile_v1, self.packindexfile_v2): 
+			index = PackIndexFile(indexfile)
+			self._assert_index_file(index, version, size)
+		# END run tests
 		
-		index = PackIndex(self.packindexfile_v2)
-		self._assert_index_file(index, 2, 30)
+	def test_pack(self):
+		# there is this special version 3, but apparently its like 2 ... 
+		for packfile, version, size in (self.packfile_v2_1, self.packfile_v2_2):
+			pack = PackFile(packfile)
+			self._assert_pack_file(pack, version, size)
+		# END for each pack to test
 		
+	def test_pack_entity(self):
+		# TODO: 
+		pass
 		
-		
+	def test_pack_64(self):
+		# TODO: hex-edit a pack helping us to verify that we can handle 64 byte offsets
+		# of course without really needing such a huge pack 
+		pass

@@ -11,7 +11,11 @@ from util import (
 		zlib
 	)
 
-__all__ = ('OInfo', 'OStream', 'IStream', 'InvalidOInfo', 'InvalidOStream', 
+from fun import type_id_to_type_map 
+
+__all__ = ('OInfo', 'OPackInfo', 'ODeltaPackInfo', 
+			'OStream', 'OPackStream', 'ODeltaPackStream',
+			'IStream', 'InvalidOInfo', 'InvalidOStream', 
 			'DecompressMemMapReader', 'FDCompressedSha1Writer')
 
 
@@ -55,8 +59,42 @@ class OInfo(tuple):
 	def size(self):
 		return self[2]
 	#} END interface
-
-
+	
+	
+class OPackInfo(OInfo):
+	"""As OInfo, but provides a type_id property to retrieve the numerical type id"""
+	__slots__ = tuple()
+	
+	@property
+	def type(self):
+		return type_id_to_type_map[self[1]]
+	
+	#{ Interface 
+	
+	@property
+	def type_id(self):
+		return self[1]
+		
+	#} interface
+		
+		
+class ODeltaPackInfo(OPackInfo):
+	"""Adds delta specific information, 
+	Either the 20 byte sha which points to some object in the database, 
+	or the base_offset, being an offset into the pack at which our base 
+	can be found"""
+	__slots__ = tuple()
+	
+	def __new__(cls, sha, type, size, delta_info):
+		return tuple.__new__(cls, (sha, type, size, delta_info))
+		
+	#{ Interface 
+	@property
+	def delta_info(self):
+		return self[3]
+	#} END interface 
+	
+	
 class OStream(OInfo):
 	"""Base for object streams retrieved from the database, providing additional 
 	information about the stream.
@@ -76,6 +114,46 @@ class OStream(OInfo):
 	def read(self, size=-1):
 		return self[3].read(size)
 		
+	@property
+	def stream(self):
+		return self[3]
+	#} END stream reader interface
+	
+	
+class OPackStream(OPackInfo):
+	"""Next to pack object information, a stream outputting an undeltified base object
+	is provided"""
+	__slots__ = tuple()
+	
+	def __new__(cls, sha, type, size, stream, *args):
+		"""Helps with the initialization of subclasses"""
+		return tuple.__new__(cls, (sha, type, size, stream))
+		
+	#{ Stream Reader Interface 
+	def read(self, size=-1):
+		return self[3].read(size)
+		
+	@property
+	def stream(self):
+		return self[3]
+	#} END stream reader interface
+
+	
+class ODeltaPackStream(ODeltaPackInfo):
+	"""Provides a stream outputting the uncompressed offset delta information"""
+	__slots__ = tuple()
+	
+	def __new__(cls, sha, type, size, delta_info, stream):
+		return tuple.__new__(cls, (sha, type, size, delta_info, stream))
+
+
+	#{ Stream Reader Interface 
+	def read(self, size=-1):
+		return self[4].read(size)
+		
+	@property
+	def stream(self):
+		return self[4]
 	#} END stream reader interface
 
 
