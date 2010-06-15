@@ -13,14 +13,13 @@ import os
 
 class TestPack(TestBase):
 	
-	def test_pack_index(self):
-		# read v2 index information
-		index_file = fixture_path('packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.idx')
-		index = PackIndex(index_file)
-		
+	packindexfile_v2 = fixture_path('packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.idx')
+	packindexfile_v1 = fixture_path('packs/pack-c0438c19fb16422b6bbcce24387b3264416d485b.idx')
+	
+	def _assert_index_file(self, index, version, size):
 		assert index.packfile_checksum != index.indexfile_checksum
-		assert index.version == 2
-		assert index.size == 30
+		assert index.version == version
+		assert index.size == size
 		
 		# get all data of all objects
 		for oidx in xrange(index.size):
@@ -34,5 +33,15 @@ class TestPack(TestBase):
 			assert entry[1] == sha
 			assert entry[2] == index.crc(oidx)
 		# END for each object index in indexfile
+		
+	
+	def test_pack_index(self):
+		# check version 1 and 2
+		index = PackIndex(self.packindexfile_v1)
+		self._assert_index_file(index, 1, 67)
+		
+		index = PackIndex(self.packindexfile_v2)
+		self._assert_index_file(index, 2, 30)
+		
 		
 		

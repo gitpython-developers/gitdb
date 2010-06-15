@@ -66,8 +66,8 @@ class PackIndex(LazyMixin):
 	#{ Access V1
 	
 	def _entry_v1(self, i):
-		""":return: tuple(offset, binsha)"""
-		return unpack_from(">L20s", self._data, 1024 + i*24)[0] 
+		""":return: tuple(offset, binsha, 0)"""
+		return unpack_from(">L20s", self._data, 1024 + i*24) + (0, ) 
 	
 	def _offset_v1(self, i):
 		"""see ``_offset_v2``"""
@@ -75,7 +75,7 @@ class PackIndex(LazyMixin):
 	
 	def _sha_v1(self, i):
 		"""see ``_sha_v2``"""
-		base = 1024 + i*24
+		base = 1024 + (i*24)+4
 		return self._data[base:base+20]
 		
 	def _crc_v1(self, i):
