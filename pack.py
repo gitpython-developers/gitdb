@@ -54,7 +54,7 @@ def pack_object_at(data, as_stream):
 			s += 7
 		# END character loop
 		if as_stream:
-			stream = DecompressMemMapReader(buffer(data, i), False)
+			stream = DecompressMemMapReader(buffer(data, i), False, uncomp_size)
 			return ODeltaPackStream(type_id, uncomp_size, delta_offset, stream)
 		else:
 			return ODeltaPackInfo(type_id, uncomp_size, delta_offset)
@@ -62,7 +62,7 @@ def pack_object_at(data, as_stream):
 	elif type_id == REF_DELTA:
 		ref_sha = data[:20]
 		if as_stream:
-			stream = DecompressMemMapReader(buffer(data, 20), False)
+			stream = DecompressMemMapReader(buffer(data, 20), False, uncomp_size)
 			return ODeltaPackStream(type_id, uncomp_size, ref_sha, stream)
 		else:
 			return ODeltaPackInfo(type_id, uncomp_size, ref_sha)
@@ -267,7 +267,7 @@ class PackFile(LazyMixin):
 	__slots__ = ('_packpath', '_data', '_size', '_version')
 	
 	# offset into our data at which the first object starts
-	_first_object_offset = 3*4 + 8
+	_first_object_offset = 3*4
 	
 	def __init__(self, packpath):
 		self._packpath = packpath

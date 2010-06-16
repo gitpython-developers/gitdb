@@ -49,11 +49,19 @@ class TestStream(TestBase):
 			assert rest == cdata[-len(rest):]
 		# END handle rest
 		
+		if isinstance(stream, DecompressMemMapReader):
+			assert len(stream._m) == stream.compressed_bytes_read()
+		# END handle special type
+		
 		rewind_stream(stream)
 		
 		# read everything
 		rdata = stream.read()
 		assert rdata == cdata
+		
+		if isinstance(stream, DecompressMemMapReader):
+			assert len(stream._m) == stream.compressed_bytes_read()
+		# END handle special type
 		
 	def test_decompress_reader(self):
 		for close_on_deletion in range(2):
@@ -82,15 +90,7 @@ class TestStream(TestBase):
 						assert reader._s == len(cdata)
 					# END get reader 
 					
-					def rewind(r):
-						r._zip = zlib.decompressobj()
-						r._br = r._cws = r._cwe = 0
-						if with_size:
-							r._parse_header_info()
-						# END skip header
-					# END make rewind func
-					
-					self._assert_stream_reader(reader, cdata, rewind)
+					self._assert_stream_reader(reader, cdata, lambda r: r.seek(0))
 					
 					# put in a dummy stream for closing
 					dummy = DummyStream()
@@ -99,7 +99,6 @@ class TestStream(TestBase):
 					assert not dummy.closed
 					del(reader)
 					assert dummy.closed == close_on_deletion
-					#zdi#
 				# END for each datasize
 			# END whether size should be used
 		# END whether stream should be closed when deleted

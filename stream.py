@@ -1,6 +1,8 @@
 
 from cStringIO import StringIO
 import errno
+import mmap
+import os
 
 from util import (
 		LazyMixin,
@@ -12,10 +14,6 @@ from util import (
 
 __all__ = ('DecompressMemMapReader', 'FDCompressedSha1Writer')
 
-
-# ZLIB configuration
-# used when compressing objects - 1 to 9 ( slowest )
-Z_BEST_SPEED = 1
 
 #{ RO Streams
 
@@ -36,7 +34,8 @@ class DecompressMemMapReader(LazyMixin):
 		times we actually allocate. An own zlib implementation would be good here
 		to better support streamed reading - it would only need to keep the mmap
 		and decompress it into chunks, thats all ... """
-	__slots__ = ('_m', '_zip', '_buf', '_buflen', '_br', '_cws', '_cwe', '_s', '_close')
+	__slots__ = ('_m', '_zip', '_buf', '_buflen', '_br', '_cws', '_cwe', '_s', '_close', 
+				'_cbr', '_phi')
 	
 	max_read_size = 512*1024		# currently unused
 	
@@ -52,6 +51,8 @@ class DecompressMemMapReader(LazyMixin):
 		self._br = 0							# num uncompressed bytes read
 		self._cws = 0							# start byte of compression window
 		self._cwe = 0							# end byte of compression window
+		self._cbr = 0							# number of compressed bytes read
+		self._phi = False						# is True if we parsed the header info
 		self._close = close_on_deletion			# close the memmap on deletion ?
 		
 	def _set_cache_(self, attr):
@@ -85,6 +86,8 @@ class DecompressMemMapReader(LazyMixin):
 		self._buf = StringIO(hdr[hdrend:])
 		self._buflen = len(hdr) - hdrend
 		
+		self._phi = True
+		
 		return type, size
 		
 	@classmethod
@@ -98,7 +101,55 @@ class DecompressMemMapReader(LazyMixin):
 		inst = DecompressMemMapReader(m, close_on_deletion, 0)
 		type, size = inst._parse_header_info()
 		return type, size, inst
+
+	def compressed_bytes_read(self):
+		""":return: number of compressed bytes read. This includes the bytes it 
+		took to decompress the header ( if there was one )"""
+		# ABSTRACT: When decompressing a byte stream, it can be that the first
+		# x bytes which were requested match the first x bytes in the loosely 
+		# compressed datastream. This is the worst-case assumption that the reader
+		# does, it assumes that it will get at least X bytes from X compressed bytes
+		# in call cases.
+		# The caveat is that the object, according to our known uncompressed size, 
+		# is already complete, but there are still some bytes left in the compressed
+		# stream that contribute to the amount of compressed bytes.
+		# How can we know that we are truly done, and have read all bytes we need
+		# to read ? 
+		# Without help, we cannot know, as we need to obtain the status of the 
+		# decompression. If it is not finished, we need to decompress more data
+		# until it is finished, to yield the actual number of compressed bytes
+		# belonging to the decompressed object
+		# We are using a custom zlib module for this, if its not present, 
+		# we can only hope it works.
+		# Only scrub the stream forward if we are officially done with the
+		# bytes we were to have.
+		if self._br == self._s and hasattr(self._zip, 'status') and self._zip.status == zlib.Z_OK:
+			# manipulate the bytes-read to allow our own read method to coninute
+			# but keep the window at its current position
+			self._br = 0
+			while self._zip.status == zlib.Z_OK:
+				self.read(mmap.PAGESIZE)
+			# END scrub-loop
+			# reset bytes read, just to be sure
+			self._br = self._s
+		# END handle stream scrubbing
 		
+		return self._cbr - len(self._zip.unused_data)
+		
+	def seek(self, offset, whence=os.SEEK_SET):
+		"""Allows to reset the stream to restart reading
+		:raise ValueError: If offset and whence are not 0"""
+		if offset != 0 or whence != os.SEEK_SET:
+			raise ValueError("Can only seek to position 0")
+		# END handle offset
+		
+		self._zip = zlib.decompressobj()
+		self._br = self._cws = self._cwe = self._cbr = 0
+		if self._phi:
+			self._phi = False
+			del(self._s)		# trigger header parsing on first access
+		# END skip header
+	
 	def read(self, size=-1):
 		if size < 1:
 			size = self._s - self._br
@@ -109,33 +160,8 @@ class DecompressMemMapReader(LazyMixin):
 		if size == 0:
 			return str()
 		# END handle depletion
-		
-		# protect from memory peaks
-		# If he tries to read large chunks, our memory patterns get really bad
-		# as we end up copying a possibly huge chunk from our memory map right into
-		# memory. This might not even be possible. Nonetheless, try to dampen the 
-		# effect a bit by reading in chunks, returning a huge string in the end.
-		# Our performance now depends on StringIO. This way we don't need two large
-		# buffers in peak times, but only one large one in the end which is 
-		# the return buffer
-		# NO: We don't do it - if the user thinks its best, he is right. If he 
-		# has trouble, he will start reading in chunks. According to our tests
-		# its still faster if we read 10 Mb at once instead of chunking it.
-		
-		# if size > self.max_read_size:
-			# sio = StringIO()
-			# while size:
-				# read_size = min(self.max_read_size, size)
-				# data = self.read(read_size)
-				# sio.write(data)
-				# size -= len(data)
-				# if len(data) < read_size:
-					# break
-			# # END data loop
-			# sio.seek(0)
-			# return sio.getvalue()
-		# # END handle maxread
-		# 
+	
+	
 		# deplete the buffer, then just continue using the decompress object 
 		# which has an own buffer. We just need this to transparently parse the 
 		# header from the zlib stream
@@ -186,8 +212,7 @@ class DecompressMemMapReader(LazyMixin):
 		
 		
 		# if window is too small, make it larger so zip can decompress something
-		win_size = self._cwe - self._cws 
-		if win_size < 8:
+		if self._cwe - self._cws < 8:
 			self._cwe = self._cws + 8
 		# END adjust winsize
 		
@@ -196,10 +221,18 @@ class DecompressMemMapReader(LazyMixin):
 		
 		# get the actual window end to be sure we don't use it for computations
 		self._cwe = self._cws + len(indata)
-			
+		
 		dcompdat = self._zip.decompress(indata, size)
 		
+		# update the amount of compressed bytes read
+		# We feed possibly overlapping chunks, which is why the unconsumed tail
+		# has to be taken into consideration, as well as the unused data
+		# if we hit the end of the stream
+		self._cbr += len(indata) - len(self._zip.unconsumed_tail)
 		self._br += len(dcompdat)
+		
+		print size, self._br, self._cbr, len(indata), self._cws, self._cwe, len(self._zip.unused_data), len(self._zip.unconsumed_tail)
+		
 		if dat:
 			dcompdat = dat + dcompdat
 			
@@ -252,7 +285,7 @@ class FDCompressedSha1Writer(Sha1Writer):
 	def __init__(self, fd):
 		super(FDCompressedSha1Writer, self).__init__()
 		self.fd = fd
-		self.zip = zlib.compressobj(Z_BEST_SPEED)
+		self.zip = zlib.compressobj(zlib.Z_BEST_SPEED)
 
 	#{ Stream Interface
 
