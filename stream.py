@@ -120,16 +120,26 @@ class DecompressMemMapReader(LazyMixin):
 		# until it is finished, to yield the actual number of compressed bytes
 		# belonging to the decompressed object
 		# We are using a custom zlib module for this, if its not present, 
-		# we can only hope it works.
+		# we try to put in additional bytes up for decompression if feasible
+		# and check for the unused_data.
+		
 		# Only scrub the stream forward if we are officially done with the
 		# bytes we were to have.
-		if self._br == self._s and hasattr(self._zip, 'status') and self._zip.status == zlib.Z_OK:
+		if self._br == self._s and not self._zip.unused_data:
 			# manipulate the bytes-read to allow our own read method to coninute
 			# but keep the window at its current position
 			self._br = 0
-			while self._zip.status == zlib.Z_OK:
-				self.read(mmap.PAGESIZE)
-			# END scrub-loop
+			if hasattr(self._zip, 'status'):
+				while self._zip.status == zlib.Z_OK:
+					self.read(mmap.PAGESIZE)
+				# END scrub-loop custom zlib
+			else:
+				# pass in additional pages, until we have unused data
+				while not self._zip.unused_data and self._cbr != len(self._m):
+					self.read(mmap.PAGESIZE)
+				# END scrub-loop default zlib
+			# END handle stream scrubbing
+			
 			# reset bytes read, just to be sure
 			self._br = self._s
 		# END handle stream scrubbing
@@ -230,8 +240,6 @@ class DecompressMemMapReader(LazyMixin):
 		# if we hit the end of the stream
 		self._cbr += len(indata) - len(self._zip.unconsumed_tail)
 		self._br += len(dcompdat)
-		
-		print size, self._br, self._cbr, len(indata), self._cws, self._cwe, len(self._zip.unused_data), len(self._zip.unconsumed_tail)
 		
 		if dat:
 			dcompdat = dat + dcompdat
