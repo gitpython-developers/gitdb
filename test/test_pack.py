@@ -77,6 +77,14 @@ class TestPack(TestBase):
 				# which we havent resolved ( as we are without an index )
 				continue
 			# END get deltastream
+			
+			# TODO: TestStream._assert_stream_reader does that already, should 
+			# be used instead
+			# read all
+			dstream.read()
+			
+			# read chunks
+			
 		# END for each object
 		assert num_obj == size
 		

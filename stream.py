@@ -272,7 +272,82 @@ class DecompressMemMapReader(LazyMixin):
 			dcompdat += self.read(size-len(dcompdat))
 		# END handle special case
 		return dcompdat
+
+	
+class DeltaApplyReader(LazyMixin):
+	"""A reader which dynamically applies pack deltas to a base object, keeping the 
+	memory demands to a minimum.
+	
+	The size of the final object is only obtainable once all deltas have been 
+	applied, unless it is retrieved from a pack index.
+	
+	The uncompressed Delta has the following layout (MSB being a most significant
+	bit encoded dynamic size):
+	
+	* MSB Source Size - the size of the base against which the delta was created
+	* MSB Target Size - the size of the resulting data after the delta was applied
+	* A list of one byte commands (cmd) which are followed by a specific protocol:
+	
+	 * cmd & 0x80 - copy delta_data[offset:offset+size]
+	 
+	  * Followed by an encoded offset into the delta data
+	  * Followed by an encoded size of the chunk to copy
+	  
+	 *  cmd & 0x7f - insert
+	 
+	  * insert cmd bytes from the delta buffer into the output stream
+	  
+	 * cmd == 0 - invalid operation ( or error in delta stream )
+	"""
+	__slots__ = (
+					"_streams",				# tuple of our stream objects
+					"_readers",				# list of read methods from our streams
+					"_mm_target",			# memory map of the delta-applied data
+				)
+	
+	def __init__(self, stream_list):
+		"""Initialize this instance with a list of streams, the first stream being 
+		the delta to apply on top of all following deltas, the last stream being the
+		base object onto which to apply the deltas"""
+		assert len(stream_list) > 1, "Need at least one delta and one base stream"
 		
+		self._streams = tuple(stream_list)
+		self._readers = None					# TODO
+		
+	def _set_cache_(self, attr):
+		"""If we are here, we apply the actual deltas"""
+		# fill in delta info structures, providing the source and target buffer
+		# sizes.
+		
+		# Allocate private memory map big enough to hold the first base buffer
+		# It can be swapped out if it is too large. We need random access to it
+		
+		# allocate memory map large enough for the largest (intermediate) target
+		# We will use it as scratch space for all delta ops. If the final 
+		# target buffer is smaller than our allocated space, we just use parts
+		# of it
+		
+		# for each delta to apply, memory map the decompressed delta and 
+		# work on the op-codes to reconstruct everything.
+		# For the actual copying, we use a seek and write pattern of buffer
+		# slices.
+		
+		# NOTE: on py pre 2.5, all memory maps must actually be some kind 
+		# of memory buffer,like StringIO ( ouch ;) )
+		
+		
+		
+		# TODO: Once that works, figure out the ordering of the opcodes. If they
+		# are always in-order/sequential, an alternate implementation could 
+		# use stream access only. Of course this would mean we would read 
+		# all deltas in advance, analyse the opcode ranges to determine a final
+		# concatenated opcode list which indicates what to copy from which delta
+		# to which position. This preprocessing would allow true streaming
+		
+	def read(self, size=0):
+		# pass the call to our lazy-loaded delta-applied data
+		return self._mm_target.read(size) 
+
 #} END RO streams
 
 

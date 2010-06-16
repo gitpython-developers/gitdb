@@ -25,7 +25,8 @@ from base import (
 					)
 from stream import (
 						DecompressMemMapReader,
-						NullStream
+						DeltaApplyReader,
+						NullStream,
 					)
 
 from struct import (
@@ -49,7 +50,6 @@ def pack_object_at(data, offset, as_stream):
 	:parma offset: offset in to the data at which the object information is located
 	:param as_stream: if True, a stream object will be returned that can read 
 		the data, otherwise you receive an info object only"""
-	ldata = len(data)		# debug
 	data = buffer(data, offset)
 	type_id, uncomp_size, data_rela_offset = pack_object_header_info(data)
 	total_rela_offset = None				# set later, actual offset until data stream begins
@@ -392,7 +392,7 @@ class PackFile(LazyMixin):
 		# END check stream
 		
 		# just create the respective stream wrapper
-		raise NotImplementedError()
+		return DeltaApplyReader(stream_list)
 		
 	
 	#} END pack specific
