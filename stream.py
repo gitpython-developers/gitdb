@@ -17,6 +17,21 @@ __all__ = ('DecompressMemMapReader', 'FDCompressedSha1Writer')
 
 #{ RO Streams
 
+class NullStream(object):
+	"""A stream that does nothing but providing a stream interface.
+	Use it like /dev/null"""
+	__slots__ = tuple()
+		
+	def read(self, size=0):
+		return ''
+		
+	def close(self):
+		pass
+		
+	def write(self, data):
+		return len(data)
+
+
 class DecompressMemMapReader(LazyMixin):
 	"""Reads data in chunks from a memory map and decompresses it. The client sees 
 	only the uncompressed data, respective file-like read calls are handling on-demand
@@ -144,7 +159,9 @@ class DecompressMemMapReader(LazyMixin):
 			self._br = self._s
 		# END handle stream scrubbing
 		
-		return self._cbr - len(self._zip.unused_data)
+		# unused data ends up in the unconsumed tail, which was removed
+		# from the count already
+		return self._cbr
 		
 	def seek(self, offset, whence=os.SEEK_SET):
 		"""Allows to reset the stream to restart reading
@@ -243,7 +260,17 @@ class DecompressMemMapReader(LazyMixin):
 		
 		if dat:
 			dcompdat = dat + dcompdat
+		# END prepend our cached data
 			
+		# it can happen, depending on the compression, that we get less bytes 
+		# than ordered as it needs the final portion of the data as well. 
+		# Recursively resolve that.
+		# Note: dcompdat can be empty even though we still appear to have bytes
+		# to read, if we are called by compressed_bytes_read - it manipulates
+		# us to empty the stream
+		if dcompdat and len(dcompdat) < size and self._br < self._s:
+			dcompdat += self.read(size-len(dcompdat))
+		# END handle special case
 		return dcompdat
 		
 #} END RO streams

@@ -52,6 +52,9 @@ class TestPack(TestBase):
 		assert pack.size() == size
 		assert len(pack.checksum()) == 20
 		
+		objs = list(pack.stream_iter())
+		assert len(objs) == size
+		
 	
 	def test_pack_index(self):
 		# check version 1 and 2

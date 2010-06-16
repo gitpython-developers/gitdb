@@ -53,7 +53,7 @@ def pack_object_header_info(data):
 	The type_id should be interpreted according to the ``type_id_to_type_map`` map
 	The byte-offset specifies the start of the actual zlib compressed datastream
 	:param m: random-access memory, like a string or memory map"""
-	c = b0							# first byte
+	c = ord(data[0])				# first byte
 	i = 1							# next char to read
 	type_id = (c >> 4) & 7			# numeric type
 	size = c & 15					# starting size
@@ -66,7 +66,7 @@ def pack_object_header_info(data):
 	# END character loop
 	
 	try:
-		return (type_id_to_type_map[type_id], size)
+		return (type_id, size, i)
 	except KeyError:
 		# invalid object type - we could try to be smart now and decode part 
 		# of the stream to get the info, problem is that we had trouble finding 

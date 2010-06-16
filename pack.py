@@ -8,6 +8,8 @@ from util import (
 
 from fun import (
 					pack_object_header_info,
+					stream_copy, 
+					chunk_size,
 					OFS_DELTA, 
 					REF_DELTA
 				)
@@ -20,6 +22,7 @@ from base import (
 					)
 from stream import (
 						DecompressMemMapReader,
+						NullStream
 					)
 
 from struct import (
@@ -34,49 +37,60 @@ __all__ = ('PackIndexFile', 'PackFile')
 
 def pack_object_at(data, as_stream):
 	"""
-	:return: info or stream object of the correct type according to the type 
-		of the object, REF_DELTAS will not be resolved in case a stream is desired.
-		The resulting ODeltaPackStream will have None instead of a stream. 
+	:return: tuple(num_header_bytes, PackInfo|PackStream)
+		Tuple of number of additional bytes read from data until the data stream begins
+		and object of the correct type according to the type  of the object.
+		If as_stream is True, the object will contain a stream, allowing  the
+		data to be read decompressed.
 	:param data: random accessable data at which the header of an object can be read
 	:param as_stream: if True, a stream object will be returned that can read 
 		the data, otherwise you receive an info object only
 	:note: a bit redundant, but it needs to be as fast as possible !"""
 	type_id, uncomp_size, data_offset = pack_object_header_info(data)
-	
+	total_offset = None				# set later, actual offset until data stream begins
+	obj = None
 	if type_id == OFS_DELTA:
-		i = 0
+		i = data_offset
 		delta_offset = 0
 		s = 7
-		while c & 0x80:
+		while True:
 			c = ord(data[i])
-			i += 1
 			delta_offset += (c & 0x7f) << s
+			i += 1
+			if not (c & 0x80):
+				break
 			s += 7
 		# END character loop
+		total_offset = i
 		if as_stream:
-			stream = DecompressMemMapReader(buffer(data, i), False, uncomp_size)
-			return ODeltaPackStream(type_id, uncomp_size, delta_offset, stream)
+			stream = DecompressMemMapReader(buffer(data, total_offset), False, uncomp_size)
+			obj = ODeltaPackStream(type_id, uncomp_size, delta_offset, stream)
 		else:
-			return ODeltaPackInfo(type_id, uncomp_size, delta_offset)
+			obj = ODeltaPackInfo(type_id, uncomp_size, delta_offset)
 		# END handle stream
 	elif type_id == REF_DELTA:
-		ref_sha = data[:20]
+		total_offset = data_offset+20
+		ref_sha = data[data_offset:total_offset]
+		
 		if as_stream:
-			stream = DecompressMemMapReader(buffer(data, 20), False, uncomp_size)
-			return ODeltaPackStream(type_id, uncomp_size, ref_sha, stream)
+			stream = DecompressMemMapReader(buffer(data, total_offset), False, uncomp_size)
+			obj = ODeltaPackStream(type_id, uncomp_size, ref_sha, stream)
 		else:
-			return ODeltaPackInfo(type_id, uncomp_size, ref_sha)
+			obj = ODeltaPackInfo(type_id, uncomp_size, ref_sha)
 		# END handle stream
 	else:
+		total_offset = data_offset
 		# assume its a base object
 		if as_stream:
 			# if no size is given, it will read the header on first access
-			stream = DecompressMemMapReader(buffer(data, data_offset), False)
-			return OPackStream(type_id, uncomp_size, stream)
+			stream = DecompressMemMapReader(buffer(data, data_offset), False, uncomp_size)
+			obj = OPackStream(type_id, uncomp_size, stream)
 		else:
-			return OPackInfo(type_id, uncomp_size)
+			obj = OPackInfo(type_id, uncomp_size)
 		# END handle as_stream
 	# END handle type id
+	
+	return total_offset, obj
 	
 
 #} END utilities
@@ -267,7 +281,8 @@ class PackFile(LazyMixin):
 	__slots__ = ('_packpath', '_data', '_size', '_version')
 	
 	# offset into our data at which the first object starts
-	_first_object_offset = 3*4
+	_first_object_offset = 3*4		# header bytes
+	_footer_size = 20				# final sha
 	
 	def __init__(self, packpath):
 		self._packpath = packpath
@@ -287,16 +302,28 @@ class PackFile(LazyMixin):
 			assert self._version in (2, 3), "Cannot handle pack format version %i" % self._version
 		# END handle header
 		
-	def _iter_objects(self, start_offset, as_stream):
+	def _iter_objects(self, start_offset, as_stream=True):
 		"""Handle the actual iteration of objects within this pack"""
 		data = self._data
-		size = len(data)
+		content_size = len(data) - self._footer_size
 		cur_offset = start_offset or self._first_object_offset
 		
-		while cur_offset < size:
-			ostream = pack_object_at(buffer(data, cur_offset), True)
-			# TODO: Decompressor needs to track the size of bytes actually decompressed
+		null = NullStream()
+		while cur_offset < content_size:
+			header_offset, ostream = pack_object_at(buffer(data, cur_offset), True)
+			# scrub the stream to the end - this decompresses the object, but yields
+			# the amount of compressed bytes we need to get to the next offset
+				
+			stream_copy(ostream.read, null.write, ostream.size, chunk_size)
+			cur_offset += header_offset + ostream.stream.compressed_bytes_read()
 			
+			
+			# if a stream is requested, reset it beforehand
+			# Otherwise return the Stream object directly, its derived from the 
+			# info object
+			if as_stream:
+				ostream.stream.seek(0)
+			yield ostream
 		# END until we have read everything
 		
 	#{ Interface
@@ -328,6 +355,15 @@ class PackFile(LazyMixin):
 		:param offset: byte offset
 		:return: OPackStream instance, the actual type differs depending on the type_id attribute"""
 		raise NotImplementedError()
+		
+	def stream_iter(self, start_offset=0):
+		""":return: iterator yielding OPackStream compatible instances, allowing 
+		to access the data in the pack directly.
+		:param start_offset: offset to the first object to iterate. If 0, iteration 
+			starts at the very first object in the pack.
+		:note: Iterating a pack directly is costly as the datastream has to be decompressed
+			to determine the bounds between the objects"""
+		return self._iter_objects(start_offset, as_stream=True)
 		
 	#} END Read-Database like Interface
 	
