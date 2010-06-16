@@ -24,6 +24,15 @@ type_id_to_type_map = 	{
 							REF_DELTA : "REF_DELTA"		# REFERENCE DELTA
 						}
 
+type_to_type_id_map = dict(
+							commit=1, 
+							tree=2,
+							blob=3,
+							tag=4,
+							OFS_DELTA=OFS_DELTA,
+							REF_DELTA=REF_DELTA
+						)
+
 # used when dealing with larger streams
 chunk_size = 1000*1000
 

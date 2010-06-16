@@ -21,22 +21,28 @@ class TestBaseTypes(TestBase):
 		# test info
 		sha = NULL_HEX_SHA
 		s = 20
+		blob_id = 3
+		
 		info = OInfo(sha, str_blob_type, s)
 		assert info.sha == sha
 		assert info.type == str_blob_type
+		assert info.type_id == blob_id
 		assert info.size == s
 		
 		# test pack info
 		# provides type_id
-		blob_id = 3
-		pinfo = OPackInfo(blob_id, s)
+		pinfo = OPackInfo(0, 1, blob_id, s)
 		assert pinfo.type == str_blob_type
 		assert pinfo.type_id == blob_id
+		assert pinfo.pack_offset == 0
+		assert pinfo.data_offset == 1
 		
-		dpinfo = ODeltaPackInfo(blob_id, s, sha)
+		dpinfo = ODeltaPackInfo(0, 1, blob_id, s, sha)
 		assert dpinfo.type == str_blob_type
 		assert dpinfo.type_id == blob_id
 		assert dpinfo.delta_info == sha
+		assert dpinfo.pack_offset == 0
+		assert dpinfo.data_offset == 1
 		
 		
 		# test ostream

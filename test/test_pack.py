@@ -52,8 +52,33 @@ class TestPack(TestBase):
 		assert pack.size() == size
 		assert len(pack.checksum()) == 20
 		
-		objs = list(pack.stream_iter())
-		assert len(objs) == size
+		num_obj = 0
+		for obj in pack.stream_iter():
+			num_obj += 1
+			info = pack.info(obj.pack_offset)
+			stream = pack.stream(obj.pack_offset)
+			
+			assert info.pack_offset == stream.pack_offset
+			assert info.data_offset == stream.data_offset
+			assert info.type_id == stream.type_id
+			assert hasattr(stream, 'read')
+			
+			# it should be possible to read from both streams
+			assert obj.read() == stream.read()
+			
+			streams = pack.collect_streams(obj.pack_offset)
+			assert streams
+			
+			# read the stream
+			try:
+				dstream = pack.to_delta_stream(streams)
+			except ValueError:
+				# ignore these, old git versions use only ref deltas, 
+				# which we havent resolved ( as we are without an index )
+				continue
+			# END get deltastream
+		# END for each object
+		assert num_obj == size
 		
 	
 	def test_pack_index(self):

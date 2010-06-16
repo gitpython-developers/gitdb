@@ -1,4 +1,7 @@
 """Contains PackIndexFile and PackFile implementations"""
+from gitdb.exc import (
+						BadObject, 
+						)
 from util import (
 					LockedFD,
 					LazyMixin,
@@ -31,67 +34,68 @@ from struct import (
 
 __all__ = ('PackIndexFile', 'PackFile')
 
+_delta_types = (OFS_DELTA, REF_DELTA) 
 
 	
 #{ Utilities 
 
-def pack_object_at(data, as_stream):
+def pack_object_at(data, offset, as_stream):
 	"""
-	:return: tuple(num_header_bytes, PackInfo|PackStream)
-		Tuple of number of additional bytes read from data until the data stream begins
-		and object of the correct type according to the type  of the object.
+	:return: PackInfo|PackStream
+		an object of the correct type according to the type_id  of the object.
 		If as_stream is True, the object will contain a stream, allowing  the
 		data to be read decompressed.
-	:param data: random accessable data at which the header of an object can be read
+	:param data: random accessable data containing all required information
+	:parma offset: offset in to the data at which the object information is located
 	:param as_stream: if True, a stream object will be returned that can read 
-		the data, otherwise you receive an info object only
-	:note: a bit redundant, but it needs to be as fast as possible !"""
-	type_id, uncomp_size, data_offset = pack_object_header_info(data)
-	total_offset = None				# set later, actual offset until data stream begins
-	obj = None
+		the data, otherwise you receive an info object only"""
+	ldata = len(data)		# debug
+	data = buffer(data, offset)
+	type_id, uncomp_size, data_rela_offset = pack_object_header_info(data)
+	total_rela_offset = None				# set later, actual offset until data stream begins
+	delta_info = None
+	
+	# OFFSET DELTA
 	if type_id == OFS_DELTA:
-		i = data_offset
-		delta_offset = 0
-		s = 7
-		while True:
+		i = data_rela_offset
+		c = ord(data[i])
+		i += 1
+		delta_offset = c & 0x7f
+		while c & 0x80:
 			c = ord(data[i])
-			delta_offset += (c & 0x7f) << s
 			i += 1
-			if not (c & 0x80):
-				break
-			s += 7
+			delta_offset += 1
+			delta_offset = (delta_offset << 7) + (c & 0x7f)
 		# END character loop
-		total_offset = i
-		if as_stream:
-			stream = DecompressMemMapReader(buffer(data, total_offset), False, uncomp_size)
-			obj = ODeltaPackStream(type_id, uncomp_size, delta_offset, stream)
-		else:
-			obj = ODeltaPackInfo(type_id, uncomp_size, delta_offset)
-		# END handle stream
+		delta_info = delta_offset
+		total_rela_offset = i
+	# REF DELTA
 	elif type_id == REF_DELTA:
-		total_offset = data_offset+20
-		ref_sha = data[data_offset:total_offset]
-		
-		if as_stream:
-			stream = DecompressMemMapReader(buffer(data, total_offset), False, uncomp_size)
-			obj = ODeltaPackStream(type_id, uncomp_size, ref_sha, stream)
-		else:
-			obj = ODeltaPackInfo(type_id, uncomp_size, ref_sha)
-		# END handle stream
+		total_rela_offset = data_rela_offset+20
+		ref_sha = data[data_rela_offset:total_rela_offset]
+		delta_info = ref_sha
+	# BASE OBJECT
 	else:
-		total_offset = data_offset
 		# assume its a base object
-		if as_stream:
-			# if no size is given, it will read the header on first access
-			stream = DecompressMemMapReader(buffer(data, data_offset), False, uncomp_size)
-			obj = OPackStream(type_id, uncomp_size, stream)
-		else:
-			obj = OPackInfo(type_id, uncomp_size)
-		# END handle as_stream
+		total_rela_offset = data_rela_offset
 	# END handle type id
 	
-	return total_offset, obj
-	
+	abs_data_offset = offset + total_rela_offset
+	if as_stream:
+		stream = DecompressMemMapReader(buffer(data, total_rela_offset), False, uncomp_size)
+		if delta_info is None:
+			return OPackStream(offset, abs_data_offset, type_id, uncomp_size, stream)
+		else:
+			return ODeltaPackStream(offset, abs_data_offset, type_id, uncomp_size, delta_info, stream)
+	else:
+		if delta_info is None:
+			return OPackInfo(offset, abs_data_offset, type_id, uncomp_size)
+		else:
+			return ODeltaPackInfo(offset, abs_data_offset, type_id, uncomp_size, delta_info)
+		# END handle info
+	# END handle stream
+		
+			
 
 #} END utilities
 
@@ -310,12 +314,12 @@ class PackFile(LazyMixin):
 		
 		null = NullStream()
 		while cur_offset < content_size:
-			header_offset, ostream = pack_object_at(buffer(data, cur_offset), True)
+			ostream = pack_object_at(data, cur_offset, True)
 			# scrub the stream to the end - this decompresses the object, but yields
 			# the amount of compressed bytes we need to get to the next offset
 				
 			stream_copy(ostream.read, null.write, ostream.size, chunk_size)
-			cur_offset += header_offset + ostream.stream.compressed_bytes_read()
+			cur_offset += (ostream.data_offset - ostream.pack_offset) + ostream.stream.compressed_bytes_read()
 			
 			
 			# if a stream is requested, reset it beforehand
@@ -326,7 +330,7 @@ class PackFile(LazyMixin):
 			yield ostream
 		# END until we have read everything
 		
-	#{ Interface
+	#{ Pack Information
 	
 	def size(self):
 		""":return: The amount of objects stored in this pack""" 
@@ -340,7 +344,58 @@ class PackFile(LazyMixin):
 		""":return: 20 byte sha1 hash on all object sha's contained in this file"""
 		return self._data[-20:]
 		
-	#} END interface
+	#} END pack information
+	
+	#{ Pack Specific
+	
+	def collect_streams(self, offset):
+		"""
+		:return: list of pack streams which are required to build the object
+			at the given offset. The first entry of the list is the object at offset, 
+			the last one is either a full object, or a REF_Delta stream. The latter
+			type needs its reference object to be locked up in an ODB to form a valid
+			delta chain.
+		:param offset: specifies the first byte of the object within this pack"""
+		out = list()
+		while True:
+			ostream = pack_object_at(self._data, offset, True)
+			out.append(ostream)
+			if ostream.type_id == OFS_DELTA:
+				offset = ostream.pack_offset - ostream.delta_info
+			else:
+				# the only thing we can lookup are OFFSET deltas. Everything
+				# else is either an object, or a ref delta, in the latter 
+				# case someone else has to find it
+				break
+			# END handle type
+		# END while chaining streams
+		return out
+	
+	def to_delta_stream(self, stream_list):
+		"""Convert the given list of streams into a stream which resolves deltas
+		(if availble) when reading from it.
+		:param stream_list: one or more stream objects. If the first stream is a Delta, 
+			there must be at least two streams in the list. The list's last stream
+			must be a non-delta stream.
+		:return: Non-Delta OPackStream object whose stream can be used to obtain 
+			the decompressed resolved data
+		:raise ValueError: if the stream list cannot be handled due to a missing base object"""
+		if len(stream_list) == 1:
+			if stream_list[0].type_id in _delta_types:
+				raise ValueError("Cannot resolve deltas if only one stream is given", stream_list[0].type)
+			# its an object, no need to resolve anything
+			return stream_list[0]
+		# END single object special handling
+		
+		if stream_list[-1].type_id in _delta_types:
+			raise ValueError("Cannot resolve deltas if there is no base object stream, last one was type: %s" % stream_list[-1].type)
+		# END check stream
+		
+		# just create the respective stream wrapper
+		raise NotImplementedError()
+		
+	
+	#} END pack specific
 	
 	#{ Read-Database like Interface
 	
@@ -348,13 +403,13 @@ class PackFile(LazyMixin):
 		"""Retrieve information about the object at the given file-absolute offset
 		:param offset: byte offset
 		:return: OPackInfo instance, the actual type differs depending on the type_id attribute"""
-		raise NotImplementedError()
+		return pack_object_at(self._data, offset or self._first_object_offset, False)
 		
 	def stream(self, offset):
 		"""Retrieve an object at the given file-relative offset as stream along with its information
 		:param offset: byte offset
 		:return: OPackStream instance, the actual type differs depending on the type_id attribute"""
-		raise NotImplementedError()
+		return pack_object_at(self._data, offset or self._first_object_offset, True)
 		
 	def stream_iter(self, start_offset=0):
 		""":return: iterator yielding OPackStream compatible instances, allowing 
@@ -390,12 +445,14 @@ class PackFileEntity(object):
 	def info(self, sha):
 		"""Retrieve information about the object identified by the given sha
 		:param sha: 20 byte sha1
+		:raise BadObject:
 		:return: OInfo instance"""
 		raise NotImplementedError()
 		
 	def stream(self, sha):
 		"""Retrieve an object stream along with its information as identified by the given sha
 		:param sha: 20 byte sha1
+		:raise BadObject: 
 		:return: OStream instance"""
 		raise NotImplementedError()
 		

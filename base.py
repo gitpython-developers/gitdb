@@ -5,7 +5,10 @@ from util import (
 		zlib
 	)
 
-from fun import type_id_to_type_map 
+from fun import (
+					type_id_to_type_map,
+					type_to_type_id_map
+				)
 
 __all__ = ('OInfo', 'OPackInfo', 'ODeltaPackInfo', 
 			'OStream', 'OPackStream', 'ODeltaPackStream',
@@ -41,6 +44,10 @@ class OInfo(tuple):
 	@property
 	def type(self):
 		return self[1]
+	
+	@property
+	def type_id(self):
+		return type_to_type_id_map[self[1]]
 		
 	@property
 	def size(self):
@@ -50,11 +57,15 @@ class OInfo(tuple):
 	
 class OPackInfo(tuple):
 	"""As OInfo, but provides a type_id property to retrieve the numerical type id, and 
-	does not include a sha"""
+	does not include a sha.
+	
+	Additionally, the pack_offset is the absolute offset into the packfile at which 
+	all object information is located. The data_offset property points to the abosolute
+	location in the pack at which that actual data stream can be found."""
 	__slots__ = tuple()
 	
-	def __new__(cls, type, size):
-		return tuple.__new__(cls, (type, size))
+	def __new__(cls, packoffset, dataoffset, type, size):
+		return tuple.__new__(cls, (packoffset, dataoffset, type, size))
 	
 	def __init__(self, *args):
 		tuple.__init__(self)
@@ -62,16 +73,24 @@ class OPackInfo(tuple):
 	#{ Interface 
 	
 	@property
+	def pack_offset(self):
+		return self[0]
+	
+	@property
+	def data_offset(self):
+		return self[1]
+		
+	@property
 	def type(self):
-		return type_id_to_type_map[self[0]]
+		return type_id_to_type_map[self[2]]
 	
 	@property
 	def type_id(self):
-		return self[0]
+		return self[2]
 		
 	@property
 	def size(self):
-		return self[1]
+		return self[3]
 		
 	#} END interface
 		
@@ -79,17 +98,17 @@ class OPackInfo(tuple):
 class ODeltaPackInfo(OPackInfo):
 	"""Adds delta specific information, 
 	Either the 20 byte sha which points to some object in the database, 
-	or the base_offset, being an offset into the pack at which our base 
-	can be found"""
+	or the negative offset from the pack_offset, so that pack_offset - delta_info yields
+	the pack offset of the base object"""
 	__slots__ = tuple()
 	
-	def __new__(cls, type, size, delta_info):
-		return tuple.__new__(cls, (type, size, delta_info))
+	def __new__(cls, packoffset, dataoffset, type, size, delta_info):
+		return tuple.__new__(cls, (packoffset, dataoffset, type, size, delta_info))
 		
 	#{ Interface 
 	@property
 	def delta_info(self):
-		return self[2]
+		return self[4]
 	#} END interface 
 	
 	
@@ -123,17 +142,17 @@ class OPackStream(OPackInfo):
 	is provided"""
 	__slots__ = tuple()
 	
-	def __new__(cls, type, size, stream, *args):
+	def __new__(cls, packoffset, dataoffset, type, size, stream, *args):
 		"""Helps with the initialization of subclasses"""
-		return tuple.__new__(cls, (type, size, stream))
+		return tuple.__new__(cls, (packoffset, dataoffset, type, size, stream))
 		
 	#{ Stream Reader Interface 
 	def read(self, size=-1):
-		return self[2].read(size)
+		return self[4].read(size)
 		
 	@property
 	def stream(self):
-		return self[2]
+		return self[4]
 	#} END stream reader interface
 
 	
@@ -141,17 +160,17 @@ class ODeltaPackStream(ODeltaPackInfo):
 	"""Provides a stream outputting the uncompressed offset delta information"""
 	__slots__ = tuple()
 	
-	def __new__(cls, type, size, delta_info, stream):
-		return tuple.__new__(cls, (type, size, delta_info, stream))
+	def __new__(cls, packoffset, dataoffset, type, size, delta_info, stream):
+		return tuple.__new__(cls, (packoffset, dataoffset, type, size, delta_info, stream))
 
 
 	#{ Stream Reader Interface 
 	def read(self, size=-1):
-		return self[3].read(size)
+		return self[5].read(size)
 		
 	@property
 	def stream(self):
-		return self[3]
+		return self[5]
 	#} END stream reader interface
 
 
