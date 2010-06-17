@@ -4,7 +4,14 @@ import errno
 import mmap
 import os
 
+from fun import (
+					msb_size,
+					stream_copy, 
+					apply_delta_data
+				)
+
 from util import (
+		allocate_memory,
 		LazyMixin,
 		make_sha,
 		write, 
@@ -300,9 +307,11 @@ class DeltaApplyReader(LazyMixin):
 	 * cmd == 0 - invalid operation ( or error in delta stream )
 	"""
 	__slots__ = (
-					"_streams",				# tuple of our stream objects
-					"_readers",				# list of read methods from our streams
+					"_bstream",				# base stream to which to apply the deltas
+					"_dstreams",			# tuple of delta stream readers
 					"_mm_target",			# memory map of the delta-applied data
+					"_size",				# actual number of bytes in _mm_target
+					"_br"					# number of bytes read 
 				)
 	
 	def __init__(self, stream_list):
@@ -311,31 +320,81 @@ class DeltaApplyReader(LazyMixin):
 		base object onto which to apply the deltas"""
 		assert len(stream_list) > 1, "Need at least one delta and one base stream"
 		
-		self._streams = tuple(stream_list)
-		self._readers = None					# TODO
+		self._bstream = stream_list[-1]
+		self._dstreams = tuple(stream_list[:-1])
+		self._br = 0
 		
 	def _set_cache_(self, attr):
 		"""If we are here, we apply the actual deltas"""
 		# fill in delta info structures, providing the source and target buffer
 		# sizes.
+		buffer_offset_list = list()
+		final_target_size = None
+		max_target_size = 0
+		for dstream in self._dstreams:
+			buf = dstream.read(512)			# read the header information + X
+			offset, src_size = msb_size(buf)
+			offset, target_size = msb_size(buf, offset)
+			if final_target_size is None:
+				final_target_size = target_size
+			# END set final target size
+			buffer_offset_list.append((buffer(buf, offset), offset))
+			max_target_size = max(max_target_size, target_size)
+		# END for each delta stream
+		
+		# sanity check - the first delta to apply should have the same source
+		# size as our actual base stream
+		base_size = self._bstream.size
+		target_size = max_target_size
+		
+		# if we have more than 1 delta to apply, we will swap buffers, hence we must
+		# assure that all buffers we use are large enough to hold all the results
+		if len(self._dstreams) > 1:
+			base_size = target_size = max(base_size, max_target_size)
+		# END adjust buffer sizes
+			
 		
 		# Allocate private memory map big enough to hold the first base buffer
-		# It can be swapped out if it is too large. We need random access to it
+		# We need random access to it
+		bbuf = allocate_memory(base_size)
 		
 		# allocate memory map large enough for the largest (intermediate) target
 		# We will use it as scratch space for all delta ops. If the final 
 		# target buffer is smaller than our allocated space, we just use parts
-		# of it
+		# of it upon return.
+		tbuf = allocate_memory(target_size)
 		
 		# for each delta to apply, memory map the decompressed delta and 
 		# work on the op-codes to reconstruct everything.
 		# For the actual copying, we use a seek and write pattern of buffer
 		# slices.
+		for (dbuf, offset), dstream in reversed(zip(buffer_offset_list, self._dstreams)):
+			# allocate a buffer to hold all delta data - fill in the data for 
+			# fast access. We do this as we know that reading individual bytes
+			# from our stream would be slower than necessary ( although possible )
+			# The dbuf buffer contains commands after the first two MSB sizes, the
+			# offset specifies the amount of bytes read to get the sizes.
+			ddata = allocate_memory(dstream.size - offset)
+			ddata.write(dbuf)
+			# read the rest from the stream. The size we give is larger than necessary
+			stream_copy(dstream.read, ddata.write, dstream.size, 256*mmap.PAGESIZE)
+			
+			################################################################
+			apply_delta_data(bbuf, len(bbuf), ddata, len(ddata), tbuf)
+			################################################################
+			
+			# finally, swap out source and target buffers. The target is now the 
+			# base for the next delta to apply
+			bbuf, tbuf = tbuf, bbuf
+			bbuf.seek(0)
+			tbuf.seek(0)
+		# END for each delta to apply
 		
-		# NOTE: on py pre 2.5, all memory maps must actually be some kind 
-		# of memory buffer,like StringIO ( ouch ;) )
-		
-		
+		# its already seeked to 0, constrain it to the actual size
+		# NOTE: in the end of the loop, it swaps buffers, hence our target buffer
+		# is not tbuf, but bbuf !
+		self._mm_target = bbuf
+		self._size = final_target_size
 		
 		# TODO: Once that works, figure out the ordering of the opcodes. If they
 		# are always in-order/sequential, an alternate implementation could 
@@ -344,10 +403,21 @@ class DeltaApplyReader(LazyMixin):
 		# concatenated opcode list which indicates what to copy from which delta
 		# to which position. This preprocessing would allow true streaming
 		
-	def read(self, size=0):
-		# pass the call to our lazy-loaded delta-applied data
-		return self._mm_target.read(size) 
-
+	def read(self, count=0):
+		bl = self._size - self._br		# bytes left
+		if count < 1 or count > bl:
+			count = bl
+		data = self._mm_target.read(count)
+		self._br += len(data)
+		return data
+		
+	def seek(self, offset, whence=os.SEEK_SET):
+		"""Allows to reset the stream to restart reading
+		:raise ValueError: If offset and whence are not 0"""
+		if offset != 0 or whence != os.SEEK_SET:
+			raise ValueError("Can only seek to position 0")
+		# END handle offset
+		self._size
 #} END RO streams
 
 

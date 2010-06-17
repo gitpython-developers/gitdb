@@ -78,12 +78,12 @@ class TestPack(TestBase):
 				continue
 			# END get deltastream
 			
-			# TODO: TestStream._assert_stream_reader does that already, should 
-			# be used instead
 			# read all
-			dstream.read()
+			assert len(dstream.read())
 			
 			# read chunks
+			# NOTE: the current implementation is safe, it basically transfers
+			# all calls to the underlying memory map
 			
 		# END for each object
 		assert num_obj == size

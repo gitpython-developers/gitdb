@@ -9,6 +9,7 @@ from exc import (
 from util import zlib
 decompressobj = zlib.decompressobj
 
+import mmap
 
 # INVARIANTS
 OFS_DELTA = 6
@@ -34,7 +35,7 @@ type_to_type_id_map = dict(
 						)
 
 # used when dealing with larger streams
-chunk_size = 1000*1000
+chunk_size = 1000*mmap.PAGESIZE
 
 __all__ = ('is_loose_object', 'loose_object_header_info', 'object_header_info', 
 			'write_object' )
@@ -83,6 +84,26 @@ def pack_object_header_info(data):
 		raise BadObjectType(type_id)
 	# END handle exceptions
 	
+def msb_size(data, offset=0):
+	""":return: tuple(read_bytes, size) read the msb size from the given random 
+	access data starting at the given byte offset"""
+	size = 0
+	i = 0
+	l = len(data)
+	hit_msb = False
+	while i < l:
+		c = ord(data[i+offset])
+		size |= (c & 0x7f) << i*7
+		i += 1
+		if not c & 0x80:
+			hit_msb = True
+			break
+		# END check msb bit
+	# END while in range
+	if not hit_msb:
+		raise AssertionError("Could not find terminating MSB byte in data stream")
+	return i+offset, size 
+	
 def write_object(type, size, read, write, chunk_size=chunk_size):
 	"""Write the object as identified by type, size and source_stream into the 
 	target_stream
@@ -111,14 +132,78 @@ def stream_copy(read, write, size, chunk_size):
 	# WRITE ALL DATA UP TO SIZE
 	while True:
 		cs = min(chunk_size, size-dbw)
-		data_len = write(read(cs))
+		# NOTE: not all write methods return the amount of written bytes, like
+		# mmap.write. Its bad, but we just deal with it ... perhaps its not 
+		# even less efficient
+		# data_len = write(read(cs))
+		# dbw += data_len
+		data = read(cs)
+		data_len = len(data)
 		dbw += data_len
+		write(data)
 		if data_len < cs or dbw == size:
 			break
 		# END check for stream end
 	# END duplicate data
 	return dbw
 	
+	
+def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_file):
+	"""Apply data from a delta buffer using a source buffer to the target file, 
+	which will be written to
+	:param src_buf: random access data from which the delta was created
+	:param src_buf_size: size of the source buffer in bytes
+	:param delta_buf_size: size fo the delta buffer in bytes
+	:param delta_buf: random access delta data
+	:param target_file: file like object to write the result to
+	:note: transcribed to python from the similar routine in patch-delta.c"""
+	i = 0
+	twrite = target_file.write
+	db = delta_buf
+	while i < delta_buf_size:
+		c = ord(db[i])
+		i += 1
+		if c & 0x80:
+			cp_off, cp_size = 0, 0
+			if (c & 0x01):
+				cp_off = ord(db[i])
+				i += 1
+			if (c & 0x02):
+				cp_off |= (ord(db[i]) << 8)
+				i += 1
+			if (c & 0x04):
+				cp_off |= (ord(db[i]) << 16)
+				i += i
+			if (c & 0x08):
+				cp_off |= (ord(db[i]) << 24)
+				i += 1
+			if (c & 0x10):
+				cp_size = ord(db[i])
+				i += 1
+			if (c & 0x20):
+				cp_size |= (ord(db[i]) << 8)
+				i += 1
+			if (c & 0x40):
+				cp_size |= (ord(db[i]) << 16)
+				i += 1
+				
+			if not cp_size: 
+				cp_size = 0x10000
+			# maybe skip this check ?
+			if (cp_off + cp_size < cp_size or
+			    cp_off + cp_size > src_buf_size):
+				break
+			twrite(src_buf[cp_off:cp_off+cp_size])
+		elif c:
+			twrite(db[i:i+c])
+			i += c
+		else:
+			raise ValueError("unexpected delta opcode 0")
+		# END handle command byte
+	# END while processing delta data
+	
+	# yes, lets use the exact same error message that git uses :)
+	assert i == delta_buf_size, "delta replay has gone wild"
 	
 #} END routines
 

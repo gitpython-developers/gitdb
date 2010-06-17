@@ -94,6 +94,19 @@ def stream_copy(source, destination, chunk_size=512*1024):
 	# END reading output stream
 	return br
 
+def allocate_memory(size):
+	""":return: a file-protocol accessible memory block of the given size"""
+	try:
+		return mmap.mmap(-1, size)	# read-write by default
+	except EnvironmentError:
+		# setup real memory instead
+		# this of course may fail if the amount of memory is not available in
+		# one chunk - would only be the case in python 2.4, being more likely on 
+		# 32 bit systems.
+		return cStringIO.StringIO("\0"*size)
+	# END handle memory allocation
+	
+
 def file_contents_ro(fd, stream=False, allow_mmap=True):
 	""":return: read-only contents of the file represented by the file descriptor fd
 	:param fd: file descriptor opened for reading
