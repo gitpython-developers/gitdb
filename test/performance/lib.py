@@ -44,6 +44,7 @@ class TestBigRepoR(TestBase):
 		except AttributeError:
 			pass
 		cls.gitrepopath = resolve_or_fail(k_env_git_repo)
+		assert cls.gitrepopath.endswith('.git')
 
 		
 #} END base classes

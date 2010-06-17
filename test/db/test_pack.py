@@ -34,13 +34,8 @@ class TestPackDB(TestDBBase):
 		# bang on the cache
 		# access the Entities directly, as there is no iteration interface
 		# yet ( or required for now )
-		sha_list = list()
-		for entity in (item[1] for item in pdb._entities):
-			for index in xrange(entity.index().size()):
-				
-				sha_list.append(entity.index().sha(index))
-			# END for each index
-		# END for each entity
+		sha_list = list(pdb.sha_iter())
+		assert len(sha_list) == pdb.size()
 		
 		# hit all packs in random order
 		random.shuffle(sha_list)

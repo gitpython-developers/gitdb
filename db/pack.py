@@ -28,7 +28,9 @@ class PackedDB(FileDBBase, ObjectDBR, LazyMixin):
 	"""A database operating on a set of object packs"""
 	
 	# sort the priority list every N queries
-	_sort_interval = 15
+	# Higher values are better, performance tests don't show this has 
+	# any effect, but it should have one
+	_sort_interval = 500
 	
 	def __init__(self, root_path):
 		super(PackedDB, self).__init__(root_path)
@@ -156,4 +158,19 @@ class PackedDB(FileDBBase, ObjectDBR, LazyMixin):
 		self._sort_entities()
 		return True
 	
+	def sha_iter(self):
+		"""Return iterator yielding 20 byte shas for the packed objects in this data base"""
+		sha_list = list()
+		for entity in (item[1] for item in self._entities):
+			index = entity.index()
+			sha_by_index = index.sha
+			for index in xrange(index.size()):
+				yield sha_by_index(index)
+			# END for each index
+		# END for each entity
+	
+	def size(self):
+		""":return: amount of packed objects in this database"""
+		sizes = [item[1].index().size() for item in self._entities]
+		return reduce(lambda x,y: x+y, sizes)
 	#} END interface
