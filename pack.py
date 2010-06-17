@@ -1,6 +1,7 @@
 """Contains PackIndexFile and PackFile implementations"""
 from gitdb.exc import (
-						BadObject, 
+						BadObject,
+						UnsupportedOperation
 						)
 from util import (
 					zlib,
@@ -41,6 +42,8 @@ from struct import (
 						pack,
 					)
 
+from itertools import izip
+import array
 import os
 __all__ = ('PackIndexFile', 'PackFile', 'PackEntity')
 
@@ -253,6 +256,21 @@ class PackIndexFile(LazyMixin):
 		""":return: 20 byte sha representing the sha1 hash of this index file"""
 		return self._data[-20:]
 		
+	def offsets(self):
+		""":return: sequence of all offsets in the order in which they were written
+		:note: return value can be random accessed, but may be immmutable"""
+		if self._version == 2:
+			# read stream to array, convert to tuple
+			a = array.array('I')	# 4 byte unsigned int, long are 8 byte on 64 bit it appears
+			a.fromstring(buffer(self._data, self._pack_offset, self._pack_64_offset - self._pack_offset))
+			
+			# networkbyteorder to something array likes more
+			a.byteswap()
+			return a
+		else:
+			return tuple(self.offset(index) for index in xrange(self.size()))
+		# END handle version
+		
 	def sha_to_index(self, sha):
 		"""
 		:return: index usable with the ``offset`` or ``entry`` method, or None
@@ -419,11 +437,14 @@ class PackFile(LazyMixin):
 	#} END Read-Database like Interface
 	
 	
-class PackEntity(object):
+class PackEntity(LazyMixin):
 	"""Combines the PackIndexFile and the PackFile into one, allowing the 
 	actual objects to be resolved and iterated"""
 	
-	__slots__ = ('_index', '_pack')
+	__slots__ = (	'_index',			# our index file 
+					'_pack', 			# our pack file
+					'_offset_map'		# on demand dict mapping one offset to the next consecutive one
+					)
 	
 	IndexFileCls = PackIndexFile
 	PackFileCls = PackFile
@@ -433,6 +454,28 @@ class PackEntity(object):
 		basename, ext = os.path.splitext(pack_or_index_path)
 		self._index = self.IndexFileCls("%s.idx" % basename)			# PackIndexFile instance
 		self._pack = self.PackFileCls("%s.pack" % basename)			# corresponding PackFile instance
+		
+	def _set_cache_(self, attr):
+		# currently this can only be _offset_map
+		offsets_sorted = sorted(self._index.offsets())
+		last_offset = len(self._pack.data()) - self._pack.footer_size
+		assert offsets_sorted, "Cannot handle empty indices"
+		
+		offset_map = None
+		if len(offsets_sorted) == 1:
+			offset_map = { offsets_sorted[0] : last_offset }
+		else:
+			iter_offsets = iter(offsets_sorted)
+			iter_offsets_plus_one = iter(offsets_sorted)
+			iter_offsets_plus_one.next()
+			consecutive = izip(iter_offsets, iter_offsets_plus_one)
+			
+			offset_map = dict(consecutive)
+			
+			# the last offset is not yet set
+			offset_map[offsets_sorted[-1]] = last_offset
+		# END handle offset amount
+		self._offset_map = offset_map
 	
 	def _sha_to_index(self, sha):
 		""":return: index for the given sha, or raise"""
@@ -537,33 +580,31 @@ class PackEntity(object):
 		:raise UnsupportedOperation: If the index is version 1 only
 		:raise BadObject: sha was not found"""
 		if use_crc:
+			if self._index.version() < 2:
+				raise UnsupportedOperation("Version 1 indices do not contain crc's, verify by sha instead")
+			# END handle index version
+			
 			index = self._sha_to_index(sha)
 			offset = self._index.offset(index)
-			pack_data = self._pack.data() 
-			next_index = min(self._index.size()-1, index+1)
-			next_offset = 0
-			if next_index == index:
-				next_offset = len(pack_data) - self._pack.footer_size
-			else:
-				next_offset = self._index.offset(next_index)
-			# END get next offset
+			next_offset = self._offset_map[offset]
 			crc_value = self._index.crc(index)
-			
-			this_crc_value = 0
-			crc_update = zlib.crc32
 			
 			# create the current crc value, on the compressed object data
 			# Read it in chunks, without copying the data
+			crc_update = zlib.crc32
+			pack_data = self._pack.data()
 			cur_pos = offset
+			this_crc_value = 0
 			while cur_pos < next_offset:
 				rbound = min(cur_pos + chunk_size, next_offset)
 				size = rbound - cur_pos
-				crc_update(buffer(pack_data, cur_pos, size), this_crc_value)
+				this_crc_value = crc_update(buffer(pack_data, cur_pos, size), this_crc_value)
 				cur_pos += size
 			# END window size loop
 			
-			assert this_crc_value == crc_value
-			return this_crc_value == crc_value
+			# crc returns signed 32 bit numbers, the AND op forces it into unsigned
+			# mode ... wow, sneaky, from dulwich.
+			return (this_crc_value & 0xffffffff) == crc_value
 		else:
 			shawriter = Sha1Writer()
 			stream = self._object(sha, as_stream=True)

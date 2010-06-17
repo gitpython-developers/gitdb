@@ -15,9 +15,8 @@ from gitdb.pack import (
 							PackFile
 						)
 
-from gitdb.fun import (
-							delta_types,
-						)
+from gitdb.fun import delta_types
+from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
 from itertools import izip
 import os
@@ -42,6 +41,7 @@ class TestPack(TestBase):
 		assert len(index.indexfile_checksum()) == 20
 		assert index.version() == version
 		assert index.size() == size
+		assert len(index.offsets()) == size
 		
 		# get all data of all objects
 		for oidx in xrange(index.size()):
@@ -137,8 +137,12 @@ class TestPack(TestBase):
 				
 				# verify the stream
 				print info
-				assert entity.is_valid_stream(info.sha, use_crc=True)
-				#assert entity.is_valid_stream(info.sha, use_crc=False)
+				try:
+					assert entity.is_valid_stream(info.sha, use_crc=True)
+				except UnsupportedOperation:
+					pass
+				# END ignore version issues
+				assert entity.is_valid_stream(info.sha, use_crc=False)
 			# END for each info, stream tuple
 			assert count == size
 			
