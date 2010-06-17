@@ -200,7 +200,7 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_fi
 			if (cp_off + cp_size < cp_size or
 			    cp_off + cp_size > src_buf_size):
 				break
-			twrite(src_buf[cp_off:cp_off+cp_size])
+			twrite(buffer(src_buf, cp_off, cp_size))
 		elif c:
 			twrite(db[i:i+c])
 			i += c

@@ -358,6 +358,7 @@ class DeltaApplyReader(LazyMixin):
 		# Allocate private memory map big enough to hold the first base buffer
 		# We need random access to it
 		bbuf = allocate_memory(base_size)
+		stream_copy(self._bstream.read, bbuf.write, base_size, 256*mmap.PAGESIZE)
 		
 		# allocate memory map large enough for the largest (intermediate) target
 		# We will use it as scratch space for all delta ops. If the final 
@@ -408,6 +409,8 @@ class DeltaApplyReader(LazyMixin):
 		bl = self._size - self._br		# bytes left
 		if count < 1 or count > bl:
 			count = bl
+		# NOTE: we could check for certain size limits, and possibly
+		# return buffers instead of strings to prevent byte copying
 		data = self._mm_target.read(count)
 		self._br += len(data)
 		return data
@@ -418,7 +421,8 @@ class DeltaApplyReader(LazyMixin):
 		if offset != 0 or whence != os.SEEK_SET:
 			raise ValueError("Can only seek to position 0")
 		# END handle offset
-		self._size
+		self._br = 0
+		self._mm_target.seek(0)
 		
 	#{ Interface 
 	

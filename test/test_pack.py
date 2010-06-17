@@ -90,7 +90,13 @@ class TestPack(TestBase):
 			# END get deltastream
 			
 			# read all
-			assert len(dstream.read()) == dstream.size 
+			data = dstream.read()
+			assert len(data) == dstream.size
+			
+			# test seek
+			dstream.seek(0)
+			assert dstream.read() == data
+			
 			
 			# read chunks
 			# NOTE: the current implementation is safe, it basically transfers
@@ -119,7 +125,6 @@ class TestPack(TestBase):
 										(self.packfile_v2_2, self.packindexfile_v2)):
 			packfile, version, size = packinfo
 			indexfile, version, size = indexinfo
-			print packfile
 			entity = PackEntity(packfile)
 			assert entity.pack().path() == packfile
 			assert entity.index().path() == indexfile
@@ -136,7 +141,6 @@ class TestPack(TestBase):
 				assert not info.type_id in delta_types
 				
 				# verify the stream
-				print info
 				try:
 					assert entity.is_valid_stream(info.sha, use_crc=True)
 				except UnsupportedOperation:

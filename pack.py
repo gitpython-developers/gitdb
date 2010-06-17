@@ -611,6 +611,7 @@ class PackEntity(LazyMixin):
 			# write a loose object, which is the basis for the sha
 			write_object(stream.type, stream.size, stream.read, shawriter.write)
 			
+			assert shawriter.sha(as_hex=False) == sha
 			return shawriter.sha(as_hex=False) == sha
 		# END handle crc/sha verification
 		return True
