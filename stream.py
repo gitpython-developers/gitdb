@@ -379,7 +379,7 @@ class DeltaApplyReader(LazyMixin):
 			stream_copy(dstream.read, ddata.write, dstream.size, 256*mmap.PAGESIZE)
 			
 			#######################################################################
-			apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf, target_size)
+			apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf)
 			#######################################################################
 			
 			# finally, swap out source and target buffers. The target is now the 

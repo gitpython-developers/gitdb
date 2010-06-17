@@ -155,8 +155,7 @@ def stream_copy(read, write, size, chunk_size):
 	return dbw
 	
 	
-def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_file, 
-						target_size):
+def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_file):
 	"""Apply data from a delta buffer using a source buffer to the target file, 
 	which will be written to
 	:param src_buf: random access data from which the delta was created
@@ -164,7 +163,6 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_fi
 	:param delta_buf_size: size fo the delta buffer in bytes
 	:param delta_buf: random access delta data
 	:param target_file: file like object to write the result to
-	:param target_size: size of the target buffer
 	:note: transcribed to python from the similar routine in patch-delta.c"""
 	i = 0
 	twrite = target_file.write
@@ -201,17 +199,12 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_fi
 			
 			rbound = cp_off + cp_size
 			if (rbound < cp_size or
-			    rbound > src_buf_size or 
-			    cp_size > target_size):
+			    rbound > src_buf_size):
 				break
 			twrite(buffer(src_buf, cp_off, cp_size))
-			target_size -= cp_size
 		elif c:
-			if c > target_size:
-				break
 			twrite(db[i:i+c])
 			i += c
-			target_size -= c
 		else:
 			raise ValueError("unexpected delta opcode 0")
 		# END handle command byte
