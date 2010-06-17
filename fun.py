@@ -14,6 +14,8 @@ import mmap
 # INVARIANTS
 OFS_DELTA = 6
 REF_DELTA = 7
+delta_types = (OFS_DELTA, REF_DELTA)
+
 type_id_to_type_map = 	{
 							0 : "",				# EXT 1
 							1 : "commit",

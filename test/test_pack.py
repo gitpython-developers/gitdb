@@ -5,6 +5,10 @@ from lib import (
 					with_packs_rw,
 					fixture_path
 				)
+from gitdb.stream import (
+							DeltaApplyReader
+						)
+
 from gitdb.pack import (
 							PackIndexFile,
 							PackFile
@@ -71,15 +75,16 @@ class TestPack(TestBase):
 			
 			# read the stream
 			try:
-				dstream = pack.to_delta_stream(streams)
+				dstream = DeltaApplyReader.new(streams)
 			except ValueError:
 				# ignore these, old git versions use only ref deltas, 
 				# which we havent resolved ( as we are without an index )
+				# Also ignore non-delta streams
 				continue
 			# END get deltastream
 			
 			# read all
-			assert len(dstream.read())
+			assert len(dstream.read()) 
 			
 			# read chunks
 			# NOTE: the current implementation is safe, it basically transfers

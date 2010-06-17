@@ -5,19 +5,24 @@ from gitdb.exc import (
 from util import (
 					LockedFD,
 					LazyMixin,
-					file_contents_ro, 
-					unpack_from
+					unpack_from,
+					file_contents_ro,
 					)
 
 from fun import (
 					pack_object_header_info,
+					type_id_to_type_map,
 					stream_copy, 
 					chunk_size,
+					delta_types,
 					OFS_DELTA, 
-					REF_DELTA
+					REF_DELTA,
+					msb_size
 				)
 
-from base import (
+from base import (		# Amazing !
+						OInfo,
+						OStream,
 						OPackInfo,
 						OPackStream,
 						ODeltaPackInfo,
@@ -35,7 +40,7 @@ from struct import (
 
 __all__ = ('PackIndexFile', 'PackFile')
 
-_delta_types = (OFS_DELTA, REF_DELTA) 
+ 
 
 	
 #{ Utilities 
@@ -95,8 +100,6 @@ def pack_object_at(data, offset, as_stream):
 		# END handle info
 	# END handle stream
 		
-			
-
 #} END utilities
 
 
@@ -355,6 +358,7 @@ class PackFile(LazyMixin):
 			the last one is either a full object, or a REF_Delta stream. The latter
 			type needs its reference object to be locked up in an ODB to form a valid
 			delta chain.
+			If the object at offset is no delta, the size of the list is 1.
 		:param offset: specifies the first byte of the object within this pack"""
 		out = list()
 		while True:
@@ -370,31 +374,7 @@ class PackFile(LazyMixin):
 			# END handle type
 		# END while chaining streams
 		return out
-	
-	def to_delta_stream(self, stream_list):
-		"""Convert the given list of streams into a stream which resolves deltas
-		(if availble) when reading from it.
-		:param stream_list: one or more stream objects. If the first stream is a Delta, 
-			there must be at least two streams in the list. The list's last stream
-			must be a non-delta stream.
-		:return: Non-Delta OPackStream object whose stream can be used to obtain 
-			the decompressed resolved data
-		:raise ValueError: if the stream list cannot be handled due to a missing base object"""
-		if len(stream_list) == 1:
-			if stream_list[0].type_id in _delta_types:
-				raise ValueError("Cannot resolve deltas if only one stream is given", stream_list[0].type)
-			# its an object, no need to resolve anything
-			return stream_list[0]
-		# END single object special handling
-		
-		if stream_list[-1].type_id in _delta_types:
-			raise ValueError("Cannot resolve deltas if there is no base object stream, last one was type: %s" % stream_list[-1].type)
-		# END check stream
-		
-		# just create the respective stream wrapper
-		return DeltaApplyReader(stream_list)
-		
-	
+
 	#} END pack specific
 	
 	#{ Read-Database like Interface
@@ -437,8 +417,58 @@ class PackFileEntity(object):
 		self._pack = self.PackFileCls("%s.pack" % basename)			# corresponding PackFile instance
 	
 	
+	def _sha_to_index(self, sha):
+		""":return: index for the given sha, or raise"""
+		index = self._index.sha_to_index(sha)
+		if index is None:
+			raise BadObject(sha)
+		return index
+	
 	def _iter_objects(self, as_stream):
-		raise NotImplementedError
+		"""Iterate over all objects in our index and yield their OInfo or OStream instences"""
+		raise NotImplementedError()
+	
+	def _object(self, sha, as_stream):
+		""":return: OInfo or OStream object providing information about the given sha"""
+		# its a little bit redundant here, but it needs to be efficient
+		offset = self._index.offset(self._sha_to_index(sha))
+		type_id, uncomp_size, data_rela_offset = pack_object_header_info(buffer(self._pack._data, offset))
+		if as_stream:
+			if type_id not in delta_types:
+				packstream = self._pack.stream(offset)
+				return OStream(sha, packstream.type, packstream.size, packstream.stream)
+			# END handle non-deltas
+			
+			# produce a delta stream containing all info
+			# To prevent it from applying the deltas when querying the size, 
+			# we extract it from the delta stream ourselves
+			streams = self.collect_streams_at_offset(offset)
+			buf = streams[0].read(512)
+			offset, src_size = msb_size(buf)
+			offset, target_size = msb_size(buf, offset)
+			
+			streams[0].seek(0)				# assure it can be read by the delta reader
+			dstream = DeltaApplyReader.new(streams)
+			
+			return OStream(sha, dstream.type, target_size, dstream) 
+		else:
+			if type_id not in delta_types:
+				return OInfo(sha, type_id_to_type_map[type_id], uncomp_size)
+			# END handle non-deltas
+			
+			# deltas are a little tougher - unpack the first bytes to obtain
+			# the actual target size, as opposed to the size of the delta data
+			streams = self.collect_streams_at_offset(offset)
+			buf = streams[0].read(512)
+			offset, src_size = msb_size(buf)
+			offset, target_size = msb_size(buf, offset)
+			
+			# collect the streams to obtain the actual object type
+			if streams[-1].type_id in delta_types:
+				raise BadObject(sha, "Could not resolve delta object")
+				
+			return OInfo(sha, streams[-1].type, target_size) 
+		# END handle stream
 	
 	#{ Read-Database like Interface
 	
@@ -447,14 +477,14 @@ class PackFileEntity(object):
 		:param sha: 20 byte sha1
 		:raise BadObject:
 		:return: OInfo instance"""
-		raise NotImplementedError()
+		return self._object(sha, as_stream=False)
 		
 	def stream(self, sha):
 		"""Retrieve an object stream along with its information as identified by the given sha
 		:param sha: 20 byte sha1
 		:raise BadObject: 
 		:return: OStream instance"""
-		raise NotImplementedError()
+		return self._object(sha, as_stream=True)
 		
 	#} END Read-Database like Interface
 	
@@ -470,4 +500,47 @@ class PackFileEntity(object):
 		OStream instances"""
 		return self._iter_objects(as_stream=True)
 		
-	#} Interface
+	def collect_streams_at_offset(self, offset):
+		"""As the version in the PackFile, but can resolve REF deltas within this pack
+		For more info, see ``collect_streams``
+		:param offset: offset into the pack file at which the object can be found"""
+		streams = self._pack.collect_streams(offset)
+		
+		# try to resolve the last one if needed. It is assumed to be either
+		# a REF delta, or a base object, as OFFSET deltas are resolved by the pack
+		if streams[-1].type_id == REF_DELTA:
+			stream = streams[-1]
+			while stream.type_id in delta_types:
+				if stream.type_id == REF_DELTA:
+					sindex = self._index.sha_to_index(stream.delta_info)
+					if sindex is None:
+						break
+					stream = self._pack.stream(self._index.offset(sindex))
+					streams.append(stream)
+				else:
+					# must be another OFS DELTA - this could happen if a REF 
+					# delta we resolve previously points to an OFS delta. Who 
+					# would do that ;) ? We can handle it though
+					stream = self._pack.stream(stream.delta_info)
+					streams.append(stream)
+				# END handle ref delta
+			# END resolve ref streams
+		# END resolve streams
+		
+		return streams
+		
+	def collect_streams(self, sha):
+		"""As ``PackFile.collect_streams``, but takes a sha instead of an offset.
+		Additionally, ref_delta streams will be resolved within this pack.
+		If this is not possible, the stream will be left alone, hence it is adivsed
+		to check for unresolved ref-deltas and resolve them before attempting to 
+		construct a delta stream.
+		:param sha: 20 byte sha1 specifying the object whose related streams you want to collect
+		:return: list of streams, first being the actual object delta, the last being 
+			a possibly unresolved base object.
+		:raise BadObject:"""
+		return self.collect_streams_at_offset(self._index.offset(self._sha_to_index(sha)))
+		
+		
+		
+	#} END interface

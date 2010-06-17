@@ -7,7 +7,8 @@ import os
 from fun import (
 					msb_size,
 					stream_copy, 
-					apply_delta_data
+					apply_delta_data, 
+					delta_types
 				)
 
 from util import (
@@ -19,7 +20,7 @@ from util import (
 		zlib
 	)
 
-__all__ = ('DecompressMemMapReader', 'FDCompressedSha1Writer')
+__all__ = ('DecompressMemMapReader', 'FDCompressedSha1Writer', 'DeltaApplyReader')
 
 
 #{ RO Streams
@@ -418,6 +419,50 @@ class DeltaApplyReader(LazyMixin):
 			raise ValueError("Can only seek to position 0")
 		# END handle offset
 		self._size
+		
+	#{ Interface 
+	
+	@classmethod
+	def new(cls, stream_list):
+		"""Convert the given list of streams into a stream which resolves deltas
+		when reading from it.
+		:param stream_list: two or more stream objects, first stream is a Delta
+			to the object that you want to resolve, followed by N additional delta
+			streams. The list's last stream must be a non-delta stream.
+		:return: Non-Delta OPackStream object whose stream can be used to obtain 
+			the decompressed resolved data
+		:raise ValueError: if the stream list cannot be handled"""
+		if len(stream_list) < 2:
+			raise ValueError("Need at least two streams")
+		# END single object special handling
+		
+		if stream_list[-1].type_id in delta_types:
+			raise ValueError("Cannot resolve deltas if there is no base object stream, last one was type: %s" % stream_list[-1].type)
+		# END check stream
+		
+		return cls(stream_list)
+		
+	#} END interface
+	
+	
+	#{ OInfo like Interface
+	
+	@property
+	def type(self):
+		return self._bstream.type
+		
+	@property
+	def type_id(self):
+		return self._bstream.type_id
+		
+	@property
+	def size(self):
+		""":return: number of uncompressed bytes in the stream"""
+		return self._size
+		
+	#} END oinfo like interface 
+	
+	
 #} END RO streams
 
 
