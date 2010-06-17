@@ -40,6 +40,7 @@ from stream import (
 
 from struct import (
 						pack,
+						unpack,
 					)
 
 from itertools import izip
@@ -196,7 +197,7 @@ class PackIndexFile(LazyMixin):
 		# in the 64 bit region of the file. The current offset ( lower 31 bits )
 		# are the index into it
 		if offset & 0x80000000:
-			offset = unpack_from(">Q", self._data, self._pack_64_offset + (self.offset & ~0x80000000) * 8)[0]
+			offset = unpack_from(">Q", self._data, self._pack_64_offset + (offset & ~0x80000000) * 8)[0]
 		# END handle 64 bit offset
 		
 		return offset
@@ -291,7 +292,7 @@ class PackIndexFile(LazyMixin):
 			elif not c:
 				return mid
 			else:
-				lo = mid
+				lo = mid + 1
 			# END handle midpoint
 		# END bisect
 		return None
@@ -326,13 +327,15 @@ class PackFile(LazyMixin):
 			fd = ldb.open()
 			self._data = file_contents_ro(fd)
 			ldb.rollback()
-			# TODO: figure out whether we should better keep the lock, or maybe
-			# add a .keep file instead ?
-		else:
+			
 			# read the header information
 			type_id, self._version, self._size = unpack_from(">4sLL", self._data, 0)
-			assert type_id == "PACK", "Pack file format is invalid: %r" % type_id
-			assert self._version in (2, 3), "Cannot handle pack format version %i" % self._version
+			
+			# TODO: figure out whether we should better keep the lock, or maybe
+			# add a .keep file instead ?
+		else: # must be '_size' or '_version'
+			# read header info - we do that just with a file stream
+			type_id, self._version, self._size = unpack(">4sLL", open(self._packpath).read(12))
 		# END handle header
 		
 	def _iter_objects(self, start_offset, as_stream=True):
@@ -545,14 +548,23 @@ class PackEntity(LazyMixin):
 		:param sha: 20 byte sha1
 		:raise BadObject:
 		:return: OInfo instance, with 20 byte sha"""
-		return self._object(sha, as_stream=False)
+		return self._object(sha, False)
 		
 	def stream(self, sha):
 		"""Retrieve an object stream along with its information as identified by the given sha
 		:param sha: 20 byte sha1
 		:raise BadObject: 
 		:return: OStream instance, with 20 byte sha"""
-		return self._object(sha, as_stream=True)
+		return self._object(sha, True)
+
+	def info_at_index(self, index):
+		"""As ``info``, but uses a PackIndexFile compatible index to refer to the object"""
+		return self._object(None, False, index)
+	
+	def stream_at_index(self, index):
+		"""As ``stream``, but uses a PackIndexFile compatible index to refer to the 
+		object"""
+		return self._object(None, True, index)
 		
 	#} END Read-Database like Interface
 	

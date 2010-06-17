@@ -5,14 +5,17 @@ from lib import (
 					with_packs_rw,
 					fixture_path
 				)
-from gitdb.stream import (
-							DeltaApplyReader
-						)
+from gitdb.stream import DeltaApplyReader
 
 from gitdb.pack import (
 							PackEntity,
 							PackIndexFile,
 							PackFile
+						)
+
+from gitdb.base import (
+							OInfo, 
+							OStream,
 						)
 
 from gitdb.fun import delta_types
@@ -139,6 +142,11 @@ class TestPack(TestBase):
 				
 				# we return fully resolved items, which is implied by the sha centric access
 				assert not info.type_id in delta_types
+				
+				# try all calls
+				assert len(entity.collect_streams(info.sha))
+				assert isinstance(entity.info(info.sha), OInfo)
+				assert isinstance(entity.stream(info.sha), OStream)
 				
 				# verify the stream
 				try:
