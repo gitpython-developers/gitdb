@@ -474,7 +474,7 @@ class Sha1Writer(object):
 	__slots__ = "sha1"
 	
 	def __init__(self):
-		self.sha1 = make_sha("")
+		self.sha1 = make_sha()
 
 	#{ Stream Interface
 

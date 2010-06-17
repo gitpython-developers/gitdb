@@ -10,10 +10,16 @@ from gitdb.stream import (
 						)
 
 from gitdb.pack import (
+							PackEntity,
 							PackIndexFile,
 							PackFile
 						)
+
+from gitdb.fun import (
+							delta_types,
+						)
 from gitdb.util import to_bin_sha
+from itertools import izip
 import os
 
 
@@ -84,7 +90,7 @@ class TestPack(TestBase):
 			# END get deltastream
 			
 			# read all
-			assert len(dstream.read()) 
+			assert len(dstream.read()) == dstream.size 
 			
 			# read chunks
 			# NOTE: the current implementation is safe, it basically transfers
@@ -109,8 +115,34 @@ class TestPack(TestBase):
 		# END for each pack to test
 		
 	def test_pack_entity(self):
-		# TODO: 
-		pass
+		for packinfo, indexinfo in (	(self.packfile_v2_1, self.packindexfile_v1), 
+										(self.packfile_v2_2, self.packindexfile_v2)):
+			packfile, version, size = packinfo
+			indexfile, version, size = indexinfo
+			print packfile
+			entity = PackEntity(packfile)
+			assert entity.pack().path() == packfile
+			assert entity.index().path() == indexfile
+			
+			count = 0
+			for info, stream in izip(entity.info_iter(), entity.stream_iter()):
+				count += 1
+				assert info.sha == stream.sha
+				assert len(info.sha) == 20
+				assert info.type_id == stream.type_id
+				assert info.size == stream.size
+				
+				# we return fully resolved items, which is implied by the sha centric access
+				assert not info.type_id in delta_types
+				
+				# verify the stream
+				print info
+				assert entity.is_valid_stream(info.sha, use_crc=True)
+				#assert entity.is_valid_stream(info.sha, use_crc=False)
+			# END for each info, stream tuple
+			assert count == size
+			
+		 # END for each entity
 		
 	def test_pack_64(self):
 		# TODO: hex-edit a pack helping us to verify that we can handle 64 byte offsets

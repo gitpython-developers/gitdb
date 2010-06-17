@@ -106,6 +106,11 @@ def msb_size(data, offset=0):
 		raise AssertionError("Could not find terminating MSB byte in data stream")
 	return i+offset, size 
 	
+def loose_object_header(type, size):
+	""":return: string representing the loose object header, which is immediately
+		followed by the content stream of size 'size'"""
+	return "%s %i\0" % (type, size)
+		
 def write_object(type, size, read, write, chunk_size=chunk_size):
 	"""Write the object as identified by type, size and source_stream into the 
 	target_stream
@@ -120,7 +125,7 @@ def write_object(type, size, read, write, chunk_size=chunk_size):
 	tbw = 0												# total num bytes written
 	
 	# WRITE HEADER: type SP size NULL
-	tbw += write("%s %i\0" % (type, size))
+	tbw += write(loose_object_header(type, size))
 	tbw += stream_copy(read, write, size, chunk_size)
 	
 	return tbw

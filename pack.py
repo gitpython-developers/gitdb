@@ -3,6 +3,7 @@ from gitdb.exc import (
 						BadObject, 
 						)
 from util import (
+					zlib,
 					LockedFD,
 					LazyMixin,
 					unpack_from,
@@ -12,6 +13,7 @@ from util import (
 from fun import (
 					pack_object_header_info,
 					type_id_to_type_map,
+					write_object,
 					stream_copy, 
 					chunk_size,
 					delta_types,
@@ -31,6 +33,7 @@ from base import (		# Amazing !
 from stream import (
 						DecompressMemMapReader,
 						DeltaApplyReader,
+						Sha1Writer,
 						NullStream,
 					)
 
@@ -38,7 +41,8 @@ from struct import (
 						pack,
 					)
 
-__all__ = ('PackIndexFile', 'PackFile')
+import os
+__all__ = ('PackIndexFile', 'PackFile', 'PackEntity')
 
  
 
@@ -237,6 +241,10 @@ class PackIndexFile(LazyMixin):
 		""":return: amount of objects referred to by this index"""
 		return self._fanout_table[255]
 		
+	def path(self):
+		""":return: path to the packindexfile"""
+		return self._indexpath
+		
 	def packfile_checksum(self):
 		""":return: 20 byte sha representing the sha1 hash of the pack file"""
 		return self._data[-40:-20]
@@ -288,8 +296,8 @@ class PackFile(LazyMixin):
 	__slots__ = ('_packpath', '_data', '_size', '_version')
 	
 	# offset into our data at which the first object starts
-	_first_object_offset = 3*4		# header bytes
-	_footer_size = 20				# final sha
+	first_object_offset = 3*4		# header bytes
+	footer_size = 20				# final sha
 	
 	def __init__(self, packpath):
 		self._packpath = packpath
@@ -312,8 +320,8 @@ class PackFile(LazyMixin):
 	def _iter_objects(self, start_offset, as_stream=True):
 		"""Handle the actual iteration of objects within this pack"""
 		data = self._data
-		content_size = len(data) - self._footer_size
-		cur_offset = start_offset or self._first_object_offset
+		content_size = len(data) - self.footer_size
+		cur_offset = start_offset or self.first_object_offset
 		
 		null = NullStream()
 		while cur_offset < content_size:
@@ -343,10 +351,18 @@ class PackFile(LazyMixin):
 		""":return: the version of this pack"""
 		return self._version
 		
+	def data(self):
+		""":return: read-only data of this pack. It provides random access and usually
+		is a memory map"""
+		return self._data
+		
 	def checksum(self):
 		""":return: 20 byte sha1 hash on all object sha's contained in this file"""
 		return self._data[-20:]
-		
+	
+	def path(self):
+		""":return: path to the packfile"""
+		return self._packpath
 	#} END pack information
 	
 	#{ Pack Specific
@@ -383,13 +399,13 @@ class PackFile(LazyMixin):
 		"""Retrieve information about the object at the given file-absolute offset
 		:param offset: byte offset
 		:return: OPackInfo instance, the actual type differs depending on the type_id attribute"""
-		return pack_object_at(self._data, offset or self._first_object_offset, False)
+		return pack_object_at(self._data, offset or self.first_object_offset, False)
 		
 	def stream(self, offset):
 		"""Retrieve an object at the given file-relative offset as stream along with its information
 		:param offset: byte offset
 		:return: OPackStream instance, the actual type differs depending on the type_id attribute"""
-		return pack_object_at(self._data, offset or self._first_object_offset, True)
+		return pack_object_at(self._data, offset or self.first_object_offset, True)
 		
 	def stream_iter(self, start_offset=0):
 		""":return: iterator yielding OPackStream compatible instances, allowing 
@@ -403,7 +419,7 @@ class PackFile(LazyMixin):
 	#} END Read-Database like Interface
 	
 	
-class PackFileEntity(object):
+class PackEntity(object):
 	"""Combines the PackIndexFile and the PackFile into one, allowing the 
 	actual objects to be resolved and iterated"""
 	
@@ -412,10 +428,11 @@ class PackFileEntity(object):
 	IndexFileCls = PackIndexFile
 	PackFileCls = PackFile
 	
-	def __init__(self, basename):
+	def __init__(self, pack_or_index_path):
+		"""Initialize ourselves with the path to the respective pack or index file"""
+		basename, ext = os.path.splitext(pack_or_index_path)
 		self._index = self.IndexFileCls("%s.idx" % basename)			# PackIndexFile instance
 		self._pack = self.PackFileCls("%s.pack" % basename)			# corresponding PackFile instance
-	
 	
 	def _sha_to_index(self, sha):
 		""":return: index for the given sha, or raise"""
@@ -426,12 +443,20 @@ class PackFileEntity(object):
 	
 	def _iter_objects(self, as_stream):
 		"""Iterate over all objects in our index and yield their OInfo or OStream instences"""
-		raise NotImplementedError()
+		indexfile = self._index
+		_object = self._object
+		for index in xrange(indexfile.size()):
+			sha = indexfile.sha(index)
+			yield _object(sha, as_stream, index)
+		# END for each index
 	
-	def _object(self, sha, as_stream):
-		""":return: OInfo or OStream object providing information about the given sha"""
+	def _object(self, sha, as_stream, index=-1):
+		""":return: OInfo or OStream object providing information about the given sha
+		:param index: if not -1, its assumed to be the sha's index in the IndexFile"""
 		# its a little bit redundant here, but it needs to be efficient
-		offset = self._index.offset(self._sha_to_index(sha))
+		if index < 0:
+			index = self._sha_to_index(sha)
+		offset = self._index.offset(index)
 		type_id, uncomp_size, data_rela_offset = pack_object_header_info(buffer(self._pack._data, offset))
 		if as_stream:
 			if type_id not in delta_types:
@@ -447,7 +472,7 @@ class PackFileEntity(object):
 			offset, src_size = msb_size(buf)
 			offset, target_size = msb_size(buf, offset)
 			
-			streams[0].seek(0)				# assure it can be read by the delta reader
+			streams[0].stream.seek(0)				# assure it can be read by the delta reader
 			dstream = DeltaApplyReader.new(streams)
 			
 			return OStream(sha, dstream.type, target_size, dstream) 
@@ -476,20 +501,79 @@ class PackFileEntity(object):
 		"""Retrieve information about the object identified by the given sha
 		:param sha: 20 byte sha1
 		:raise BadObject:
-		:return: OInfo instance"""
+		:return: OInfo instance, with 20 byte sha"""
 		return self._object(sha, as_stream=False)
 		
 	def stream(self, sha):
 		"""Retrieve an object stream along with its information as identified by the given sha
 		:param sha: 20 byte sha1
 		:raise BadObject: 
-		:return: OStream instance"""
+		:return: OStream instance, with 20 byte sha"""
 		return self._object(sha, as_stream=True)
 		
 	#} END Read-Database like Interface
 	
 	#{ Interface 
-	
+
+	def pack(self):
+		""":return: the underlying pack file instance"""
+		return self._pack
+		
+	def index(self):
+		""":return: the underlying pack index file instance"""
+		return self._index
+		
+	def is_valid_stream(self, sha, use_crc=False):
+		"""Verify that the stream at the given sha is valid.
+		:param sha: 20 byte sha1 of the object whose stream to verify
+		:param use_crc: if True, the index' crc for the sha is used to determine
+			whether the compressed stream of the object is valid. If it is 
+			a delta, this only verifies that the delta's data is valid, not the 
+			data of the actual undeltified object, as it depends on more than 
+			just this stream.
+			If False, the object will be decompressed and the sha generated. It must
+			match the given sha
+		:return: True if the stream is valid
+		:raise UnsupportedOperation: If the index is version 1 only
+		:raise BadObject: sha was not found"""
+		if use_crc:
+			index = self._sha_to_index(sha)
+			offset = self._index.offset(index)
+			pack_data = self._pack.data() 
+			next_index = min(self._index.size()-1, index+1)
+			next_offset = 0
+			if next_index == index:
+				next_offset = len(pack_data) - self._pack.footer_size
+			else:
+				next_offset = self._index.offset(next_index)
+			# END get next offset
+			crc_value = self._index.crc(index)
+			
+			this_crc_value = 0
+			crc_update = zlib.crc32
+			
+			# create the current crc value, on the compressed object data
+			# Read it in chunks, without copying the data
+			cur_pos = offset
+			while cur_pos < next_offset:
+				rbound = min(cur_pos + chunk_size, next_offset)
+				size = rbound - cur_pos
+				crc_update(buffer(pack_data, cur_pos, size), this_crc_value)
+				cur_pos += size
+			# END window size loop
+			
+			assert this_crc_value == crc_value
+			return this_crc_value == crc_value
+		else:
+			shawriter = Sha1Writer()
+			stream = self._object(sha, as_stream=True)
+			# write a loose object, which is the basis for the sha
+			write_object(stream.type, stream.size, stream.read, shawriter.write)
+			
+			return shawriter.sha(as_hex=False) == sha
+		# END handle crc/sha verification
+		return True
+
 	def info_iter(self):
 		""":return: Iterator over all objects in this pack. The iterator yields
 			OInfo instances"""
