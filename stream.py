@@ -327,19 +327,15 @@ class DeltaApplyReader(LazyMixin):
 		
 	def _set_cache_(self, attr):
 		"""If we are here, we apply the actual deltas"""
-		# fill in delta info structures, providing the source and target buffer
-		# sizes.
-		buffer_offset_list = list()
-		final_target_size = None
+		
+		# prefetch information
+		buffer_info_list = list()
 		max_target_size = 0
 		for dstream in self._dstreams:
 			buf = dstream.read(512)			# read the header information + X
 			offset, src_size = msb_size(buf)
 			offset, target_size = msb_size(buf, offset)
-			if final_target_size is None:
-				final_target_size = target_size
-			# END set final target size
-			buffer_offset_list.append((buffer(buf, offset), offset))
+			buffer_info_list.append((buffer(buf, offset), offset, src_size, target_size))
 			max_target_size = max(max_target_size, target_size)
 		# END for each delta stream
 		
@@ -358,7 +354,7 @@ class DeltaApplyReader(LazyMixin):
 		# Allocate private memory map big enough to hold the first base buffer
 		# We need random access to it
 		bbuf = allocate_memory(base_size)
-		stream_copy(self._bstream.read, bbuf.write, base_size, 256*mmap.PAGESIZE)
+		stream_copy(self._bstream.read, bbuf.write, base_size, 256 * mmap.PAGESIZE)
 		
 		# allocate memory map large enough for the largest (intermediate) target
 		# We will use it as scratch space for all delta ops. If the final 
@@ -370,7 +366,8 @@ class DeltaApplyReader(LazyMixin):
 		# work on the op-codes to reconstruct everything.
 		# For the actual copying, we use a seek and write pattern of buffer
 		# slices.
-		for (dbuf, offset), dstream in reversed(zip(buffer_offset_list, self._dstreams)):
+		final_target_size = None
+		for (dbuf, offset, src_size, target_size), dstream in reversed(zip(buffer_info_list, self._dstreams)):
 			# allocate a buffer to hold all delta data - fill in the data for 
 			# fast access. We do this as we know that reading individual bytes
 			# from our stream would be slower than necessary ( although possible )
@@ -381,15 +378,16 @@ class DeltaApplyReader(LazyMixin):
 			# read the rest from the stream. The size we give is larger than necessary
 			stream_copy(dstream.read, ddata.write, dstream.size, 256*mmap.PAGESIZE)
 			
-			################################################################
-			apply_delta_data(bbuf, len(bbuf), ddata, len(ddata), tbuf)
-			################################################################
+			#######################################################################
+			apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf, target_size)
+			#######################################################################
 			
 			# finally, swap out source and target buffers. The target is now the 
 			# base for the next delta to apply
 			bbuf, tbuf = tbuf, bbuf
 			bbuf.seek(0)
 			tbuf.seek(0)
+			final_target_size = target_size
 		# END for each delta to apply
 		
 		# its already seeked to 0, constrain it to the actual size

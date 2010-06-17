@@ -63,9 +63,12 @@ class TestGitDBPerformance(TestBigRepoR):
 		# retrieve stream and read all
 		max_items = 5000
 		pdb_stream = pdb.stream
+		total_size = 0
 		st = time()
 		for sha in sha_list[:max_items]:
 			stream = pdb_stream(sha)
 			stream.read()
+			total_size += stream.size
 		elapsed = time() - st
-		print >> sys.stderr, "PDB: Obtained %i streams by sha and read all bytes in %f s ( %f info/s )" % (max_items, elapsed, max_items / elapsed)
+		total_kib = total_size / 1000
+		print >> sys.stderr, "PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" % (max_items, total_kib, total_kib/elapsed , elapsed, max_items / elapsed)
