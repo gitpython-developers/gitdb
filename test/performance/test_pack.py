@@ -10,7 +10,7 @@ import os
 from time import time
 import random
 
-class TestGitDBPerformance(TestBigRepoR):
+class TestPackedDBPerformance(TestBigRepoR):
 	
 	def test_pack_random_access(self):
 		pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
@@ -21,7 +21,6 @@ class TestGitDBPerformance(TestBigRepoR):
 		elapsed = time() - st
 		ns = len(sha_list)
 		print >> sys.stderr, "PDB: looked up %i shas by index in %f s ( %f shas/s )" % (ns, elapsed, ns / elapsed)
-		
 		
 		# sha lookup: best-case and worst case access
 		pdb_pack_info = pdb._pack_info
@@ -39,7 +38,7 @@ class TestGitDBPerformance(TestBigRepoR):
 			
 			# discard cache
 			del(pdb._entities)
-			pdb._entities
+			pdb.entities()
 			print >> sys.stderr, "PDB: looked up %i sha (random=%i) in %f s ( %f shas/s )" % (ns, rand, elapsed, ns / elapsed)
 		# END for each random mode
 		elapsed_order, elapsed_rand = access_times
@@ -71,4 +70,25 @@ class TestGitDBPerformance(TestBigRepoR):
 		elapsed = time() - st
 		total_kib = total_size / 1000
 		print >> sys.stderr, "PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" % (max_items, total_kib, total_kib/elapsed , elapsed, max_items / elapsed)
+		
+	
+		print >> sys.stderr, "Endurance run: verify streaming of %i objects (crc and sha)" % ns
+		for crc in range(2):
+			count = 0
+			st = time()
+			for entity in pdb.entities():
+				pack_verify = entity.is_valid_stream
+				sha_by_index = entity.index().sha
+				for index in xrange(entity.index().size()):
+					try:
+						assert pack_verify(sha_by_index(index), use_crc=crc)
+					except UnsupportedOperation:
+						pass
+					# END ignore old indices
+					count += 1
+				# END for each index
+			# END for each entity
+			elapsed = time() - st
+			print >> sys.stderr, "PDB: verified %i objects (crc=%i) in %f s ( %f objects/s )" % (count, crc, elapsed, count / elapsed)
+		# END for each verify mode
 		

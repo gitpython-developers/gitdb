@@ -157,11 +157,15 @@ class PackedDB(FileDBBase, ObjectDBR, LazyMixin):
 		# reinitialize prioritiess
 		self._sort_entities()
 		return True
+		
+	def entities(self):
+		""":return: list of pack entities operated upon by this database"""
+		return [ item[1] for item in self._entities ]
 	
 	def sha_iter(self):
 		"""Return iterator yielding 20 byte shas for the packed objects in this data base"""
 		sha_list = list()
-		for entity in (item[1] for item in self._entities):
+		for entity in self.entities():
 			index = entity.index()
 			sha_by_index = index.sha
 			for index in xrange(index.size()):
