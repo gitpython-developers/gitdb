@@ -72,7 +72,6 @@ class TestPack(TestBase):
 			stream = pack.stream(obj.pack_offset)
 			
 			assert info.pack_offset == stream.pack_offset
-			assert info.data_offset == stream.data_offset
 			assert info.type_id == stream.type_id
 			assert hasattr(stream, 'read')
 			

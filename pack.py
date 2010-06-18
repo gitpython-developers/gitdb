@@ -55,7 +55,7 @@ __all__ = ('PackIndexFile', 'PackFile', 'PackEntity')
 
 def pack_object_at(data, offset, as_stream):
 	"""
-	:return: PackInfo|PackStream
+	:return: Tuple(abs_data_offset, PackInfo|PackStream)
 		an object of the correct type according to the type_id  of the object.
 		If as_stream is True, the object will contain a stream, allowing  the
 		data to be read decompressed.
@@ -97,14 +97,14 @@ def pack_object_at(data, offset, as_stream):
 	if as_stream:
 		stream = DecompressMemMapReader(buffer(data, total_rela_offset), False, uncomp_size)
 		if delta_info is None:
-			return OPackStream(offset, abs_data_offset, type_id, uncomp_size, stream)
+			return abs_data_offset, OPackStream(offset, type_id, uncomp_size, stream)
 		else:
-			return ODeltaPackStream(offset, abs_data_offset, type_id, uncomp_size, delta_info, stream)
+			return abs_data_offset, ODeltaPackStream(offset, type_id, uncomp_size, delta_info, stream)
 	else:
 		if delta_info is None:
-			return OPackInfo(offset, abs_data_offset, type_id, uncomp_size)
+			return abs_data_offset, OPackInfo(offset, type_id, uncomp_size)
 		else:
-			return ODeltaPackInfo(offset, abs_data_offset, type_id, uncomp_size, delta_info)
+			return abs_data_offset, ODeltaPackInfo(offset, type_id, uncomp_size, delta_info)
 		# END handle info
 	# END handle stream
 		
@@ -278,6 +278,7 @@ class PackIndexFile(LazyMixin):
 			if the sha was not found in this pack index
 		:param sha: 20 byte sha to lookup"""
 		first_byte = ord(sha[0])
+		get_sha = self.sha
 		lo = 0					# lower index, the left bound of the bisection
 		if first_byte != 0:
 			lo = self._fanout_table[first_byte-1]
@@ -286,7 +287,7 @@ class PackIndexFile(LazyMixin):
 		# bisect until we have the sha
 		while lo < hi:
 			mid = (lo + hi) / 2
-			c = cmp(sha, self.sha(mid))
+			c = cmp(sha, get_sha(mid))
 			if c < 0:
 				hi = mid
 			elif not c:
@@ -346,12 +347,12 @@ class PackFile(LazyMixin):
 		
 		null = NullStream()
 		while cur_offset < content_size:
-			ostream = pack_object_at(data, cur_offset, True)
+			data_offset, ostream = pack_object_at(data, cur_offset, True)
 			# scrub the stream to the end - this decompresses the object, but yields
 			# the amount of compressed bytes we need to get to the next offset
 				
 			stream_copy(ostream.read, null.write, ostream.size, chunk_size)
-			cur_offset += (ostream.data_offset - ostream.pack_offset) + ostream.stream.compressed_bytes_read()
+			cur_offset += (data_offset - ostream.pack_offset) + ostream.stream.compressed_bytes_read()
 			
 			
 			# if a stream is requested, reset it beforehand
@@ -399,7 +400,7 @@ class PackFile(LazyMixin):
 		:param offset: specifies the first byte of the object within this pack"""
 		out = list()
 		while True:
-			ostream = pack_object_at(self._data, offset, True)
+			ostream = pack_object_at(self._data, offset, True)[1]
 			out.append(ostream)
 			if ostream.type_id == OFS_DELTA:
 				offset = ostream.pack_offset - ostream.delta_info
@@ -420,13 +421,13 @@ class PackFile(LazyMixin):
 		"""Retrieve information about the object at the given file-absolute offset
 		:param offset: byte offset
 		:return: OPackInfo instance, the actual type differs depending on the type_id attribute"""
-		return pack_object_at(self._data, offset or self.first_object_offset, False)
+		return pack_object_at(self._data, offset or self.first_object_offset, False)[1]
 		
 	def stream(self, offset):
 		"""Retrieve an object at the given file-relative offset as stream along with its information
 		:param offset: byte offset
 		:return: OPackStream instance, the actual type differs depending on the type_id attribute"""
-		return pack_object_at(self._data, offset or self.first_object_offset, True)
+		return pack_object_at(self._data, offset or self.first_object_offset, True)[1]
 		
 	def stream_iter(self, start_offset=0):
 		""":return: iterator yielding OPackStream compatible instances, allowing 

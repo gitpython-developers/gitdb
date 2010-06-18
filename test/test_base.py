@@ -35,14 +35,12 @@ class TestBaseTypes(TestBase):
 		assert pinfo.type == str_blob_type
 		assert pinfo.type_id == blob_id
 		assert pinfo.pack_offset == 0
-		assert pinfo.data_offset == 1
 		
 		dpinfo = ODeltaPackInfo(0, 1, blob_id, s, sha)
 		assert dpinfo.type == str_blob_type
 		assert dpinfo.type_id == blob_id
 		assert dpinfo.delta_info == sha
 		assert dpinfo.pack_offset == 0
-		assert dpinfo.data_offset == 1
 		
 		
 		# test ostream

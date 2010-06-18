@@ -14,7 +14,6 @@ class TestGitDBPerformance(TestBigRepoR):
 	
 	def test_pack_random_access(self):
 		pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
-		assert len(pdb._entities) > 1
 		
 		# sha lookup
 		st = time()
@@ -72,3 +71,4 @@ class TestGitDBPerformance(TestBigRepoR):
 		elapsed = time() - st
 		total_kib = total_size / 1000
 		print >> sys.stderr, "PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" % (max_items, total_kib, total_kib/elapsed , elapsed, max_items / elapsed)
+		
