@@ -12,3 +12,5 @@ class BadObject(ODBError):
 class BadObjectType(ODBError):
 	"""The object had an unsupported type"""
 
+class UnsupportedOperation(ODBError):
+	"""Thrown if the given operation cannot be supported by the object database"""

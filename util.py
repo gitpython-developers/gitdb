@@ -1,7 +1,9 @@
 import binascii
 import os
+import mmap
 import sys
 import errno
+import cStringIO
 
 try:
 	import async.mod.zlib as zlib
@@ -15,6 +17,22 @@ try:
     import hashlib
 except ImportError:
     import sha
+
+try:
+	from struct import unpack_from
+except ImportError:
+	from struct import unpack, calcsize
+	__calcsize_cache = dict()
+	def unpack_from(fmt, data, offset=0):
+		try:
+			size = __calcsize_cache[fmt]
+		except KeyError:
+			size = calcsize(fmt)
+			__calcsize_cache[fmt] = size
+		# END exception handling
+		return unpack(fmt, data[offset : offset + size])
+	# END own unpack_from implementation
+
 
 #{ Globals
 
@@ -61,21 +79,41 @@ def make_sha(source=''):
         sha1 = sha.sha(source)
         return sha1
 
-def stream_copy(source, destination, chunk_size=512*1024):
-	"""Copy all data from the source stream into the destination stream in chunks
-	of size chunk_size
+def allocate_memory(size):
+	""":return: a file-protocol accessible memory block of the given size"""
+	try:
+		return mmap.mmap(-1, size)	# read-write by default
+	except EnvironmentError:
+		# setup real memory instead
+		# this of course may fail if the amount of memory is not available in
+		# one chunk - would only be the case in python 2.4, being more likely on 
+		# 32 bit systems.
+		return cStringIO.StringIO("\0"*size)
+	# END handle memory allocation
 	
-	:return: amount of bytes written"""
-	br = 0
-	while True:
-		chunk = source.read(chunk_size)
-		destination.write(chunk)
-		br += len(chunk)
-		if len(chunk) < chunk_size:
-			break
-	# END reading output stream
-	return br
 
+def file_contents_ro(fd, stream=False, allow_mmap=True):
+	""":return: read-only contents of the file represented by the file descriptor fd
+	:param fd: file descriptor opened for reading
+	:param stream: if False, random access is provided, otherwise the stream interface
+		is provided.
+	:param allow_mmap: if True, its allowed to map the contents into memory, which 
+		allows large files to be handled and accessed efficiently. The file-descriptor
+		will change its position if this is False"""
+	try:
+		if allow_mmap:
+			# supports stream and random access
+			return mmap.mmap(fd, 0, access=mmap.ACCESS_READ)
+	except OSError:
+		pass
+	# END exception handling
+	
+	# read manully
+	contents = os.read(fd, os.fstat(fd).st_size)
+	if stream:
+		return cStringIO.StringIO(contents)
+	return contents
+		
 def to_hex_sha(sha):
 	""":return: hexified version  of sha"""
 	if len(sha) == 40:
@@ -92,6 +130,35 @@ def to_bin_sha(sha):
 
 
 #{ Utilities
+
+class LazyMixin(object):
+	"""
+	Base class providing an interface to lazily retrieve attribute values upon 
+	first access. If slots are used, memory will only be reserved once the attribute
+	is actually accessed and retrieved the first time. All future accesses will 
+	return the cached value as stored in the Instance's dict or slot.
+	"""
+	__slots__ = tuple()
+	
+	def __getattr__(self, attr):
+		"""
+		Whenever an attribute is requested that we do not know, we allow it 
+		to be created and set. Next time the same attribute is reqeusted, it is simply
+		returned from our dict/slots.
+		"""
+		self._set_cache_(attr)
+		# will raise in case the cache was not created
+		return object.__getattribute__(self, attr)
+
+	def _set_cache_(self, attr):
+		""" This method should be overridden in the derived class. 
+		It should check whether the attribute named by attr can be created
+		and cached. Do nothing if you do not know the attribute or call your subclass
+		
+		The derived class may create as many additional attributes as it deems 
+		necessary in case a git command returns more information than represented 
+		in the single attribute."""
+		pass
 
 
 class FDStreamWrapper(object):

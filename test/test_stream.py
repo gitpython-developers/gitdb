@@ -2,7 +2,6 @@
 from lib import (
 		TestBase,
 		DummyStream,
-		DeriveTest, 
 		Sha1Writer, 
 		make_bytes, 
 		make_object
@@ -18,7 +17,6 @@ from gitdb.typ import (
 	str_blob_type
 	)
 
-from cStringIO import StringIO
 import tempfile
 import os
 
@@ -29,50 +27,6 @@ class TestStream(TestBase):
 	"""Test stream classes"""
 	
 	data_sizes = (15, 10000, 1000*1024+512)
-	
-	def test_streams(self):
-		# test info
-		sha = NULL_HEX_SHA
-		s = 20
-		info = OInfo(sha, str_blob_type, s)
-		assert info.sha == sha
-		assert info.type == str_blob_type
-		assert info.size == s
-		
-		# test ostream
-		stream = DummyStream()
-		ostream = OStream(*(info + (stream, )))
-		ostream.read(15)
-		stream._assert()
-		assert stream.bytes == 15
-		ostream.read(20)
-		assert stream.bytes == 20
-		
-		# derive with own args
-		DeriveTest(sha, str_blob_type, s, stream, 'mine',myarg = 3)._assert()
-		
-		# test istream
-		istream = IStream(str_blob_type, s, stream)
-		assert istream.sha == None
-		istream.sha = sha
-		assert istream.sha == sha
-		
-		assert len(istream.binsha) == 20
-		assert len(istream.hexsha) == 40
-		
-		assert istream.size == s
-		istream.size = s * 2
-		istream.size == s * 2
-		assert istream.type == str_blob_type
-		istream.type = "something"
-		assert istream.type == "something"
-		assert istream.stream is stream
-		istream.stream = None
-		assert istream.stream is None
-		
-		assert istream.error is None
-		istream.error = Exception()
-		assert isinstance(istream.error, Exception)
 		
 	def _assert_stream_reader(self, stream, cdata, rewind_stream=lambda s: None):
 		"""Make stream tests - the orig_stream is seekable, allowing it to be 
@@ -95,11 +49,19 @@ class TestStream(TestBase):
 			assert rest == cdata[-len(rest):]
 		# END handle rest
 		
+		if isinstance(stream, DecompressMemMapReader):
+			assert len(stream._m) == stream.compressed_bytes_read()
+		# END handle special type
+		
 		rewind_stream(stream)
 		
 		# read everything
 		rdata = stream.read()
 		assert rdata == cdata
+		
+		if isinstance(stream, DecompressMemMapReader):
+			assert len(stream._m) == stream.compressed_bytes_read()
+		# END handle special type
 		
 	def test_decompress_reader(self):
 		for close_on_deletion in range(2):
@@ -117,6 +79,10 @@ class TestStream(TestBase):
 						type, size, reader = DecompressMemMapReader.new(zdata, close_on_deletion)
 						assert size == len(cdata)
 						assert type == str_blob_type
+						
+						# even if we don't set the size, it will be set automatically on first read
+						test_reader = DecompressMemMapReader(zdata, close_on_deletion=False)
+						assert test_reader._s == len(cdata)
 					else:
 						# here we need content data
 						zdata = zlib.compress(cdata)
@@ -124,15 +90,7 @@ class TestStream(TestBase):
 						assert reader._s == len(cdata)
 					# END get reader 
 					
-					def rewind(r):
-						r._zip = zlib.decompressobj()
-						r._br = r._cws = r._cwe = 0
-						if with_size:
-							r._parse_header_info()
-						# END skip header
-					# END make rewind func
-					
-					self._assert_stream_reader(reader, cdata, rewind)
+					self._assert_stream_reader(reader, cdata, lambda r: r.seek(0))
 					
 					# put in a dummy stream for closing
 					dummy = DummyStream()
@@ -141,7 +99,6 @@ class TestStream(TestBase):
 					assert not dummy.closed
 					del(reader)
 					assert dummy.closed == close_on_deletion
-					#zdi#
 				# END for each datasize
 			# END whether size should be used
 		# END whether stream should be closed when deleted

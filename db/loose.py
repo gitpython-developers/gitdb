@@ -13,10 +13,13 @@ from gitdb.exc import (
 from gitdb.stream import (
 		DecompressMemMapReader,
 		FDCompressedSha1Writer,
-		Sha1Writer,
-		OStream,
-		OInfo
+		Sha1Writer
 	)
+
+from gitdb.base import (
+							OStream,
+							OInfo
+						)
 
 from gitdb.util import (
 		ENOENT,

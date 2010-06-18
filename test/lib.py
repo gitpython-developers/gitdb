@@ -10,6 +10,7 @@ import random
 from array import array
 from cStringIO import StringIO
 
+import glob
 import unittest
 import tempfile
 import shutil
@@ -46,9 +47,45 @@ def with_rw_directory(func):
 	return wrapper
 
 
+def with_packs_rw(func):
+	"""Function that provides a path into which the packs for testing should be 
+	copied. Will pass on the path to the actual function afterwards"""
+	def wrapper(self, path):
+		src_pack_glob = fixture_path('packs/*')
+		copy_files_globbed(src_pack_glob, path, hard_link_ok=True)
+		return func(self, path)
+	# END wrapper
+	
+	wrapper.__name__ = func.__name__
+	return wrapper
+
 #} END decorators
 
 #{ Routines
+
+def fixture_path(relapath=''):
+	""":return: absolute path into the fixture directory
+	:param relapath: relative path into the fixtures directory, or ''
+		to obtain the fixture directory itself"""
+	return os.path.join(os.path.dirname(__file__), 'fixtures', relapath)
+	
+def copy_files_globbed(source_glob, target_dir, hard_link_ok=False):
+	"""Copy all files found according to the given source glob into the target directory
+	:param hard_link_ok: if True, hard links will be created if possible. Otherwise 
+		the files will be copied"""
+	for src_file in glob.glob(source_glob):
+		if hard_link_ok and hasattr(os, 'link'):
+			target = os.path.join(target_dir, os.path.basename(src_file))
+			try:
+				os.link(src_file, target)
+			except OSError:
+				shutil.copy(src_file, target_dir)
+			# END handle cross device links ( and resulting failure )
+		else:
+			shutil.copy(src_file, target_dir)
+		# END try hard link
+	# END for each file to copy
+	
 
 def make_bytes(size_in_bytes, randomize=False):
 	""":return: string with given size in bytes

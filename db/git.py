@@ -1,5 +1,5 @@
 
-from gitdb.stream import (
+from gitdb.base import (
 								OInfo,
 								OStream
 							)
