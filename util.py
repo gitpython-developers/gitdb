@@ -57,6 +57,7 @@ mkdir = os.mkdir
 isdir = os.path.isdir
 rename = os.rename
 dirname = os.path.dirname
+basename = os.path.basename
 join = os.path.join
 read = os.read
 write = os.write

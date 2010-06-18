@@ -3,6 +3,7 @@ from gitdb.test.lib import (
 	with_rw_directory,
 	with_packs_rw,
 	ZippedStoreShaWriter,
+	fixture_path,
 	TestBase
 	)
 

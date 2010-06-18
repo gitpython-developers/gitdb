@@ -1,7 +1,8 @@
 """Module containing a database to deal with packs"""
 from base import (
 						FileDBBase, 
-						ObjectDBR
+						ObjectDBR, 
+						CachingDB
 				)
 
 from gitdb.util import (
@@ -18,13 +19,13 @@ from gitdb.pack import PackEntity
 
 import os
 import glob
-__all__ = ('PackedDB', )
 
+__all__ = ('PackedDB', )
 
 #{ Utilities
 
 
-class PackedDB(FileDBBase, ObjectDBR, LazyMixin):
+class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 	"""A database operating on a set of object packs"""
 	
 	# sort the priority list every N queries
@@ -43,9 +44,10 @@ class PackedDB(FileDBBase, ObjectDBR, LazyMixin):
 		self._st_mtime = 0				# last modification data of our root path
 		
 	def _set_cache_(self, attr):
-		# currently it can only be our _entities attribute
-		self._entities = list()
-		self.update_pack_entity_cache()
+		if attr == '_entities':
+			self._entities = list()
+			self.update_cache()
+		# END handle entities initialization
 		
 	def _sort_entities(self):
 		self._entities.sort(key=lambda l: l[0], reverse=True)
@@ -95,6 +97,20 @@ class PackedDB(FileDBBase, ObjectDBR, LazyMixin):
 	def stream(self, sha):
 		entity, index = self._pack_info(sha)
 		return entity.stream_at_index(index)
+		
+	def sha_iter(self):
+		sha_list = list()
+		for entity in self.entities():
+			index = entity.index()
+			sha_by_index = index.sha
+			for index in xrange(index.size()):
+				yield sha_by_index(index)
+			# END for each index
+		# END for each entity
+	
+	def size(self):
+		sizes = [item[1].index().size() for item in self._entities]
+		return reduce(lambda x,y: x+y, sizes)
 	
 	#} END object db read
 	
@@ -115,7 +131,7 @@ class PackedDB(FileDBBase, ObjectDBR, LazyMixin):
 	
 	#{ Interface 
 	
-	def update_pack_entity_cache(self, force=False):
+	def update_cache(self, force=False):
 		"""Update our cache with the acutally existing packs on disk. Add new ones, 
 		and remove deleted ones. We keep the unchanged ones
 		:param force: If True, the cache will be updated even though the directory
@@ -162,19 +178,4 @@ class PackedDB(FileDBBase, ObjectDBR, LazyMixin):
 		""":return: list of pack entities operated upon by this database"""
 		return [ item[1] for item in self._entities ]
 	
-	def sha_iter(self):
-		"""Return iterator yielding 20 byte shas for the packed objects in this data base"""
-		sha_list = list()
-		for entity in self.entities():
-			index = entity.index()
-			sha_by_index = index.sha
-			for index in xrange(index.size()):
-				yield sha_by_index(index)
-			# END for each index
-		# END for each entity
-	
-	def size(self):
-		""":return: amount of packed objects in this database"""
-		sizes = [item[1].index().size() for item in self._entities]
-		return reduce(lambda x,y: x+y, sizes)
 	#} END interface

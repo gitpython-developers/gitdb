@@ -14,22 +14,22 @@ class TestPackDB(TestDBBase):
 		
 		# on demand, we init our pack cache
 		num_packs = 2
-		assert len(pdb._entities) == num_packs
+		assert len(pdb.entities()) == num_packs
 		assert pdb._st_mtime != 0
 		
 		# test pack directory changed: 
 		# packs removed - rename a file, should affect the glob
-		pack_path = pdb._entities[0][1].pack().path()
+		pack_path = pdb.entities()[0].pack().path()
 		new_pack_path = pack_path + "renamed"
 		os.rename(pack_path, new_pack_path)
 		
-		pdb.update_pack_entity_cache(force=True)
-		assert len(pdb._entities) == num_packs - 1
+		pdb.update_cache(force=True)
+		assert len(pdb.entities()) == num_packs - 1
 		
 		# packs added
 		os.rename(new_pack_path, pack_path)
-		pdb.update_pack_entity_cache(force=True)
-		assert len(pdb._entities) == num_packs
+		pdb.update_cache(force=True)
+		assert len(pdb.entities()) == num_packs
 	
 		# bang on the cache
 		# access the Entities directly, as there is no iteration interface

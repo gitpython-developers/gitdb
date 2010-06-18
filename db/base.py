@@ -9,7 +9,7 @@ from async import (
 	)
 
 
-__all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB')
+__all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB')
 
 
 class ObjectDBR(object):
@@ -66,6 +66,14 @@ class ObjectDBR(object):
 		# base implementation just uses the stream method repeatedly
 		task = ChannelThreadTask(reader, str(self.stream_async), self.stream)
 		return pool.add_task(task)
+	
+	def size(self):
+		""":return: amount of objects in this database"""
+		raise NotImplementedError()
+		
+	def sha_iter(self):
+		"""Return iterator yielding 20 byte shas for all objects in this data base"""
+		raise NotImplementedError()
 			
 	#} END query interface
 	
@@ -150,6 +158,63 @@ class FileDBBase(object):
 	#} END interface
 		
 
-class CompoundDB(ObjectDBR):
-	"""A database which delegates calls to sub-databases"""
-	# TODO
+class CachingDB(object):
+	"""A database which uses caches to speed-up access"""
+	
+	#{ Interface 
+	def update_cache(self, force=False):
+		"""Call this method if the underlying data changed to trigger an update
+		of the internal caching structures.
+		:param force: if True, the update must be performed. Otherwise the implementation
+			may decide not to perform an update if it thinks nothing has changed.
+		:return: True if an update was performed as something change indeed"""
+		
+	# END interface
+
+
+class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
+	"""A database which delegates calls to sub-databases.
+	
+	Databases are stored in the lazy-loaded _dbs attribute.
+	Define _set_cache_ to update it with your databases"""
+	
+	def _set_cache_(self, attr):
+		if attr == '_dbs':
+			self._dbs = list()
+	
+	#{ ObjectDBR interface 
+	
+	def has_object(self, sha):
+		raise NotImplementedError("To be implemented in subclass")
+		
+	def info(self, sha):
+		raise NotImplementedError("To be implemented in subclass")
+		
+	def stream(self, sha):
+		raise NotImplementedError()
+
+	def size(self):
+		raise NotImplementedError()
+		
+	def sha_iter(self):
+		raise NotImplementedError()
+		
+	#} END object DBR Interface
+	
+	#{ Interface
+	
+	def databases(self):
+		""":return: tuple of database instances we use for lookups"""
+		return tuple(self._dbs)
+
+	def update_cache(self, force=False):
+		stat = False
+		for db in self._dbs:
+			if isinstance(db, CachingDB):
+				stat |= db.update_cache(force)
+			# END if is caching db
+		# END for each database to update
+		return stat
+	#} END interface
+		
+

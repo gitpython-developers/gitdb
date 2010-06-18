@@ -24,11 +24,13 @@ from gitdb.base import (
 from gitdb.util import (
 		ENOENT,
 		to_hex_sha,
+		hex_to_bin,
 		exists,
 		isdir,
 		mkdir,
 		rename,
 		dirname,
+		basename,
 		join
 	)
 
@@ -186,4 +188,21 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 		
 		istream.sha = sha
 		return istream
+		
+	def sha_iter(self):
+		# find all files which look like an object, extract sha from there
+		for root, dirs, files in os.walk(self.root_path()):
+			root_base = basename(root)
+			if len(root_base) != 2:
+				continue
+				
+			for f in files:
+				if len(f) != 38:
+					continue
+				yield hex_to_bin(root_base + f)
+			# END for each file
+		# END for each walk iteration
+		
+	def size(self):
+		return len(tuple(self.sha_iter()))
 	

@@ -1,33 +1,49 @@
-
-from gitdb.base import (
-								OInfo,
-								OStream
-							)
+from base import (
+					CompoundDB,
+					FileDBBase,
+				)
 
 from loose import LooseObjectDB
+from pack import PackedDB
+from ref import ReferenceDB
 
-__all__ = ('GitObjectDB', )
+from gitdb.util import LazyMixin
+from gitdb.exc import InvalidDBRoot
+import os
 
-#class GitObjectDB(CompoundDB, ObjectDBW):
-class GitObjectDB(LooseObjectDB):
-	"""A database representing the default git object store, which includes loose 
-	objects, pack files and an alternates file
+__all__ = ('GitDB', )
+
+class GitDB(FileDBBase, CompoundDB):
+	"""A git-style object database, which contains all objects in the 'objects'
+	subdirectory"""
+	# Configuration
+	PackDBCls = PackedDB
+	LooseDBCls = LooseObjectDB
+	ReferenceDBCls = ReferenceDB
 	
-	It will create objects only in the loose object database.
-	:note: for now, we use the git command to do all the lookup, just until he 
-		have packs and the other implementations
-	"""
-	def __init__(self, root_path, git):
-		"""Initialize this instance with the root and a git command"""
-		super(GitObjectDB, self).__init__(root_path)
-		self._git = git
-		
-	def info(self, sha):
-		t = self._git.get_object_header(sha)
-		return OInfo(*t)
-		
-	def stream(self, sha):
-		"""For now, all lookup is done by git itself"""
-		t = self._git.stream_object_data(sha)
-		return OStream(*t)
+	# Directories
+	packs_dir = 'packs'
+	loose_dir = ''
+	alternates_dir = os.path.join('info', 'alternates')
 	
+	def __init__(self, root_path):
+		"""Initialize ourselves on a git objects directory"""
+		super(GitDB, self).__init__(root_path)
+		
+	def _set_cache_(self, attr):
+		if attr == '_dbs':
+			self._dbs = list()
+			for subpath, dbcls in ((self.packs_dir, self.PackDBCls), 
+									(self.loose_dir, self.LooseDBCls),
+									(self.alternates_dir, self.ReferenceDBCls)):
+				path = self.db_path(subpath)
+				if os.path.exists(path):
+					self._dbs.append(dbcls(path))
+				# END check path exists
+			# END for each db type
+			
+			# should have at least one subdb
+			if not self._dbs:
+				raise InvalidDBRoot(self.root_path())
+		# END handle dbs
+		

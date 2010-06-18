@@ -3,6 +3,7 @@ from lib import (
 	TestBigRepoR 
 	)
 
+from gitdb.exc import UnsupportedOperation
 from gitdb.db.pack import PackedDB
 
 import sys
@@ -39,7 +40,7 @@ class TestPackedDBPerformance(TestBigRepoR):
 			# discard cache
 			del(pdb._entities)
 			pdb.entities()
-			print >> sys.stderr, "PDB: looked up %i sha (random=%i) in %f s ( %f shas/s )" % (ns, rand, elapsed, ns / elapsed)
+			print >> sys.stderr, "PDB: looked up %i sha in %i packs (random=%i) in %f s ( %f shas/s )" % (ns, len(pdb.entities()), rand, elapsed, ns / elapsed)
 		# END for each random mode
 		elapsed_order, elapsed_rand = access_times
 		
@@ -82,10 +83,10 @@ class TestPackedDBPerformance(TestBigRepoR):
 				for index in xrange(entity.index().size()):
 					try:
 						assert pack_verify(sha_by_index(index), use_crc=crc)
+						count += 1
 					except UnsupportedOperation:
 						pass
 					# END ignore old indices
-					count += 1
 				# END for each index
 			# END for each entity
 			elapsed = time() - st
