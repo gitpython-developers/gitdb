@@ -23,6 +23,12 @@ from fun import (
 					msb_size
 				)
 
+try:
+	from _fun import PackIndexFile_sha_to_index
+except ImportError:
+	pass
+# END try c module
+
 from base import (		# Amazing !
 						OInfo,
 						OStream,
@@ -297,6 +303,13 @@ class PackIndexFile(LazyMixin):
 			# END handle midpoint
 		# END bisect
 		return None
+	
+	if 'PackIndexFile_sha_to_index' in globals():
+		# NOTE: Its just about 25% faster, the major bottleneck might be the attr 
+		# accesses
+		def sha_to_index(self, sha):
+			return PackIndexFile_sha_to_index(self, sha)
+	# END redefine heavy-hitter with c version  
 	
 	#} END properties
 	
