@@ -1,12 +1,18 @@
 """Contains implementations of database retrieveing objects"""
 from gitdb.util import (
 		pool,
-		join
+		join, 
+		LazyMixin, 
+		to_bin_sha
 	)
+
+from gitdb.exc import BadObject
 
 from async import (
 		ChannelThreadTask
 	)
+
+from itertools import chain
 
 
 __all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB')
@@ -182,22 +188,40 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 		if attr == '_dbs':
 			self._dbs = list()
 	
+	def _db_query(self, sha):
+		""":return: database containing the given 20 or 40 byte sha
+		:raise BadObject:"""
+		# most databases use binary representations, prevent converting 
+		# it everytime a database is being queried
+		sha = to_bin_sha(sha)
+		for db in self._dbs:
+			if db.has_object(sha):
+				return db
+		# END for each database
+		raise BadObject(sha)
+	
 	#{ ObjectDBR interface 
 	
 	def has_object(self, sha):
-		raise NotImplementedError("To be implemented in subclass")
+		try:
+			self._db_query(sha)
+			return True
+		except BadObject:
+			return False
+		# END handle exceptions
 		
 	def info(self, sha):
-		raise NotImplementedError("To be implemented in subclass")
+		return self._db_query(sha).info(sha)
 		
 	def stream(self, sha):
-		raise NotImplementedError()
+		return self._db_query(sha).stream(sha)
 
 	def size(self):
-		raise NotImplementedError()
+		""":return: total size of all contained databases"""
+		return reduce(lambda x,y: x+y, (db.size() for db in self._dbs), 0)
 		
 	def sha_iter(self):
-		raise NotImplementedError()
+		return chain(*(db.sha_iter() for db in self._dbs))
 		
 	#} END object DBR Interface
 	

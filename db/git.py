@@ -1,7 +1,8 @@
 from base import (
-					CompoundDB,
-					FileDBBase,
-				)
+						CompoundDB, 
+						ObjectDBW, 
+						FileDBBase
+					)
 
 from loose import LooseObjectDB
 from pack import PackedDB
@@ -13,7 +14,7 @@ import os
 
 __all__ = ('GitDB', )
 
-class GitDB(FileDBBase, CompoundDB):
+class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 	"""A git-style object database, which contains all objects in the 'objects'
 	subdirectory"""
 	# Configuration
@@ -22,7 +23,7 @@ class GitDB(FileDBBase, CompoundDB):
 	ReferenceDBCls = ReferenceDB
 	
 	# Directories
-	packs_dir = 'packs'
+	packs_dir = 'pack'
 	loose_dir = ''
 	alternates_dir = os.path.join('info', 'alternates')
 	
@@ -31,19 +32,42 @@ class GitDB(FileDBBase, CompoundDB):
 		super(GitDB, self).__init__(root_path)
 		
 	def _set_cache_(self, attr):
-		if attr == '_dbs':
+		if attr == '_dbs' or attr == '_loose_db':
 			self._dbs = list()
+			loose_db = None
 			for subpath, dbcls in ((self.packs_dir, self.PackDBCls), 
 									(self.loose_dir, self.LooseDBCls),
 									(self.alternates_dir, self.ReferenceDBCls)):
 				path = self.db_path(subpath)
 				if os.path.exists(path):
 					self._dbs.append(dbcls(path))
+					if dbcls is self.LooseDBCls:
+						loose_db = self._dbs[-1]
+					# END remember loose db
 				# END check path exists
 			# END for each db type
 			
 			# should have at least one subdb
 			if not self._dbs:
 				raise InvalidDBRoot(self.root_path())
+			# END handle error
+			
+			# we the first one should have the store method
+			assert loose_db is not None and hasattr(loose_db, 'store'), "First database needs store functionality"
+			
+			# finally set the value
+			self._loose_db = loose_db
+			
 		# END handle dbs
 		
+	#{ ObjectDBW interface
+		
+	def store(self, istream):
+		return self._loose_db.store(istream)
+		
+	def ostream(self):
+		return self._loose_db.ostream()
+	
+	def set_ostream(self, ostream):
+		return self._loose_db.set_ostream(ostream)
+	#} END objectdbw interface

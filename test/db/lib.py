@@ -22,7 +22,7 @@ from async import IteratorReader
 from cStringIO import StringIO
 
 
-__all__ = ('TestDBBase', 'with_rw_directory', 'with_packs_rw' )
+__all__ = ('TestDBBase', 'with_rw_directory', 'with_packs_rw', 'fixture_path')
 		
 class TestDBBase(TestBase):
 	"""Base class providing testing routines on databases"""

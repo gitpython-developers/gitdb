@@ -3,7 +3,7 @@ from base import (
 				)
 
 import os
-__all__ = ('CompoundDB', )
+__all__ = ('ReferenceDB', )
 
 class ReferenceDB(CompoundDB):
 	"""A database consisting of database referred to in a file"""
@@ -35,7 +35,7 @@ class ReferenceDB(CompoundDB):
 		ref_paths = list()
 		try:
 			ref_paths = [l.strip() for l in open(self._ref_file, 'r').readlines()]
-		except OSError:
+		except (OSError, IOError):
 			pass
 		# END handle alternates
 		
@@ -55,7 +55,16 @@ class ReferenceDB(CompoundDB):
 		# sort them to maintain order
 		added_paths = sorted(ref_paths_set - cur_ref_paths_set, key=lambda p: ref_paths.index(p))
 		for path in added_paths:
-			self._dbs.append(dbcls(path))
+			try:
+				db = dbcls(path)
+				# force an update to verify path
+				if isinstance(db, CompoundDB):
+					db.databases()
+				# END verification
+				self._dbs.append(db)
+			except Exception, e:
+				# ignore invalid paths or issues
+				pass
 		# END for each path to add
 		
 	def update_cache(self, force=False):

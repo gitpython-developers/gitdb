@@ -110,7 +110,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 	
 	def size(self):
 		sizes = [item[1].index().size() for item in self._entities]
-		return reduce(lambda x,y: x+y, sizes)
+		return reduce(lambda x,y: x+y, sizes, 0)
 	
 	#} END object db read
 	
