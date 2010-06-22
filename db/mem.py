@@ -5,7 +5,11 @@ from base import (
 						ObjectDBW
 					)
 
-from gitdb.base import OStream
+from gitdb.base import (
+							OStream,
+							IStream,
+						)
+
 from gitdb.util import to_bin_sha
 from gitdb.exc import (
 						BadObject,
@@ -15,6 +19,8 @@ from gitdb.stream import (
 							ZippedStoreShaWriter,
 							DecompressMemMapReader,
 						)
+
+from cStringIO import StringIO
 
 __all__ = ("MemoryDB", )
 
@@ -78,3 +84,28 @@ class MemoryDB(ObjectDBR, ObjectDBW):
 		
 	def sha_iter(self):
 		return self._cache.iterkeys()
+		
+		
+	#{ Interface 
+	def stream_copy(self, sha_iter, odb):
+		"""Copy the streams as identified by sha's yielded by sha_iter into the given odb
+		The streams will be copied directly
+		:note: the object will only be written if it did not exist in the target db
+		:return: amount of streams actually copied into odb. If smaller than the amount
+			of input shas, one or more objects did already exist in odb"""
+		count = 0
+		for sha in sha_iter:
+			if odb.has_object(sha):
+				continue
+			# END check object existance
+			
+			ostream = self.stream(sha)
+			# compressed data including header
+			sio = StringIO(ostream.stream.data())
+			istream = IStream(ostream.type, ostream.size, sio, sha)
+			
+			odb.store(istream)
+			count += 1
+		# END for each sha
+		return count
+	#} END interface

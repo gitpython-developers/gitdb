@@ -50,7 +50,7 @@ class TestStream(TestBase):
 		# END handle rest
 		
 		if isinstance(stream, DecompressMemMapReader):
-			assert len(stream._m) == stream.compressed_bytes_read()
+			assert len(stream.data()) == stream.compressed_bytes_read()
 		# END handle special type
 		
 		rewind_stream(stream)
@@ -60,7 +60,7 @@ class TestStream(TestBase):
 		assert rdata == cdata
 		
 		if isinstance(stream, DecompressMemMapReader):
-			assert len(stream._m) == stream.compressed_bytes_read()
+			assert len(stream.data()) == stream.compressed_bytes_read()
 		# END handle special type
 		
 	def test_decompress_reader(self):

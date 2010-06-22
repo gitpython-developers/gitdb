@@ -13,6 +13,7 @@ from gitdb.exc import (
 from gitdb.stream import (
 		DecompressMemMapReader,
 		FDCompressedSha1Writer,
+		FDStream,
 		Sha1Writer
 	)
 
@@ -43,6 +44,7 @@ from gitdb.fun import (
 
 import tempfile
 import mmap
+import sys
 import os
 
 
@@ -153,13 +155,20 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 		if writer is None:
 			# open a tmp file to write the data to
 			fd, tmp_path = tempfile.mkstemp(prefix='obj', dir=self._root_path)
-			writer = FDCompressedSha1Writer(fd)
+			
+			if istream.sha is None:
+				writer = FDCompressedSha1Writer(fd)
+			else:
+				writer = FDStream(fd)
+			# END handle direct stream copies
 		# END handle custom writer
 	
 		try:
 			try:
 				if istream.sha is not None:
-					stream_copy(istream.read, writer.write, istream.size, self.stream_chunk_size)
+					# copy as much as possible, the actual uncompressed item size might
+					# be smaller than the compressed version
+					stream_copy(istream.read, writer.write, sys.maxint, self.stream_chunk_size)
 				else:
 					# write object with header, we have to make a new one
 					write_object(istream.type, istream.size, istream.read, writer.write,
@@ -175,10 +184,15 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 				writer.close()
 		# END assure target stream is closed
 		
-		sha = istream.sha or writer.sha(as_hex=True)
+		hexsha = None
+		if istream.sha:
+			hexsha = istream.hexsha
+		else:
+			hexsha = writer.sha(as_hex=True)
+		# END handle sha
 		
 		if tmp_path:
-			obj_path = self.db_path(self.object_path(sha))
+			obj_path = self.db_path(self.object_path(hexsha))
 			obj_dir = dirname(obj_path)
 			if not isdir(obj_dir):
 				mkdir(obj_dir)
@@ -186,7 +200,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 			rename(tmp_path, obj_path)
 		# END handle dry_run
 		
-		istream.sha = sha
+		istream.sha = hexsha
 		return istream
 		
 	def sha_iter(self):

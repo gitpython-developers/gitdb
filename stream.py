@@ -25,21 +25,6 @@ __all__ = ('DecompressMemMapReader', 'FDCompressedSha1Writer', 'DeltaApplyReader
 
 #{ RO Streams
 
-class NullStream(object):
-	"""A stream that does nothing but providing a stream interface.
-	Use it like /dev/null"""
-	__slots__ = tuple()
-		
-	def read(self, size=0):
-		return ''
-		
-	def close(self):
-		pass
-		
-	def write(self, data):
-		return len(data)
-
-
 class DecompressMemMapReader(LazyMixin):
 	"""Reads data in chunks from a memory map and decompresses it. The client sees 
 	only the uncompressed data, respective file-like read calls are handling on-demand
@@ -113,6 +98,8 @@ class DecompressMemMapReader(LazyMixin):
 		
 		return type, size
 		
+	#{ Interface 
+	
 	@classmethod
 	def new(self, m, close_on_deletion=False):
 		"""Create a new DecompressMemMapReader instance for acting as a read-only stream
@@ -125,6 +112,10 @@ class DecompressMemMapReader(LazyMixin):
 		type, size = inst._parse_header_info()
 		return type, size, inst
 
+	def data(self):
+		""":return: random access compatible data we are working on"""
+		return self._m 
+	
 	def compressed_bytes_read(self):
 		""":return: number of compressed bytes read. This includes the bytes it 
 		took to decompress the header ( if there was one )"""
@@ -170,6 +161,8 @@ class DecompressMemMapReader(LazyMixin):
 		# unused data ends up in the unconsumed tail, which was removed
 		# from the count already
 		return self._cbr
+		
+	#} END interface 
 		
 	def seek(self, offset, whence=os.SEEK_SET):
 		"""Allows to reset the stream to restart reading
@@ -566,5 +559,33 @@ class FDCompressedSha1Writer(Sha1Writer):
 		return close(self.fd)
 
 	#} END stream interface
+
+class FDStream(object):
+	"""Simple wrapper around a file descriptor"""
+	__slots__ = "_fd"
+	def __init__(self, fd):
+		self._fd = fd
+		
+	def write(self, data):
+		return write(self._fd, data)
+		
+	def close(self):
+		close(self._fd)
+	
+	
+
+class NullStream(object):
+	"""A stream that does nothing but providing a stream interface.
+	Use it like /dev/null"""
+	__slots__ = tuple()
+		
+	def read(self, size=0):
+		return ''
+		
+	def close(self):
+		pass
+		
+	def write(self, data):
+		return len(data)
 
 #} END W streams
