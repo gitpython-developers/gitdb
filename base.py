@@ -42,6 +42,16 @@ class OInfo(tuple):
 		return self[0]
 		
 	@property
+	def hexsha(self):
+		""":return: our sha, hex encoded, 40 bytes"""
+		return to_hex_sha(self[0])
+		
+	@property
+	def binsha(self):
+		""":return: our sha as binary, 20 bytes"""
+		return to_bin_sha(self[0])
+		
+	@property
 	def type(self):
 		return self[1]
 	

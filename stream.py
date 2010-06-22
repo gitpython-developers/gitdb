@@ -499,6 +499,39 @@ class Sha1Writer(object):
 	
 	#} END interface 
 
+
+class ZippedStoreShaWriter(Sha1Writer):
+	"""Remembers everything someone writes to it and generates a sha"""
+	__slots__ = ('buf', 'zip')
+	def __init__(self):
+		Sha1Writer.__init__(self)
+		self.buf = StringIO()
+		self.zip = zlib.compressobj(zlib.Z_BEST_SPEED)
+	
+	def __getattr__(self, attr):
+		return getattr(self.buf, attr)
+	
+	def write(self, data):
+		alen = Sha1Writer.write(self, data)
+		self.buf.write(self.zip.compress(data))
+		return alen
+		
+	def close(self):
+		self.buf.write(self.zip.flush())
+		
+	def seek(self, offset, whence=os.SEEK_SET):
+		"""Seeking currently only supports to rewind written data
+		Multiple writes are not supported"""
+		if offset != 0 or whence != os.SEEK_SET:
+			raise ValueError("Can only seek to position 0")
+		# END handle offset
+		self.buf.seek(0)
+		
+	def getvalue(self):
+		""":return: string value from the current stream position to the end"""
+		return self.buf.getvalue()
+
+
 class FDCompressedSha1Writer(Sha1Writer):
 	"""Digests data written to it, making the sha available, then compress the 
 	data and write it to the file descriptor

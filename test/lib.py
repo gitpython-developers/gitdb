@@ -2,7 +2,11 @@
 from gitdb import (
 	OStream, 
 	)
-from gitdb.stream import Sha1Writer
+from gitdb.stream import ( 
+							Sha1Writer, 
+							ZippedStoreShaWriter
+						)
+
 from gitdb.util import zlib
 
 import sys
@@ -139,27 +143,6 @@ class DeriveTest(OStream):
 	def _assert(self):
 		assert self.args
 		assert self.myarg
-
-
-class ZippedStoreShaWriter(Sha1Writer):
-	"""Remembers everything someone writes to it"""
-	__slots__ = ('buf', 'zip')
-	def __init__(self):
-		Sha1Writer.__init__(self)
-		self.buf = StringIO()
-		self.zip = zlib.compressobj(1)	# fastest
-	
-	def __getattr__(self, attr):
-		return getattr(self.buf, attr)
-	
-	def write(self, data):
-		alen = Sha1Writer.write(self, data)
-		self.buf.write(self.zip.compress(data))
-		return alen
-		
-	def close(self):
-		self.buf.write(self.zip.flush())
-
 
 #} END stream utilitiess
 

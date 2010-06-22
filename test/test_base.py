@@ -31,12 +31,12 @@ class TestBaseTypes(TestBase):
 		
 		# test pack info
 		# provides type_id
-		pinfo = OPackInfo(0, 1, blob_id, s)
+		pinfo = OPackInfo(0, blob_id, s)
 		assert pinfo.type == str_blob_type
 		assert pinfo.type_id == blob_id
 		assert pinfo.pack_offset == 0
 		
-		dpinfo = ODeltaPackInfo(0, 1, blob_id, s, sha)
+		dpinfo = ODeltaPackInfo(0, blob_id, s, sha)
 		assert dpinfo.type == str_blob_type
 		assert dpinfo.type_id == blob_id
 		assert dpinfo.delta_info == sha

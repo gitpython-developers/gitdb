@@ -20,6 +20,7 @@ from gitdb.typ import str_blob_type
 
 from async import IteratorReader
 from cStringIO import StringIO
+from struct import pack
 
 
 __all__ = ('TestDBBase', 'with_rw_directory', 'with_packs_rw', 'fixture_path')
@@ -29,8 +30,34 @@ class TestDBBase(TestBase):
 	
 	# data
 	two_lines = "1234\nhello world"
-	
 	all_data = (two_lines, )
+	
+	def _assert_object_writing_simple(self, db):
+		# write a bunch of objects and query their streams and info
+		null_objs = db.size()
+		ni = 250
+		for i in xrange(ni):
+			data = pack(">L", i)
+			istream = IStream(str_blob_type, len(data), StringIO(data))
+			new_istream = db.store(istream)
+			assert new_istream is istream
+			assert db.has_object(istream.sha)
+			
+			info = db.info(istream.sha)
+			assert isinstance(info, OInfo)
+			assert info.type == istream.type and info.size == istream.size
+			
+			stream = db.stream(istream.sha)
+			assert isinstance(stream, OStream)
+			assert stream.sha == info.sha and stream.type == info.type
+			assert stream.read() == data
+		# END for each item
+		
+		assert db.size() == null_objs + ni
+		shas = list(db.sha_iter())
+		assert len(shas) == db.size()
+		assert len(shas[0]) == 20
+		
 	
 	def _assert_object_writing(self, db):
 		"""General tests to verify object writing, compatible to ObjectDBW
