@@ -88,4 +88,14 @@ class TestUtils(TestBase):
 		finally:
 			os.remove(my_file)
 		# END final cleanup
+		
+		# try non-existing file for reading
+		lfd = LockedFD(tempfile.mktemp())
+		try:
+			lfd.open(write=False)
+		except OSError:
+			assert not os.path.exists(lfd._lockfilepath())
+		else:
+			self.fail("expected OSError")
+		# END handle exceptions
 

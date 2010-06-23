@@ -161,35 +161,6 @@ class LazyMixin(object):
 		in the single attribute."""
 		pass
 
-
-class FDStreamWrapper(object):
-	"""A simple wrapper providing the most basic functions on a file descriptor 
-	with the fileobject interface. Cannot use os.fdopen as the resulting stream
-	takes ownership"""
-	__slots__ = ("_fd", '_pos')
-	def __init__(self, fd):
-		self._fd = fd
-		self._pos = 0
-		
-	def write(self, data):
-		self._pos += len(data)
-		os.write(self._fd, data)
-	
-	def read(self, count=0):
-		if count == 0:
-			count = os.path.getsize(self._filepath)
-		# END handle read everything
-			
-		bytes = os.read(self._fd, count)
-		self._pos += len(bytes)
-		return bytes
-		
-	def fileno(self):
-		return self._fd
-		
-	def tell(self):
-		return self._pos
-			
 	
 class LockedFD(object):
 	"""This class facilitates a safe read and write operation to a file on disk.
@@ -240,7 +211,7 @@ class LockedFD(object):
 		binary = getattr(os, 'O_BINARY', 0)
 		lockmode = 	os.O_WRONLY | os.O_CREAT | os.O_EXCL | binary
 		try:
-			fd = os.open(self._lockfilepath(), lockmode)
+			fd = os.open(self._lockfilepath(), lockmode, 0600)
 			if not write:
 				os.close(fd)
 			else:
@@ -253,11 +224,19 @@ class LockedFD(object):
 		# open actual file if required
 		if self._fd is None:
 			# we could specify exlusive here, as we obtained the lock anyway
-			self._fd = os.open(self._filepath, os.O_RDONLY | binary)
+			try:
+				self._fd = os.open(self._filepath, os.O_RDONLY | binary)
+			except:
+				# assure we release our lockfile
+				os.remove(self._lockfilepath())
+				raise
+			# END handle lockfile
 		# END open descriptor for reading
 		
 		if stream:
-			return FDStreamWrapper(self._fd)
+			# need delayed import
+			from stream import FDStream
+			return FDStream(self._fd)
 		else:
 			return self._fd
 		# END handle stream

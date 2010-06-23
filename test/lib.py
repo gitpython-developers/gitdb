@@ -38,11 +38,12 @@ def with_rw_directory(func):
 		path = tempfile.mktemp(prefix=func.__name__)
 		os.mkdir(path)
 		try:
-			return func(self, path)
-		except Exception:
-			print >> sys.stderr, "Test %s.%s failed, output is at %r" % (type(self).__name__, func.__name__, path)
-			raise
-		else:
+			try:
+				return func(self, path)
+			except Exception:
+				print >> sys.stderr, "Test %s.%s failed, output is at %r" % (type(self).__name__, func.__name__, path)
+				raise
+		finally:
 			shutil.rmtree(path)
 		# END handle exception
 	# END wrapper

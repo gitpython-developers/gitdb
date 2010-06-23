@@ -174,15 +174,15 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 					write_object(istream.type, istream.size, istream.read, writer.write,
 									chunk_size=self.stream_chunk_size)
 				# END handle direct stream copies
-			except:
+			finally:
 				if tmp_path:
-					os.remove(tmp_path)
-				raise
-			# END assure tmpfile removal on error
-		finally:
+					writer.close()
+			# END assure target stream is closed
+		except:
 			if tmp_path:
-				writer.close()
-		# END assure target stream is closed
+				os.remove(tmp_path)
+			raise
+		# END assure tmpfile removal on error
 		
 		hexsha = None
 		if istream.sha:
