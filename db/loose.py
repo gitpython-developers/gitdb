@@ -23,6 +23,7 @@ from gitdb.base import (
 						)
 
 from gitdb.util import (
+		file_contents_ro_filepath,
 		ENOENT,
 		to_hex_sha,
 		hex_to_bin,
@@ -100,12 +101,12 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 		:raise BadObject: if object could not be located"""
 		db_path = self.db_path(self.object_path(to_hex_sha(sha)))
 		try:
-			fd = os.open(db_path, os.O_RDONLY|self._fd_open_flags)
+			return file_contents_ro_filepath(db_path, flags=self._fd_open_flags)
 		except OSError,e:
 			if e.errno != ENOENT:
 				# try again without noatime
 				try:
-					fd = os.open(db_path, os.O_RDONLY)
+					return file_contents_ro_filepath(db_path)
 				except OSError:
 					raise BadObject(to_hex_sha(sha))
 				# didn't work because of our flag, don't try it again

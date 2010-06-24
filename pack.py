@@ -5,10 +5,9 @@ from gitdb.exc import (
 						)
 from util import (
 					zlib,
-					LockedFD,
 					LazyMixin,
 					unpack_from,
-					file_contents_ro,
+					file_contents_ro_filepath,
 					)
 
 from fun import (
@@ -140,10 +139,10 @@ class PackIndexFile(LazyMixin):
 		elif attr == "_packfile_checksum":
 			self._packfile_checksum = self._data[-20:]
 		elif attr == "_data":
-			lfd = LockedFD(self._indexpath)
-			fd = lfd.open()
-			self._data = file_contents_ro(fd)
-			lfd.rollback()
+			# Note: We don't lock the file when reading as we cannot be sure
+			# that we can actually write to the location - it could be a read-only
+			# alternate for instance
+			self._data = file_contents_ro_filepath(self._indexpath)
 		else:
 			# now its time to initialize everything - if we are here, someone wants
 			# to access the fanout table or related properties
@@ -337,10 +336,7 @@ class PackFile(LazyMixin):
 		
 	def _set_cache_(self, attr):
 		if attr == '_data':
-			ldb = LockedFD(self._packpath)
-			fd = ldb.open()
-			self._data = file_contents_ro(fd)
-			ldb.rollback()
+			self._data = file_contents_ro_filepath(self._packpath)
 			
 			# read the header information
 			type_id, self._version, self._size = unpack_from(">4sLL", self._data, 0)
