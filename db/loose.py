@@ -28,6 +28,7 @@ from gitdb.util import (
 		to_hex_sha,
 		hex_to_bin,
 		exists,
+		chmod,
 		isdir,
 		mkdir,
 		rename,
@@ -199,6 +200,10 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 				mkdir(obj_dir)
 			# END handle destination directory
 			rename(tmp_path, obj_path)
+			
+			# make sure its readable for all ! It started out as rw-- tmp file
+			# but needs to be rrr
+			chmod(obj_path, 0444)
 		# END handle dry_run
 		
 		istream.sha = hexsha

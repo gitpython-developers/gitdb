@@ -54,6 +54,7 @@ ENOENT = errno.ENOENT
 # os shortcuts
 exists = os.path.exists
 mkdir = os.mkdir
+chmod = os.chmod
 isdir = os.path.isdir
 rename = os.rename
 dirname = os.path.dirname
@@ -291,6 +292,9 @@ class LockedFD(object):
 				# END remove if exists
 			# END win32 special handling
 			os.rename(lockfile, self._filepath)
+			
+			# assure others can at least read the file - the tmpfile left it at rw--
+			chmod(self._filepath, 0444)
 		else:
 			# just delete the file so far, we failed
 			os.remove(lockfile)
