@@ -1,6 +1,7 @@
 """Performance data streaming performance"""
 from lib import TestBigRepoR
 from gitdb.db import *
+from gitdb.base import *
 from gitdb.stream import *
 from gitdb.util import pool
 from gitdb.typ import str_blob_type

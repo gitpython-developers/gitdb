@@ -46,7 +46,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 	def _set_cache_(self, attr):
 		if attr == '_entities':
 			self._entities = list()
-			self.update_cache()
+			self.update_cache(force=True)
 		# END handle entities initialization
 		
 	def _sort_entities(self):

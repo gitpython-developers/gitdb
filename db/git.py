@@ -57,8 +57,9 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 			
 			# finally set the value
 			self._loose_db = loose_db
-			
-		# END handle dbs
+		else:
+			super(GitDB, self)._set_cache_(attr)
+		# END handle attrs
 		
 	#{ ObjectDBW interface
 		

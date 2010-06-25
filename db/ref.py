@@ -21,7 +21,9 @@ class ReferenceDB(CompoundDB):
 		if attr == '_dbs':
 			self._dbs = list()
 			self._update_dbs_from_ref_file()
-		# END handle dbs
+		else:
+			super(ReferenceDB, self)._set_cache_(attr)
+		# END handle attrs
 		
 	def _update_dbs_from_ref_file(self):
 		dbcls = self.ObjectDBCls

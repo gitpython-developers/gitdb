@@ -183,10 +183,13 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 	
 	Databases are stored in the lazy-loaded _dbs attribute.
 	Define _set_cache_ to update it with your databases"""
-	
 	def _set_cache_(self, attr):
 		if attr == '_dbs':
 			self._dbs = list()
+		elif attr == '_db_cache':
+			self._db_cache = dict()
+		else:
+			super(CompoundDB, self)._set_cache_(attr)
 	
 	def _db_query(self, sha):
 		""":return: database containing the given 20 or 40 byte sha
@@ -194,8 +197,15 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 		# most databases use binary representations, prevent converting 
 		# it everytime a database is being queried
 		sha = to_bin_sha(sha)
+		try:
+			return self._db_cache[sha]
+		except KeyError:
+			pass
+		# END first level cache
+		
 		for db in self._dbs:
 			if db.has_object(sha):
+				self._db_cache[sha] = db
 				return db
 		# END for each database
 		raise BadObject(sha)
@@ -232,6 +242,8 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 		return tuple(self._dbs)
 
 	def update_cache(self, force=False):
+		# something might have changed, clear everything
+		self._db_cache.clear()
 		stat = False
 		for db in self._dbs:
 			if isinstance(db, CachingDB):

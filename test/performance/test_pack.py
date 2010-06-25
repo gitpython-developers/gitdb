@@ -72,8 +72,10 @@ class TestPackedDBPerformance(TestBigRepoR):
 		total_kib = total_size / 1000
 		print >> sys.stderr, "PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" % (max_items, total_kib, total_kib/elapsed , elapsed, max_items / elapsed)
 		
-	
-		print >> sys.stderr, "Endurance run: verify streaming of %i objects (crc and sha)" % ns
+	def _disabled_test_correctness(self):
+		pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
+		# disabled for now as it used to work perfectly, checking big repositories takes a long time
+		print >> sys.stderr, "Endurance run: verify streaming of objects (crc and sha)"
 		for crc in range(2):
 			count = 0
 			st = time()
