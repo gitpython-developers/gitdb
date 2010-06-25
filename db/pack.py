@@ -5,10 +5,7 @@ from base import (
 						CachingDB
 				)
 
-from gitdb.util import (
-							to_bin_sha, 
-							LazyMixin
-						)
+from gitdb.util import LazyMixin
 
 from gitdb.exc import (
 							BadObject,
@@ -65,7 +62,6 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 			self._sort_entities()
 		# END update sorting
 		
-		sha = to_bin_sha(sha)
 		for item in self._entities:
 			index = item[2](sha)
 			if index is not None:

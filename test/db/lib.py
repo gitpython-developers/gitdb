@@ -41,15 +41,15 @@ class TestDBBase(TestBase):
 			istream = IStream(str_blob_type, len(data), StringIO(data))
 			new_istream = db.store(istream)
 			assert new_istream is istream
-			assert db.has_object(istream.sha)
+			assert db.has_object(istream.binsha)
 			
-			info = db.info(istream.sha)
+			info = db.info(istream.binsha)
 			assert isinstance(info, OInfo)
 			assert info.type == istream.type and info.size == istream.size
 			
-			stream = db.stream(istream.sha)
+			stream = db.stream(istream.binsha)
 			assert isinstance(stream, OStream)
-			assert stream.sha == info.sha and stream.type == info.type
+			assert stream.binsha == info.binsha and stream.type == info.type
 			assert stream.read() == data
 		# END for each item
 		
@@ -80,10 +80,10 @@ class TestDBBase(TestBase):
 				
 				# store returns same istream instance, with new sha set
 				my_istream = db.store(istream)
-				sha = istream.sha
+				sha = istream.binsha
 				assert my_istream is istream
 				assert db.has_object(sha) != dry_run
-				assert len(sha) == 40		# for now we require 40 byte shas as default
+				assert len(sha) == 20	
 				
 				# verify data - the slow way, we want to run code
 				if not dry_run:
@@ -107,12 +107,12 @@ class TestDBBase(TestBase):
 					# identical to what we fed in
 					ostream.seek(0)
 					istream.stream = ostream
-					assert istream.sha is not None
-					prev_sha = istream.sha
+					assert istream.binsha is not None
+					prev_sha = istream.binsha
 					
 					db.set_ostream(ZippedStoreShaWriter())
 					db.store(istream)
-					assert istream.sha == prev_sha
+					assert istream.binsha == prev_sha
 					new_ostream = db.ostream()
 					
 					# note: only works as long our store write uses the same compression
@@ -143,12 +143,12 @@ class TestDBBase(TestBase):
 		
 		for stream in istreams:
 			assert stream.error is None
-			assert len(stream.sha) == 40
+			assert len(stream.binsha) == 20
 			assert isinstance(stream, IStream)
 		# END assert each stream
 		
 		# test has-object-async - we must have all previously added ones
-		reader = IteratorReader( istream.sha for istream in istreams )
+		reader = IteratorReader( istream.binsha for istream in istreams )
 		hasobject_reader = db.has_object_async(reader)
 		count = 0
 		for sha, has_object in hasobject_reader:
@@ -158,7 +158,7 @@ class TestDBBase(TestBase):
 		assert count == ni
 		
 		# read the objects we have just written
-		reader = IteratorReader( istream.sha for istream in istreams )
+		reader = IteratorReader( istream.binsha for istream in istreams )
 		ostream_reader = db.stream_async(reader)
 		
 		# read items individually to prevent hitting possible sys-limits
@@ -171,7 +171,7 @@ class TestDBBase(TestBase):
 		assert count == ni
 		
 		# get info about our items
-		reader = IteratorReader( istream.sha for istream in istreams )
+		reader = IteratorReader( istream.binsha for istream in istreams )
 		info_reader = db.info_async(reader)
 		
 		count = 0
@@ -186,7 +186,7 @@ class TestDBBase(TestBase):
 		# add 2500 items, and obtain their output streams
 		nni = 2500
 		reader = IteratorReader(istream_generator(offset=ni, ni=nni))
-		istream_to_sha = lambda istreams: [ istream.sha for istream in istreams ]
+		istream_to_sha = lambda istreams: [ istream.binsha for istream in istreams ]
 		
 		istream_reader = db.store_async(reader)
 		istream_reader.set_post_cb(istream_to_sha)

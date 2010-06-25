@@ -2,8 +2,7 @@
 from gitdb.util import (
 		pool,
 		join, 
-		LazyMixin, 
-		to_bin_sha
+		LazyMixin 
 	)
 
 from gitdb.exc import BadObject
@@ -20,8 +19,7 @@ __all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB')
 
 class ObjectDBR(object):
 	"""Defines an interface for object database lookup.
-	Objects are identified either by hex-sha (40 bytes) or 
-	by sha (20 bytes)"""
+	Objects are identified either by their 20 byte bin sha"""
 	
 	def __contains__(self, sha):
 		return self.has_obj
@@ -29,14 +27,14 @@ class ObjectDBR(object):
 	#{ Query Interface 
 	def has_object(self, sha):
 		"""
-		:return: True if the object identified by the given 40 byte hexsha or 20 bytes
+		:return: True if the object identified by the given 20 bytes
 			binary sha is contained in the database"""
 		raise NotImplementedError("To be implemented in subclass")
 		
 	def has_object_async(self, reader):
 		"""Return a reader yielding information about the membership of objects
 		as identified by shas
-		:param reader: Reader yielding 20 byte or 40 byte shas.
+		:param reader: Reader yielding 20 byte shas.
 		:return: async.Reader yielding tuples of (sha, bool) pairs which indicate
 			whether the given sha exists in the database or not"""
 		task = ChannelThreadTask(reader, str(self.has_object_async), lambda sha: (sha, self.has_object(sha)))
@@ -44,7 +42,7 @@ class ObjectDBR(object):
 		
 	def info(self, sha):
 		""" :return: OInfo instance
-		:param sha: 40 bytes hexsha or 20 bytes binary sha
+		:param sha: bytes binary sha
 		:raise BadObject:"""
 		raise NotImplementedError("To be implemented in subclass")
 		
@@ -57,7 +55,7 @@ class ObjectDBR(object):
 		
 	def stream(self, sha):
 		""":return: OStream instance
-		:param sha: 40 bytes hexsha or 20 bytes binary sha
+		:param sha: 20 bytes binary sha
 		:raise BadObject:"""
 		raise NotImplementedError("To be implemented in subclass")
 		
@@ -192,11 +190,10 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 			super(CompoundDB, self)._set_cache_(attr)
 	
 	def _db_query(self, sha):
-		""":return: database containing the given 20 or 40 byte sha
+		""":return: database containing the given 20 byte sha
 		:raise BadObject:"""
 		# most databases use binary representations, prevent converting 
 		# it everytime a database is being queried
-		sha = to_bin_sha(sha)
 		try:
 			return self._db_cache[sha]
 		except KeyError:

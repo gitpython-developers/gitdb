@@ -10,7 +10,6 @@ from gitdb.base import (
 							IStream,
 						)
 
-from gitdb.util import to_bin_sha
 from gitdb.exc import (
 						BadObject,
 						UnsupportedOperation
@@ -54,7 +53,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
 		# don't provide a size, the stream is written in object format, hence the 
 		# header needs decompression
 		decomp_stream = DecompressMemMapReader(zstream.getvalue(), close_on_deletion=False) 
-		self._cache[istream.binsha] = OStream(istream.sha, istream.type, istream.size, decomp_stream)
+		self._cache[istream.binsha] = OStream(istream.binsha, istream.type, istream.size, decomp_stream)
 		
 		return istream
 		
@@ -62,14 +61,13 @@ class MemoryDB(ObjectDBR, ObjectDBW):
 		raise UnsupportedOperation("MemoryDBs cannot currently be used for async write access")
 	
 	def has_object(self, sha):
-		return to_bin_sha(sha) in self._cache
+		return sha in self._cache
 
 	def info(self, sha):
 		# we always return streams, which are infos as well
 		return self.stream(sha)
 	
 	def stream(self, sha):
-		sha = to_bin_sha(sha)
 		try:
 			ostream = self._cache[sha]
 			# rewind stream for the next one to read

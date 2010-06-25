@@ -66,6 +66,7 @@ close = os.close
 
 # constants
 NULL_HEX_SHA = "0"*40
+NULL_BIN_SHA = "\0"*20
 
 #} END Aliases
 

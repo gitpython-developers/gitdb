@@ -134,8 +134,8 @@ class TestPack(TestBase):
 			count = 0
 			for info, stream in izip(entity.info_iter(), entity.stream_iter()):
 				count += 1
-				assert info.sha == stream.sha
-				assert len(info.sha) == 20
+				assert info.binsha == stream.binsha
+				assert len(info.binsha) == 20
 				assert info.type_id == stream.type_id
 				assert info.size == stream.size
 				
@@ -143,17 +143,17 @@ class TestPack(TestBase):
 				assert not info.type_id in delta_types
 				
 				# try all calls
-				assert len(entity.collect_streams(info.sha))
-				assert isinstance(entity.info(info.sha), OInfo)
-				assert isinstance(entity.stream(info.sha), OStream)
+				assert len(entity.collect_streams(info.binsha))
+				assert isinstance(entity.info(info.binsha), OInfo)
+				assert isinstance(entity.stream(info.binsha), OStream)
 				
 				# verify the stream
 				try:
-					assert entity.is_valid_stream(info.sha, use_crc=True)
+					assert entity.is_valid_stream(info.binsha, use_crc=True)
 				except UnsupportedOperation:
 					pass
 				# END ignore version issues
-				assert entity.is_valid_stream(info.sha, use_crc=False)
+				assert entity.is_valid_stream(info.binsha, use_crc=False)
 			# END for each info, stream tuple
 			assert count == size
 			
