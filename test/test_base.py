@@ -7,7 +7,7 @@ from lib import (
 
 from gitdb import *
 from gitdb.util import (
-	NULL_HEX_SHA
+	NULL_BIN_SHA
 	)
 
 from gitdb.typ import (
@@ -19,12 +19,12 @@ class TestBaseTypes(TestBase):
 	
 	def test_streams(self):
 		# test info
-		sha = NULL_HEX_SHA
+		sha = NULL_BIN_SHA
 		s = 20
 		blob_id = 3
 		
 		info = OInfo(sha, str_blob_type, s)
-		assert info.sha == sha
+		assert info.binsha == sha
 		assert info.type == str_blob_type
 		assert info.type_id == blob_id
 		assert info.size == s
@@ -72,9 +72,9 @@ class TestBaseTypes(TestBase):
 		
 		# test istream
 		istream = IStream(str_blob_type, s, stream)
-		assert istream.sha == None
-		istream.sha = sha
-		assert istream.sha == sha
+		assert istream.binsha == None
+		istream.binsha = sha
+		assert istream.binsha == sha
 		
 		assert len(istream.binsha) == 20
 		assert len(istream.hexsha) == 40

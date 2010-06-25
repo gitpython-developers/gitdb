@@ -3,7 +3,10 @@ from lib import TestBigRepoR
 from gitdb.db import *
 from gitdb.base import *
 from gitdb.stream import *
-from gitdb.util import pool
+from gitdb.util import (
+							pool,
+							bin_to_hex
+						)
 from gitdb.typ import str_blob_type
 from gitdb.fun import chunk_size
 
@@ -73,10 +76,10 @@ class TestObjDBPerformance(TestBigRepoR):
 			
 			# writing - due to the compression it will seem faster than it is 
 			st = time()
-			sha = ldb.store(IStream('blob', size, stream)).sha
+			sha = ldb.store(IStream('blob', size, stream)).binsha
 			elapsed_add = time() - st
 			assert ldb.has_object(sha)
-			db_file = ldb.readable_db_object_path(sha)
+			db_file = ldb.readable_db_object_path(bin_to_hex(sha))
 			fsize_kib = os.path.getsize(db_file) / 1000
 			
 			
@@ -151,7 +154,7 @@ class TestObjDBPerformance(TestBigRepoR):
 		# chunk size is not important as the stream will not really be decompressed
 		
 		# until its read
-		istream_reader = IteratorReader(iter([ i.sha for i in istreams ]))
+		istream_reader = IteratorReader(iter([ i.binsha for i in istreams ]))
 		ostream_reader = ldb.stream_async(istream_reader)
 		
 		chunk_task = TestStreamReader(ostream_reader, "chunker", None)
@@ -172,7 +175,7 @@ class TestObjDBPerformance(TestBigRepoR):
 		istream_reader = ldb.store_async(reader)
 		istream_reader.task().max_chunksize = 1
 		
-		istream_to_sha = lambda items: [ i.sha for i in items ]
+		istream_to_sha = lambda items: [ i.binsha for i in items ]
 		istream_reader.set_post_cb(istream_to_sha)
 		
 		ostream_reader = ldb.stream_async(istream_reader)

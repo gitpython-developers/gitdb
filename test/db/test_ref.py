@@ -1,6 +1,11 @@
 from lib import *
 from gitdb.db import ReferenceDB
-		
+
+from gitdb.util import (
+						NULL_BIN_SHA,
+						hex_to_bin
+						)
+
 import os
 		
 class TestReferenceDB(TestDBBase):
@@ -15,8 +20,7 @@ class TestReferenceDB(TestDBBase):
 	
 	@with_rw_directory
 	def test_writing(self, path):
-		null_sha_bin = '\0'  * 20
-		null_sha_hex = "0" * 40
+		NULL_BIN_SHA = '\0'  * 20
 		
 		alt_path = os.path.join(path, 'alternates')
 		rdb = ReferenceDB(alt_path)
@@ -25,8 +29,7 @@ class TestReferenceDB(TestDBBase):
 		assert len(list(rdb.sha_iter())) == 0
 		
 		# try empty, non-existing
-		assert not rdb.has_object(null_sha_hex)
-		assert not rdb.has_object(null_sha_bin)
+		assert not rdb.has_object(NULL_BIN_SHA)
 		
 		
 		# setup alternate file
@@ -37,7 +40,7 @@ class TestReferenceDB(TestDBBase):
 		assert len(rdb.databases()) == 1
 		
 		# we should now find a default revision of ours
-		gitdb_sha = "5690fd0d3304f378754b23b098bd7cb5f4aa1976"
+		gitdb_sha = hex_to_bin("5690fd0d3304f378754b23b098bd7cb5f4aa1976")
 		assert rdb.has_object(gitdb_sha)
 		
 		# remove valid

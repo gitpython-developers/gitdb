@@ -25,8 +25,8 @@ from gitdb.base import (
 from gitdb.util import (
 		file_contents_ro_filepath,
 		ENOENT,
-		to_hex_sha,
 		hex_to_bin,
+		bin_to_hex,
 		exists,
 		chmod,
 		isdir,
@@ -100,7 +100,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 		"""
 		:return: memory map of that file to allow random read access
 		:raise BadObject: if object could not be located"""
-		db_path = self.db_path(self.object_path(to_hex_sha(sha)))
+		db_path = self.db_path(self.object_path(bin_to_hex(sha)))
 		try:
 			return file_contents_ro_filepath(db_path, flags=self._fd_open_flags)
 		except OSError,e:
@@ -109,11 +109,11 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 				try:
 					return file_contents_ro_filepath(db_path)
 				except OSError:
-					raise BadObject(to_hex_sha(sha))
+					raise BadObject(sha)
 				# didn't work because of our flag, don't try it again
 				self._fd_open_flags = 0
 			else:
-				raise BadObject(to_hex_sha(sha))
+				raise BadObject(sha)
 			# END handle error
 		# END exception handling
 		try:
@@ -144,7 +144,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 		
 	def has_object(self, sha):
 		try:
-			self.readable_db_object_path(to_hex_sha(sha))
+			self.readable_db_object_path(bin_to_hex(sha))
 			return True
 		except BadObject:
 			return False
@@ -158,7 +158,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 			# open a tmp file to write the data to
 			fd, tmp_path = tempfile.mkstemp(prefix='obj', dir=self._root_path)
 			
-			if istream.sha is None:
+			if istream.binsha is None:
 				writer = FDCompressedSha1Writer(fd)
 			else:
 				writer = FDStream(fd)
@@ -167,7 +167,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 	
 		try:
 			try:
-				if istream.sha is not None:
+				if istream.binsha is not None:
 					# copy as much as possible, the actual uncompressed item size might
 					# be smaller than the compressed version
 					stream_copy(istream.read, writer.write, sys.maxint, self.stream_chunk_size)
@@ -187,7 +187,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 		# END assure tmpfile removal on error
 		
 		hexsha = None
-		if istream.sha:
+		if istream.binsha:
 			hexsha = istream.hexsha
 		else:
 			hexsha = writer.sha(as_hex=True)
@@ -206,7 +206,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 			chmod(obj_path, 0444)
 		# END handle dry_run
 		
-		istream.sha = hexsha
+		istream.binsha = hex_to_bin(hexsha)
 		return istream
 		
 	def sha_iter(self):

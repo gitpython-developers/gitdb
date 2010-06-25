@@ -1,7 +1,6 @@
 """Module with basic data structures - they are designed to be lightweight and fast"""
 from util import (
-		to_hex_sha,
-		to_bin_sha,
+		bin_to_hex,
 		zlib
 	)
 
@@ -17,13 +16,13 @@ __all__ = ('OInfo', 'OPackInfo', 'ODeltaPackInfo',
 #{ ODB Bases
 
 class OInfo(tuple):
-	"""Carries information about an object in an ODB, provdiing information 
-	about the sha of the object, the type_string as well as the uncompressed size
+	"""Carries information about an object in an ODB, provding information 
+	about the binary sha of the object, the type_string as well as the uncompressed size
 	in bytes.
 	
 	It can be accessed using tuple notation and using attribute access notation::
 	
-		assert dbi[0] == dbi.sha
+		assert dbi[0] == dbi.binsha
 		assert dbi[1] == dbi.type
 		assert dbi[2] == dbi.size
 	
@@ -38,18 +37,14 @@ class OInfo(tuple):
 	
 	#{ Interface 
 	@property
-	def sha(self):
+	def binsha(self):
+		""":return: our sha as binary, 20 bytes"""
 		return self[0]
-		
+	
 	@property
 	def hexsha(self):
 		""":return: our sha, hex encoded, 40 bytes"""
-		return to_hex_sha(self[0])
-		
-	@property
-	def binsha(self):
-		""":return: our sha as binary, 20 bytes"""
-		return to_bin_sha(self[0])
+		return bin_to_hex(self[0])
 		
 	@property
 	def type(self):
@@ -197,16 +192,10 @@ class IStream(list):
 		list.__init__(self, (sha, type, size, stream, None))
 	
 	#{ Interface 
-	
 	@property
 	def hexsha(self):
 		""":return: our sha, hex encoded, 40 bytes"""
-		return to_hex_sha(self[0])
-		
-	@property
-	def binsha(self):
-		""":return: our sha as binary, 20 bytes"""
-		return to_bin_sha(self[0])
+		return bin_to_hex(self[0])
 		
 	def _error(self):
 		""":return: the error that occurred when processing the stream, or None"""
@@ -231,13 +220,13 @@ class IStream(list):
 	
 	#{  interface
 	
-	def _set_sha(self, sha):
-		self[0] = sha
+	def _set_binsha(self, binsha):
+		self[0] = binsha
 		
-	def _sha(self):
+	def _binsha(self):
 		return self[0]
 		
-	sha = property(_sha, _set_sha)
+	binsha = property(_binsha, _set_binsha)
 	
 	
 	def _type(self):
@@ -280,8 +269,12 @@ class InvalidOInfo(tuple):
 		tuple.__init__(self, (sha, exc))
 	
 	@property
-	def sha(self):
+	def binsha(self):
 		return self[0]
+		
+	@property
+	def hexsha(self):
+		return bin_to_hex(self[0])
 		
 	@property
 	def error(self):

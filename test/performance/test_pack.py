@@ -56,7 +56,7 @@ class TestPackedDBPerformance(TestBigRepoR):
 			for sha in sha_list[:max_items]:
 				pdb_fun(sha)
 			elapsed = time() - st
-			print >> sys.stderr, "PDB: Obtained %i object %s by sha in %f s ( %f info/s )" % (max_items, pdb_fun.__name__.upper(), elapsed, max_items / elapsed)
+			print >> sys.stderr, "PDB: Obtained %i object %s by sha in %f s ( %f items/s )" % (max_items, pdb_fun.__name__.upper(), elapsed, max_items / elapsed)
 		# END for each function
 		
 		# retrieve stream and read all
