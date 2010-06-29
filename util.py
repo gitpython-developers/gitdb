@@ -56,6 +56,7 @@ exists = os.path.exists
 mkdir = os.mkdir
 chmod = os.chmod
 isdir = os.path.isdir
+isfile = os.path.isfile
 rename = os.rename
 dirname = os.path.dirname
 basename = os.path.basename
@@ -288,7 +289,7 @@ class LockedFD(object):
 		if self._write and successful:
 			# on windows, rename does not silently overwrite the existing one
 			if sys.platform == "win32":
-				if os.path.isfile(self._filepath):
+				if isfile(self._filepath):
 					os.remove(self._filepath)
 				# END remove if exists
 			# END win32 special handling

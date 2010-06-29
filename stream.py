@@ -249,9 +249,7 @@ class DecompressMemMapReader(LazyMixin):
 		
 		# get the actual window end to be sure we don't use it for computations
 		self._cwe = self._cws + len(indata)
-		
 		dcompdat = self._zip.decompress(indata, size)
-		
 		# update the amount of compressed bytes read
 		# We feed possibly overlapping chunks, which is why the unconsumed tail
 		# has to be taken into consideration, as well as the unused data
@@ -269,7 +267,7 @@ class DecompressMemMapReader(LazyMixin):
 		# Note: dcompdat can be empty even though we still appear to have bytes
 		# to read, if we are called by compressed_bytes_read - it manipulates
 		# us to empty the stream
-		if dcompdat and len(dcompdat) < size and self._br < self._s:
+		if dcompdat and (len(dcompdat) - len(dat)) < size and self._br < self._s:
 			dcompdat += self.read(size-len(dcompdat))
 		# END handle special case
 		return dcompdat

@@ -4,12 +4,14 @@ from lib import (
 		DummyStream,
 		Sha1Writer, 
 		make_bytes, 
-		make_object
+		make_object,
+		fixture_path
 	)
 
 from gitdb import *
 from gitdb.util import (
-	NULL_HEX_SHA
+	NULL_HEX_SHA,
+	hex_to_bin
 	)
 
 from gitdb.util import zlib
@@ -135,4 +137,11 @@ class TestStream(TestBase):
 			os.remove(path)
 		# END for each os
 	
-
+	def test_decompress_reader_special_case(self):
+		odb = LooseObjectDB(fixture_path('objects'))
+		ostream = odb.stream(hex_to_bin('7bb839852ed5e3a069966281bb08d50012fb309b'))
+		
+		# if there is a bug, we will be missing one byte exactly !
+		data = ostream.read()
+		assert len(data) == ostream.size
+		
