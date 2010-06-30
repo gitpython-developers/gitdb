@@ -90,7 +90,9 @@ class ObjectDBW(object):
 	
 	#{ Edit Interface
 	def set_ostream(self, stream):
-		"""Adjusts the stream to which all data should be sent when storing new objects
+		"""
+		Adjusts the stream to which all data should be sent when storing new objects
+		
 		:param stream: if not None, the stream to use, if None the default stream
 			will be used.
 		:return: previously installed stream, or None if there was no override
@@ -100,13 +102,16 @@ class ObjectDBW(object):
 		return cstream
 		
 	def ostream(self):
-		""":return: overridden output stream this instance will write to, or None
+		"""
+		:return: overridden output stream this instance will write to, or None
 			if it will write to the default stream"""
 		return self._ostream
 	
 	def store(self, istream):
-		"""Create a new object in the database
+		"""
+		Create a new object in the database
 		:return: the input istream object with its sha set to its corresponding value
+		
 		:param istream: IStream compatible instance. If its sha is already set 
 			to a value, the object will just be stored in the our database format, 
 			in which case the input stream is expected to be in object format ( header + contents ).
@@ -114,16 +119,19 @@ class ObjectDBW(object):
 		raise NotImplementedError("To be implemented in subclass")
 	
 	def store_async(self, reader):
-		"""Create multiple new objects in the database asynchronously. The method will 
+		"""
+		Create multiple new objects in the database asynchronously. The method will 
 		return right away, returning an output channel which receives the results as 
 		they are computed.
 		
 		:return: Channel yielding your IStream which served as input, in any order.
 			The IStreams sha will be set to the sha it received during the process, 
 			or its error attribute will be set to the exception informing about the error.
+			
 		:param reader: async.Reader yielding IStream instances.
 			The same instances will be used in the output channel as were received
 			in by the Reader.
+		
 		:note:As some ODB implementations implement this operation atomic, they might 
 			abort the whole operation if one item could not be processed. Hence check how 
 			many items have actually been produced."""
@@ -167,8 +175,10 @@ class CachingDB(object):
 	
 	#{ Interface 
 	def update_cache(self, force=False):
-		"""Call this method if the underlying data changed to trigger an update
+		"""
+		Call this method if the underlying data changed to trigger an update
 		of the internal caching structures.
+		
 		:param force: if True, the update must be performed. Otherwise the implementation
 			may decide not to perform an update if it thinks nothing has changed.
 		:return: True if an update was performed as something change indeed"""

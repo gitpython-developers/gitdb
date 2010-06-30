@@ -383,8 +383,9 @@ class PackFile(LazyMixin):
 		return self._version
 		
 	def data(self):
-		""":return: read-only data of this pack. It provides random access and usually
-		is a memory map"""
+		"""
+		:return: read-only data of this pack. It provides random access and usually
+			is a memory map"""
 		return self._data
 		
 	def checksum(self):
@@ -428,19 +429,22 @@ class PackFile(LazyMixin):
 	
 	def info(self, offset):
 		"""Retrieve information about the object at the given file-absolute offset
+		
 		:param offset: byte offset
 		:return: OPackInfo instance, the actual type differs depending on the type_id attribute"""
 		return pack_object_at(self._data, offset or self.first_object_offset, False)[1]
 		
 	def stream(self, offset):
 		"""Retrieve an object at the given file-relative offset as stream along with its information
+		
 		:param offset: byte offset
 		:return: OPackStream instance, the actual type differs depending on the type_id attribute"""
 		return pack_object_at(self._data, offset or self.first_object_offset, True)[1]
 		
 	def stream_iter(self, start_offset=0):
-		""":return: iterator yielding OPackStream compatible instances, allowing 
-		to access the data in the pack directly.
+		"""
+		:return: iterator yielding OPackStream compatible instances, allowing 
+			to access the data in the pack directly.
 		:param start_offset: offset to the first object to iterate. If 0, iteration 
 			starts at the very first object in the pack.
 		:note: Iterating a pack directly is costly as the datastream has to be decompressed
@@ -555,6 +559,7 @@ class PackEntity(LazyMixin):
 	
 	def info(self, sha):
 		"""Retrieve information about the object identified by the given sha
+		
 		:param sha: 20 byte sha1
 		:raise BadObject:
 		:return: OInfo instance, with 20 byte sha"""
@@ -562,6 +567,7 @@ class PackEntity(LazyMixin):
 		
 	def stream(self, sha):
 		"""Retrieve an object stream along with its information as identified by the given sha
+		
 		:param sha: 20 byte sha1
 		:raise BadObject: 
 		:return: OStream instance, with 20 byte sha"""
@@ -589,15 +595,18 @@ class PackEntity(LazyMixin):
 		return self._index
 		
 	def is_valid_stream(self, sha, use_crc=False):
-		"""Verify that the stream at the given sha is valid.
-		:param sha: 20 byte sha1 of the object whose stream to verify
+		"""
+		Verify that the stream at the given sha is valid.
+		
 		:param use_crc: if True, the index' crc for the sha is used to determine
-			whether the compressed stream of the object is valid. If it is 
+		:param sha: 20 byte sha1 of the object whose stream to verify
+		whether the compressed stream of the object is valid. If it is 
 			a delta, this only verifies that the delta's data is valid, not the 
 			data of the actual undeltified object, as it depends on more than 
 			just this stream.
 			If False, the object will be decompressed and the sha generated. It must
 			match the given sha
+			
 		:return: True if the stream is valid
 		:raise UnsupportedOperation: If the index is version 1 only
 		:raise BadObject: sha was not found"""
@@ -639,18 +648,22 @@ class PackEntity(LazyMixin):
 		return True
 
 	def info_iter(self):
-		""":return: Iterator over all objects in this pack. The iterator yields
+		"""
+		:return: Iterator over all objects in this pack. The iterator yields
 			OInfo instances"""
 		return self._iter_objects(as_stream=False)
 		
 	def stream_iter(self):
-		""":return: iterator over all objects in this pack. The iterator yields
-		OStream instances"""
+		"""
+		:return: iterator over all objects in this pack. The iterator yields
+			OStream instances"""
 		return self._iter_objects(as_stream=True)
 		
 	def collect_streams_at_offset(self, offset):
-		"""As the version in the PackFile, but can resolve REF deltas within this pack
+		"""
+		As the version in the PackFile, but can resolve REF deltas within this pack
 		For more info, see ``collect_streams``
+		
 		:param offset: offset into the pack file at which the object can be found"""
 		streams = self._pack.collect_streams(offset)
 		
@@ -678,11 +691,13 @@ class PackEntity(LazyMixin):
 		return streams
 		
 	def collect_streams(self, sha):
-		"""As ``PackFile.collect_streams``, but takes a sha instead of an offset.
+		"""
+		As ``PackFile.collect_streams``, but takes a sha instead of an offset.
 		Additionally, ref_delta streams will be resolved within this pack.
 		If this is not possible, the stream will be left alone, hence it is adivsed
 		to check for unresolved ref-deltas and resolve them before attempting to 
 		construct a delta stream.
+		
 		:param sha: 20 byte sha1 specifying the object whose related streams you want to collect
 		:return: list of streams, first being the actual object delta, the last being 
 			a possibly unresolved base object.

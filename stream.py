@@ -77,6 +77,7 @@ class DecompressMemMapReader(LazyMixin):
 	def _parse_header_info(self):
 		"""If this stream contains object data, parse the header info and skip the 
 		stream to a point where each read will yield object content
+		
 		:return: parsed type_string, size"""
 		# read header
 		maxb = 512				# should really be enough, cgit uses 8192 I believe
@@ -105,6 +106,7 @@ class DecompressMemMapReader(LazyMixin):
 		"""Create a new DecompressMemMapReader instance for acting as a read-only stream
 		This method parses the object header from m and returns the parsed 
 		type and size, as well as the created stream instance.
+		
 		:param m: memory map on which to oparate. It must be object data ( header + contents )
 		:param close_on_deletion: if True, the memory map will be closed once we are 
 			being deleted"""
@@ -117,8 +119,9 @@ class DecompressMemMapReader(LazyMixin):
 		return self._m 
 	
 	def compressed_bytes_read(self):
-		""":return: number of compressed bytes read. This includes the bytes it 
-		took to decompress the header ( if there was one )"""
+		"""
+		:return: number of compressed bytes read. This includes the bytes it 
+			took to decompress the header ( if there was one )"""
 		# ABSTRACT: When decompressing a byte stream, it can be that the first
 		# x bytes which were requested match the first x bytes in the loosely 
 		# compressed datastream. This is the worst-case assumption that the reader
@@ -406,6 +409,7 @@ class DeltaApplyReader(LazyMixin):
 		
 	def seek(self, offset, whence=os.SEEK_SET):
 		"""Allows to reset the stream to restart reading
+		
 		:raise ValueError: If offset and whence are not 0"""
 		if offset != 0 or whence != os.SEEK_SET:
 			raise ValueError("Can only seek to position 0")
@@ -417,11 +421,14 @@ class DeltaApplyReader(LazyMixin):
 	
 	@classmethod
 	def new(cls, stream_list):
-		"""Convert the given list of streams into a stream which resolves deltas
+		"""
+		Convert the given list of streams into a stream which resolves deltas
 		when reading from it.
+		
 		:param stream_list: two or more stream objects, first stream is a Delta
 			to the object that you want to resolve, followed by N additional delta
 			streams. The list's last stream must be a non-delta stream.
+			
 		:return: Non-Delta OPackStream object whose stream can be used to obtain 
 			the decompressed resolved data
 		:raise ValueError: if the stream list cannot be handled"""
@@ -526,6 +533,7 @@ class ZippedStoreShaWriter(Sha1Writer):
 class FDCompressedSha1Writer(Sha1Writer):
 	"""Digests data written to it, making the sha available, then compress the 
 	data and write it to the file descriptor
+	
 	:note: operates on raw file descriptors
 	:note: for this to work, you have to use the close-method of this instance"""
 	__slots__ = ("fd", "sha1", "zip")
