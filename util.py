@@ -154,25 +154,26 @@ def to_bin_sha(sha):
 
 class LazyMixin(object):
 	"""
-	Base class providing an interface to lazily retrieve attribute values upon 
+	Base class providing an interface to lazily retrieve attribute values upon
 	first access. If slots are used, memory will only be reserved once the attribute
-	is actually accessed and retrieved the first time. All future accesses will 
+	is actually accessed and retrieved the first time. All future accesses will
 	return the cached value as stored in the Instance's dict or slot.
 	"""
+	
 	__slots__ = tuple()
 	
 	def __getattr__(self, attr):
 		"""
 		Whenever an attribute is requested that we do not know, we allow it 
 		to be created and set. Next time the same attribute is reqeusted, it is simply
-		returned from our dict/slots.
-		"""
+		returned from our dict/slots. """
 		self._set_cache_(attr)
 		# will raise in case the cache was not created
 		return object.__getattribute__(self, attr)
 
 	def _set_cache_(self, attr):
-		""" This method should be overridden in the derived class. 
+		"""
+		This method should be overridden in the derived class. 
 		It should check whether the attribute named by attr can be created
 		and cached. Do nothing if you do not know the attribute or call your subclass
 		
@@ -183,7 +184,8 @@ class LazyMixin(object):
 
 	
 class LockedFD(object):
-	"""This class facilitates a safe read and write operation to a file on disk.
+	"""
+	This class facilitates a safe read and write operation to a file on disk.
 	If we write to 'file', we obtain a lock file at 'file.lock' and write to 
 	that instead. If we succeed, the lock file will be renamed to overwrite 
 	the original file.
@@ -212,7 +214,9 @@ class LockedFD(object):
 		return "%s.lock" % self._filepath
 		
 	def open(self, write=False, stream=False):
-		"""Open the file descriptor for reading or writing, both in binary mode.
+		"""
+		Open the file descriptor for reading or writing, both in binary mode.
+		
 		:param write: if True, the file descriptor will be opened for writing. Other
 			wise it will be opened read-only.
 		:param stream: if True, the file descriptor will be wrapped into a simple stream 

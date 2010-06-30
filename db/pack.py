@@ -128,8 +128,10 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 	#{ Interface 
 	
 	def update_cache(self, force=False):
-		"""Update our cache with the acutally existing packs on disk. Add new ones, 
+		"""
+		Update our cache with the acutally existing packs on disk. Add new ones, 
 		and remove deleted ones. We keep the unchanged ones
+		
 		:param force: If True, the cache will be updated even though the directory
 			does not appear to have changed according to its modification timestamp.
 		:return: True if the packs have been updated so there is new information, 
