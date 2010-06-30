@@ -1,0 +1,53 @@
+"""Module with examples from the tutorial section of the docs"""
+from lib import *
+from gitdb import IStream
+from gitdb.db import LooseObjectDB
+from gitdb.util import pool
+		
+from cStringIO import StringIO
+
+from async import IteratorReader
+		
+class TestExamples(TestBase):
+	
+	def test_base(self):
+		ldb = LooseObjectDB(fixture_path("../../.git/objects"))
+		
+		for sha1 in ldb.sha_iter():
+			oinfo = ldb.info(sha1)
+			ostream = ldb.stream(sha1)
+			assert oinfo[:3] == ostream[:3]
+			
+			assert len(ostream.read()) == ostream.size
+			assert ldb.has_object(oinfo.binsha)
+		# END for each sha in database
+		
+		data = "my data"
+		istream = IStream("blob", len(data), StringIO(data))
+		
+		# the object does not yet have a sha
+		assert istream.binsha is None
+		ldb.store(istream)
+		# now the sha is set
+		assert len(istream.binsha) == 20
+		assert ldb.has_object(istream.binsha)
+		
+		
+		# async operation
+		# Create a reader from an iterator
+		reader = IteratorReader(ldb.sha_iter())
+		
+		# get reader for object streams
+		info_reader = ldb.stream_async(reader)
+		
+		# read one
+		info = info_reader.read(1)[0]
+		
+		# read all the rest until depletion
+		ostreams = info_reader.read()
+		
+		# set the pool to use two threads
+		pool.set_size(2)
+		
+		# synchronize the mode of operation
+		pool.set_size(0)

@@ -1,4 +1,4 @@
-.. _api_reference_toplevel:
+.. _api-label:
 
 #############
 API Reference
