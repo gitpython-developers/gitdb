@@ -1,3 +1,6 @@
+MANIFEST
+build/
+dist/
 *.pyc
 *.o
 *.so

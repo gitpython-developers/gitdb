@@ -26,4 +26,16 @@ Getting Started
 ===============
 It is advised to have a look at the :ref:`Usage Guide <tutorial-label>` for a brief introduction on the different database implementations.
     
+=================
+Source Repository
+=================
+The latest source can be cloned using git from one of the following locations:
+
+ * git://gitorious.org/git-python/gitdb.git
+ * git://github.com/Byron/gitdb.git
+
+License Information
+===================
+*GitDB* is licensed under the New BSD License.
+
 .. _setuptools: http://peak.telecommunity.com/DevCenter/setuptools

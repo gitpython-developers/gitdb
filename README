@@ -1,4 +1,4 @@
-GtDB
+GitDB
 =====
 
 GitDB allows you to access bare git repositories for reading and writing. It 
