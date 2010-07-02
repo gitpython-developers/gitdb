@@ -19,6 +19,7 @@ from gitdb.typ import (
 	str_blob_type
 	)
 
+import time
 import tempfile
 import os
 
@@ -125,12 +126,14 @@ class TestStream(TestBase):
 			# for now, just a single write, code doesn't care about chunking
 			assert len(data) == ostream.write(data)
 			ostream.close()
+		
 			# its closed already
 			self.failUnlessRaises(OSError, os.close, fd)
 			
 			# read everything back, compare to data we zip
-			fd = os.open(path, os.O_RDONLY)
+			fd = os.open(path, os.O_RDONLY|getattr(os, 'O_BINARY', 0))
 			written_data = os.read(fd, os.path.getsize(path))
+			assert len(written_data) == os.path.getsize(path)
 			os.close(fd)
 			assert written_data == zlib.compress(data, 1)	# best speed
 			

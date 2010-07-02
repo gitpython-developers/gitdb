@@ -30,6 +30,8 @@ from gitdb.util import (
 		exists,
 		chmod,
 		isdir,
+		isfile,
+		remove,
 		mkdir,
 		rename,
 		dirname,
@@ -60,6 +62,12 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 	# chunks in which data will be copied between streams
 	stream_chunk_size = chunk_size
 	
+	# On windows we need to keep it writable, otherwise it cannot be removed
+	# either
+	new_objects_mode = 0444
+	if os.name == 'nt':
+		new_objects_mode = 0644
+			
 	
 	def __init__(self, root_path):
 		super(LooseObjectDB, self).__init__(root_path)
@@ -199,11 +207,15 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 			if not isdir(obj_dir):
 				mkdir(obj_dir)
 			# END handle destination directory
+			# rename onto existing doesn't work on windows
+			if os.name == 'nt' and isfile(obj_path):
+				remove(obj_path)
+			# END handle win322
 			rename(tmp_path, obj_path)
 			
 			# make sure its readable for all ! It started out as rw-- tmp file
-			# but needs to be rrr
-			chmod(obj_path, 0444)
+			# but needs to be rwrr
+			chmod(obj_path, self.new_objects_mode)
 		# END handle dry_run
 		
 		istream.binsha = hex_to_bin(hexsha)

@@ -58,12 +58,14 @@ chmod = os.chmod
 isdir = os.path.isdir
 isfile = os.path.isfile
 rename = os.rename
+remove = os.remove
 dirname = os.path.dirname
 basename = os.path.basename
 join = os.path.join
 read = os.read
 write = os.write
 close = os.close
+fsync = os.fsync
 
 # constants
 NULL_HEX_SHA = "0"*40
@@ -128,7 +130,7 @@ def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
 	:note: for now we don't try to use O_NOATIME directly as the right value needs to be 
 		shared per database in fact. It only makes a real difference for loose object 
 		databases anyway, and they use it with the help of the ``flags`` parameter"""
-	fd = os.open(filepath, os.O_RDONLY|flags)
+	fd = os.open(filepath, os.O_RDONLY|getattr(os, 'O_BINARY', 0)|flags)
 	try:
 		return file_contents_ro(fd, stream, allow_mmap)
 	finally:
@@ -300,7 +302,9 @@ class LockedFD(object):
 			os.rename(lockfile, self._filepath)
 			
 			# assure others can at least read the file - the tmpfile left it at rw--
-			chmod(self._filepath, 0444)
+			# We may also write that file, on windows that boils down to a remove-
+			# protection as well
+			chmod(self._filepath, 0644)
 		else:
 			# just delete the file so far, we failed
 			os.remove(lockfile)

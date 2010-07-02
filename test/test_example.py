@@ -21,6 +21,9 @@ class TestExamples(TestBase):
 			assert len(ostream.read()) == ostream.size
 			assert ldb.has_object(oinfo.binsha)
 		# END for each sha in database
+		# assure we close all files
+		del(ostream)
+		del(oinfo)
 		
 		data = "my data"
 		istream = IStream("blob", len(data), StringIO(data))
