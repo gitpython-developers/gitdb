@@ -516,6 +516,9 @@ class PackEntity(LazyMixin):
 		# its a little bit redundant here, but it needs to be efficient
 		if index < 0:
 			index = self._sha_to_index(sha)
+		if sha is None:
+			sha = self._index.sha(index)
+		# END assure sha is present ( in output )
 		offset = self._index.offset(index)
 		type_id, uncomp_size, data_rela_offset = pack_object_header_info(buffer(self._pack._data, offset))
 		if as_stream:
@@ -551,7 +554,6 @@ class PackEntity(LazyMixin):
 			# collect the streams to obtain the actual object type
 			if streams[-1].type_id in delta_types:
 				raise BadObject(sha, "Could not resolve delta object")
-				
 			return OInfo(sha, streams[-1].type, target_size) 
 		# END handle stream
 	

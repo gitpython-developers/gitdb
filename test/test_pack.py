@@ -144,8 +144,12 @@ class TestPack(TestBase):
 				
 				# try all calls
 				assert len(entity.collect_streams(info.binsha))
-				assert isinstance(entity.info(info.binsha), OInfo)
-				assert isinstance(entity.stream(info.binsha), OStream)
+				oinfo = entity.info(info.binsha)
+				assert isinstance(oinfo, OInfo)
+				assert oinfo.binsha is not None
+				ostream = entity.stream(info.binsha)
+				assert isinstance(ostream, OStream)
+				assert ostream.binsha is not None
 				
 				# verify the stream
 				try:
