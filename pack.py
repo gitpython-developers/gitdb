@@ -302,7 +302,53 @@ class PackIndexFile(LazyMixin):
 			# END handle midpoint
 		# END bisect
 		return None
-	
+		
+	def partial_sha_to_index(self, partial_sha):
+		""":return: index as in `sha_to_index` or None if the sha was not found in this
+		index file
+		:param partial_sha: an at least two bytes of a partial sha
+		:raise AmbiguousObjectName:"""
+		if len(partial_sha) < 2:
+			raise ValueError("Require at least 2 bytes of partial sha")
+		
+		first_byte = ord(partial_sha[0])
+		get_sha = self.sha
+		lo = 0					# lower index, the left bound of the bisection
+		if first_byte != 0:
+			lo = self._fanout_table[first_byte-1]
+		hi = self._fanout_table[first_byte]		# the upper, right bound of the bisection
+		
+		len_partial = len(partial_sha)
+		# fill the partial to full 20 bytes
+		filled_sha = partial_sha + '\0'*(20 - len_partial)
+		
+		# find lowest 
+		while lo < hi:
+			mid = (lo + hi) / 2
+			c = cmp(filled_sha, get_sha(mid))
+			if c < 0:
+				hi = mid
+			elif not c:
+				# perfect match
+				lo = mid
+				break
+			else:
+				lo = mid + 1
+			# END handle midpoint
+		# END bisect
+		if lo < self.size:
+			cur_sha = get_sha(lo)
+			if cur_sha[:len_partial] == partial_sha:
+				next_sha = None
+				if lo+1 < self.size:
+					next_sha = get_sha(lo+1)
+				if next_sha and next_sha == cur_sha:
+					raise AmbiguousObjectName(partial_sha)
+				return lo
+			# END if we have a match
+		# END if we found something
+		return None
+		
 	if 'PackIndexFile_sha_to_index' in globals():
 		# NOTE: Its just about 25% faster, the major bottleneck might be the attr 
 		# accesses

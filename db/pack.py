@@ -10,6 +10,7 @@ from gitdb.util import LazyMixin
 from gitdb.exc import (
 							BadObject,
 							UnsupportedOperation,
+							AmbiguousObjectName
 						)
 
 from gitdb.pack import PackEntity
@@ -175,5 +176,26 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 	def entities(self):
 		""":return: list of pack entities operated upon by this database"""
 		return [ item[1] for item in self._entities ]
+		
+	def partial_to_complete_sha(self, partial_binsha):
+		""":return: 20 byte sha as inferred by the given partial binary sha
+		:raise AmbiguousObjectName: 
+		:raise BadObject: """
+		candidate = None
+		for item in self._entities:
+			item_index = item[1].index().partial_sha_to_index(partial_binsha)
+			if item_index is not None:
+				sha = item[1].index().sha(item_index)
+				if candidate and candidate != sha:
+					raise AmbiguousObjectName(partial_binsha)
+				candidate = sha
+			# END handle full sha could be found
+		# END for each entity
+		
+		if candidate:
+			return candidate
+		
+		# still not found ?
+		raise BadObject(partial_binsha)
 	
 	#} END interface

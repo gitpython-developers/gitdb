@@ -2,6 +2,8 @@ from lib import *
 from gitdb.db import PackedDB
 from gitdb.test.lib import fixture_path
 
+from gitdb.exc import BadObject, AmbiguousObjectName
+
 import os
 import random
 
@@ -44,3 +46,25 @@ class TestPackDB(TestDBBase):
 			info = pdb.info(sha)
 			stream = pdb.stream(sha)
 		# END for each sha to query
+		
+		
+		# test short finding - be a bit more brutal here
+		max_bytes = 19
+		min_bytes = 2
+		num_ambiguous = 0
+		for i, sha in enumerate(sha_list):
+			short_sha = sha[:max((i % max_bytes), min_bytes)]
+			try:
+				assert pdb.partial_to_complete_sha(short_sha) == sha
+			except AmbiguousObjectName:
+				num_ambiguous += 1
+				pass # valid, we can have short objects
+			# END exception handling
+		# END for each sha to find
+		
+		# we should have at least one ambiguous, considering the small sizes
+		# but in our pack, there is no ambigious ... 
+		# assert num_ambiguous
+		
+		# non-existing
+		self.failUnlessRaises(BadObject, pdb.partial_to_complete_sha, "\0\0")

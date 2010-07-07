@@ -9,10 +9,32 @@ from pack import PackedDB
 from ref import ReferenceDB
 
 from gitdb.util import LazyMixin
-from gitdb.exc import InvalidDBRoot
+from gitdb.exc import (
+						InvalidDBRoot, 
+						BadObject, 
+						AmbiguousObjectName
+						)
 import os
 
+from gitdb.util import hex_to_bin
+
 __all__ = ('GitDB', )
+
+
+def _databases_recursive(database, output):
+	"""Fill output list with database from db, in order. Deals with Loose, Packed 
+	and compound databases."""
+	if isinstance(database, CompoundDB):
+		compounds = list()
+		dbs = database.databases()
+		output.extend(db for db in dbs if not isinstance(db, CompoundDB))
+		for cdb in (db for db in dbs if isinstance(db, CompoundDB)):
+			_databases_recursive(cdb, output)
+	else:
+		output.append(database)
+	# END handle database type
+	
+
 
 class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 	"""A git-style object database, which contains all objects in the 'objects'
@@ -71,4 +93,45 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 	
 	def set_ostream(self, ostream):
 		return self._loose_db.set_ostream(ostream)
+		
 	#} END objectdbw interface
+	
+	#{ Interface 
+	
+	def partial_to_complete_sha_hex(self, partial_hexsha):
+		"""
+		:return: 20 byte binary sha1 from the given less-than-40 byte hexsha
+		:param partial_hexsha: hexsha with less than 40 byte
+		:raise AmbiguousObjectName: """
+		databases = list()
+		_databases_recursive(self, databases)
+		
+		if len(partial_hexsha) % 2 != 0:
+			partial_binsha = hex_to_bin(partial_hexsha + "0")
+		else:
+			partial_binsha = hex_to_bin(partial_hexsha)
+		# END assure successful binary conversion 
+		
+		candidate = None
+		for db in databases:
+			full_bin_sha = None
+			try:
+				if isinstance(db, LooseObjectDB):
+					full_bin_sha = db.partial_to_complete_sha_hex(partial_hexsha)
+				else:
+					full_bin_sha = db.partial_to_complete_sha(partial_binsha)
+				# END handle database type
+			except BadObject:
+				continue
+			# END ignore bad objects
+			if full_bin_sha:
+				if candidate and candidate != full_bin_sha:
+					raise AmbiguousObjectName(partial_hexsha)
+				candidate = full_bin_sha
+			# END handle candidate
+		# END for each db
+		if not candidate:
+			raise BadObject(partial_binsha)
+		return candidate
+		
+	#} END interface 

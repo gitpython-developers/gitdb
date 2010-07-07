@@ -13,7 +13,11 @@ class BadObject(ODBError):
 	
 	def __str__(self):
 		return "BadObject: %s" % to_hex_sha(self.args[0])
-	
+
+class AmbiguousObjectName(ODBError):
+	"""Thrown if a possibly shortened name does not uniquely represent a single object
+	in the database"""
+
 class BadObjectType(ODBError):
 	"""The object had an unsupported type"""
 

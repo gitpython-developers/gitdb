@@ -57,7 +57,13 @@ class TestPack(TestBase):
 			assert entry[0] == index.offset(oidx)
 			assert entry[1] == sha
 			assert entry[2] == index.crc(oidx)
+			
+			# verify partial sha
+			for l in (4,8,11,17,20):
+				assert index.partial_sha_to_index(sha[:l]) == oidx
+			
 		# END for each object index in indexfile
+		self.failUnlessRaises(ValueError, index.partial_sha_to_index, "\0")
 		
 		
 	def _assert_pack_file(self, pack, version, size):
