@@ -20,9 +20,16 @@ class TestGitDB(TestDBBase):
 		sha_list = list(gdb.sha_iter())
 		assert len(sha_list) == gdb.size()
 		
+		
+		# This is actually a test for compound functionality, but it doesn't 
+		# have a separate test module
 		# test partial shas
-		for binsha in sha_list:
-			assert gdb.partial_to_complete_sha_hex(bin_to_hex(binsha)[:8]) == binsha
+		# this one as uneven and quite short
+		assert gdb.partial_to_complete_sha_hex('155b6') == hex_to_bin("155b62a9af0aa7677078331e111d0f7aa6eb4afc")
+		
+		# mix even/uneven hexshas
+		for i, binsha in enumerate(sha_list):
+			assert gdb.partial_to_complete_sha_hex(bin_to_hex(binsha)[:8-(i%2)]) == binsha
 		# END for each sha
 		
 		self.failUnlessRaises(BadObject, gdb.partial_to_complete_sha_hex, "0000")
