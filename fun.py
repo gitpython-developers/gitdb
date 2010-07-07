@@ -40,7 +40,8 @@ type_to_type_id_map = dict(
 chunk_size = 1000*mmap.PAGESIZE
 
 __all__ = ('is_loose_object', 'loose_object_header_info', 'msb_size', 'pack_object_header_info', 
-			'write_object', 'loose_object_header', 'stream_copy', 'apply_delta_data' )
+			'write_object', 'loose_object_header', 'stream_copy', 'apply_delta_data', 
+			'is_equal_canonical_sha' )
 
 #{ Routines
 
@@ -222,6 +223,24 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_fi
 	
 	# yes, lets use the exact same error message that git uses :)
 	assert i == delta_buf_size, "delta replay has gone wild"
+	
+	
+def is_equal_canonical_sha(canonical_length, match, sha1):
+	"""
+	:return: True if the given lhs and rhs 20 byte binary shas
+		The comparison will take the canonical_length of the match sha into account, 
+		hence the comparison will only use the last 4 bytes for uneven canonical representations
+	:param match: less than 20 byte sha
+	:param sha1: 20 byte sha"""
+	binary_length = canonical_length/2
+	if match[:binary_length] != sha1[:binary_length]:
+		return False
+		
+	if canonical_length - binary_length and \
+		(ord(match[-1]) ^ ord(sha1[len(match)-1])) & 0xf0:
+		return False
+	# END handle uneven canonnical length
+	return True
 	
 #} END routines
 

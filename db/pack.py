@@ -177,13 +177,17 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 		""":return: list of pack entities operated upon by this database"""
 		return [ item[1] for item in self._entities ]
 		
-	def partial_to_complete_sha(self, partial_binsha):
+	def partial_to_complete_sha(self, partial_binsha, canonical_length):
 		""":return: 20 byte sha as inferred by the given partial binary sha
+		:param partial_binsha: binary sha with less than 20 bytes 
+		:param canonical_length: length of the corresponding canonical representation.
+			It is required as binary sha's cannot display whether the original hex sha
+			had an odd or even number of characters
 		:raise AmbiguousObjectName: 
 		:raise BadObject: """
 		candidate = None
 		for item in self._entities:
-			item_index = item[1].index().partial_sha_to_index(partial_binsha)
+			item_index = item[1].index().partial_sha_to_index(partial_binsha, canonical_length)
 			if item_index is not None:
 				sha = item[1].index().sha(item_index)
 				if candidate and candidate != sha:

@@ -287,7 +287,8 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 		databases = list()
 		_databases_recursive(self, databases)
 		
-		if len(partial_hexsha) % 2 != 0:
+		len_partial_hexsha = len(partial_hexsha)
+		if len_partial_hexsha % 2 != 0:
 			partial_binsha = hex_to_bin(partial_hexsha + "0")
 		else:
 			partial_binsha = hex_to_bin(partial_hexsha)
@@ -300,7 +301,7 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 				if hasattr(db, 'partial_to_complete_sha_hex'):
 					full_bin_sha = db.partial_to_complete_sha_hex(partial_hexsha)
 				else:
-					full_bin_sha = db.partial_to_complete_sha(partial_binsha)
+					full_bin_sha = db.partial_to_complete_sha(partial_binsha, len_partial_hexsha)
 				# END handle database type
 			except BadObject:
 				continue

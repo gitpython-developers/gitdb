@@ -60,10 +60,10 @@ class TestPack(TestBase):
 			
 			# verify partial sha
 			for l in (4,8,11,17,20):
-				assert index.partial_sha_to_index(sha[:l]) == oidx
+				assert index.partial_sha_to_index(sha[:l], l*2) == oidx
 			
 		# END for each object index in indexfile
-		self.failUnlessRaises(ValueError, index.partial_sha_to_index, "\0")
+		self.failUnlessRaises(ValueError, index.partial_sha_to_index, "\0", 2)
 		
 		
 	def _assert_pack_file(self, pack, version, size):

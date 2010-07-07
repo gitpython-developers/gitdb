@@ -55,7 +55,7 @@ class TestPackDB(TestDBBase):
 		for i, sha in enumerate(sha_list):
 			short_sha = sha[:max((i % max_bytes), min_bytes)]
 			try:
-				assert pdb.partial_to_complete_sha(short_sha) == sha
+				assert pdb.partial_to_complete_sha(short_sha, len(short_sha)*2) == sha
 			except AmbiguousObjectName:
 				num_ambiguous += 1
 				pass # valid, we can have short objects
@@ -67,4 +67,4 @@ class TestPackDB(TestDBBase):
 		# assert num_ambiguous
 		
 		# non-existing
-		self.failUnlessRaises(BadObject, pdb.partial_to_complete_sha, "\0\0")
+		self.failUnlessRaises(BadObject, pdb.partial_to_complete_sha, "\0\0", 4)

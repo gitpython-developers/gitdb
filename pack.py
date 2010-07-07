@@ -12,6 +12,7 @@ from util import (
 
 from fun import (
 					pack_object_header_info,
+					is_equal_canonical_sha,
 					type_id_to_type_map,
 					write_object,
 					stream_copy, 
@@ -303,24 +304,26 @@ class PackIndexFile(LazyMixin):
 		# END bisect
 		return None
 		
-	def partial_sha_to_index(self, partial_sha):
-		""":return: index as in `sha_to_index` or None if the sha was not found in this
-		index file
-		:param partial_sha: an at least two bytes of a partial sha
+	def partial_sha_to_index(self, partial_bin_sha, canonical_length):
+		"""
+		:return: index as in `sha_to_index` or None if the sha was not found in this
+			index file
+		:param partial_bin_sha: an at least two bytes of a partial binary sha
+		:param canonical_length: lenght of the original hexadecimal representation of the 
+			given partial binary sha
 		:raise AmbiguousObjectName:"""
-		if len(partial_sha) < 2:
+		if len(partial_bin_sha) < 2:
 			raise ValueError("Require at least 2 bytes of partial sha")
 		
-		first_byte = ord(partial_sha[0])
+		first_byte = ord(partial_bin_sha[0])
 		get_sha = self.sha
 		lo = 0					# lower index, the left bound of the bisection
 		if first_byte != 0:
 			lo = self._fanout_table[first_byte-1]
 		hi = self._fanout_table[first_byte]		# the upper, right bound of the bisection
 		
-		len_partial = len(partial_sha)
 		# fill the partial to full 20 bytes
-		filled_sha = partial_sha + '\0'*(20 - len_partial)
+		filled_sha = partial_bin_sha + '\0'*(20 - len(partial_bin_sha))
 		
 		# find lowest 
 		while lo < hi:
@@ -336,14 +339,15 @@ class PackIndexFile(LazyMixin):
 				lo = mid + 1
 			# END handle midpoint
 		# END bisect
-		if lo < self.size:
+		
+		if lo < self.size():
 			cur_sha = get_sha(lo)
-			if cur_sha[:len_partial] == partial_sha:
+			if is_equal_canonical_sha(canonical_length, partial_bin_sha, cur_sha):
 				next_sha = None
-				if lo+1 < self.size:
+				if lo+1 < self.size():
 					next_sha = get_sha(lo+1)
 				if next_sha and next_sha == cur_sha:
-					raise AmbiguousObjectName(partial_sha)
+					raise AmbiguousObjectName(partial_bin_sha)
 				return lo
 			# END if we have a match
 		# END if we found something
