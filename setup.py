@@ -56,7 +56,7 @@ if setuptools_build_py_module:
 # END apply setuptools patch too
 
 setup(name = "gitdb",
-      version = "0.5.0",
+      version = "0.5.1",
       description = "Git Object Database",
       author = "Sebastian Thiel",
       author_email = "byronimo@gmail.com",
@@ -67,7 +67,7 @@ setup(name = "gitdb",
       package_dir = {'gitdb':''},
       ext_modules=[Extension('gitdb._fun', ['_fun.c'])],
       license = "BSD License",
-      requires=('async (>=0.6.0)',),
-      install_requires='async >= 0.6.0',
+      requires=('async (>=0.6.1)',),
+      install_requires='async >= 0.6.1',
       long_description = """GitDB is a pure-Python git object database"""
       )

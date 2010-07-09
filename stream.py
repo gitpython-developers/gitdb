@@ -170,7 +170,7 @@ class DecompressMemMapReader(LazyMixin):
 	def seek(self, offset, whence=getattr(os, 'SEEK_SET', 0)):
 		"""Allows to reset the stream to restart reading
 		:raise ValueError: If offset and whence are not 0"""
-		if offset != 0 or whence != os.SEEK_SET:
+		if offset != 0 or whence != getattr(os, 'SEEK_SET', 0):
 			raise ValueError("Can only seek to position 0")
 		# END handle offset
 		
@@ -411,7 +411,7 @@ class DeltaApplyReader(LazyMixin):
 		"""Allows to reset the stream to restart reading
 		
 		:raise ValueError: If offset and whence are not 0"""
-		if offset != 0 or whence != os.SEEK_SET:
+		if offset != 0 or whence != getattr(os, 'SEEK_SET', 0):
 			raise ValueError("Can only seek to position 0")
 		# END handle offset
 		self._br = 0
@@ -520,7 +520,7 @@ class ZippedStoreShaWriter(Sha1Writer):
 	def seek(self, offset, whence=getattr(os, 'SEEK_SET', 0)):
 		"""Seeking currently only supports to rewind written data
 		Multiple writes are not supported"""
-		if offset != 0 or whence != os.SEEK_SET:
+		if offset != 0 or whence != getattr(os, 'SEEK_SET', 0):
 			raise ValueError("Can only seek to position 0")
 		# END handle offset
 		self.buf.seek(0)
