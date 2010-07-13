@@ -52,6 +52,8 @@ from struct import (
 from itertools import izip
 import array
 import os
+import sys
+
 __all__ = ('PackIndexFile', 'PackFile', 'PackEntity')
 
  
@@ -272,7 +274,8 @@ class PackIndexFile(LazyMixin):
 			a.fromstring(buffer(self._data, self._pack_offset, self._pack_64_offset - self._pack_offset))
 			
 			# networkbyteorder to something array likes more
-			a.byteswap()
+			if sys.byteorder == 'little':
+				a.byteswap()
 			return a
 		else:
 			return tuple(self.offset(index) for index in xrange(self.size()))
