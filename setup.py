@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from distutils.core import setup, Extension 
 from distutils.command.build_py import build_py
+from distutils.command.build_ext import build_ext
 
 import os, sys
 
@@ -10,8 +11,18 @@ try:
 	# don't pull it in if we don't have to
 	if 'setuptools' in sys.modules: 
 		import setuptools.command.build_py as setuptools_build_py_module
+		from setuptools.command.build_ext import build_ext
 except ImportError:
 	pass
+
+class build_ext_nofail(build_ext):
+	"""Doesn't fail when build our optional extensions"""
+	def run(self):
+		try:
+			build_ext.run(self)
+		except Exception:
+			print "Ignored failure when building extensions, pure python modules will be used instead"
+		# END ignore errors
 
 def get_data_files(self):
 	"""Can you feel the pain ? So, in python2.5 and python2.4 coming with maya, 
@@ -55,7 +66,8 @@ if setuptools_build_py_module:
 	setuptools_build_py_module.build_py._get_data_files = get_data_files
 # END apply setuptools patch too
 
-setup(name = "gitdb",
+setup(cmdclass={'build_ext':build_ext_nofail},
+      name = "gitdb",
       version = "0.5.1",
       description = "Git Object Database",
       author = "Sebastian Thiel",
