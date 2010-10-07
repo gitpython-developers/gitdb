@@ -8,8 +8,8 @@ from fun import (
 					msb_size,
 					stream_copy, 
 					apply_delta_data,
-					apply_delta_chunks,
 					merge_deltas,
+					DeltaChunkList,
 					delta_types
 				)
 
@@ -325,8 +325,8 @@ class DeltaApplyReader(LazyMixin):
 		# Aggregate all deltas into one delta in reverse order. Hence we take 
 		# the last delta, and reverse-merge its ancestor delta, until we receive
 		# the final delta data stream.
-		dcl = list()
-		reverse_merge_deltas(dcl, self._dstreams)
+		dcl = DeltaChunkList()
+		merge_deltas(dcl, self._dstreams)
 		
 		if len(dcl) == 0:
 			self._size = 0
@@ -338,9 +338,13 @@ class DeltaApplyReader(LazyMixin):
 		self._mm_target = allocate_memory(self._size)
 		
 		bbuf = allocate_memory(self._bstream.size)
-		stream_copy(self._bstream.read, bbuf.write, base_size, 256 * mmap.PAGESIZE)
+		stream_copy(self._bstream.read, bbuf.write, self._bstream.size, 256 * mmap.PAGESIZE)
 		
-		apply_delta_chunks(bbuf, self._bstream.size, dcl, self._mm_target)
+		# APPLY CHUNKS
+		write = self._mm_target.write
+		for dc in dcl:
+			dc.apply(bbuf, write)
+		# END for each deltachunk to apply
 		
 	def _set_cache_old(self, attr):
 		"""If we are here, we apply the actual deltas"""

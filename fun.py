@@ -41,11 +41,41 @@ chunk_size = 1000*mmap.PAGESIZE
 
 __all__ = ('is_loose_object', 'loose_object_header_info', 'msb_size', 'pack_object_header_info', 
 			'write_object', 'loose_object_header', 'stream_copy', 'apply_delta_data', 
-			'is_equal_canonical_sha', 'apply_delta_chunks', 'reverse_merge_deltas',
-			'merge_deltas')
+			'is_equal_canonical_sha', 'reverse_merge_deltas',
+			'merge_deltas', 'DeltaChunkList')
 
 
 #{ Structures
+
+def _trunc_delta(d, size):
+	"""Truncate the given delta to the given size
+	:param size: size relative to our target offset, may not be 0, must be smaller or equal
+		to our size"""
+	if size == 0:
+		raise ValueError("size to truncate to must not be 0")
+	if d.ts == size:
+		return
+	if size > d.ts:
+		raise ValueError("Cannot truncate delta 'larger'")
+		
+	d.ts = size
+	
+	# NOTE: data is truncated automatically when applying the delta
+	# MUST NOT DO THIS HERE, see _split_delta
+			
+def _move_delta_offset(d, bytes):
+	"""Move the delta by the given amount of bytes, reducing its size so that its
+	right bound stays static
+	:param bytes: amount of bytes to move, must be smaller than delta size"""
+	if bytes >= d.ts:
+		raise ValueError("Cannot move offset that much")
+		
+	d.to += bytes
+	d.ts -= bytes
+	if d.data:
+		d.data = d.data[bytes:]
+	# END handle data
+	
 
 class DeltaChunk(object):
 	"""Represents a piece of a delta, it can either add new data, or copy existing
@@ -68,20 +98,120 @@ class DeltaChunk(object):
 	def abssize(self):
 		return self.to + self.ts
 		
-	def apply(self, source, target):
+	def apply(self, source, write):
 		"""Apply own data to the target buffer
 		:param source: buffer providing source bytes for copy operations
-		:param target: target buffer large enough to contain all the changes to be applied"""
-		if self.data is not None:
-			# APPEND DATA
-			pass
-		else:
+		:param write: write method to call with data to write"""
+		if self.data is None:
 			# COPY DATA FROM SOURCE
-			pass
+			write(buffer(source, self.so, self.ts))
+		else:
+			# APPEND DATA
+			# whats faster: if + 4 function calls or just a write with a slice ?
+			if self.ts < len(self.data):
+				write(self.data[:self.ts])
+			else:
+				write(self.data)
+			# END handle truncation
 		# END handle chunk mode
 		
 	#} END interface
 
+def _closest_index(dcl, absofs):
+	""":return: index at which the given absofs should be inserted. The index points
+	to the DeltaChunk with a target buffer absofs that equals or is greater than
+	absofs
+	:note: global method for performance only, it belongs to DeltaChunkList"""
+	# TODO: binary search !!
+	for i,d in enumerate(dcl):
+		if absofs >= d.to:
+			return i
+	# END for each delta absofs
+	raise AssertionError("Should never be here")
+	
+def _split_delta(dcl, absofs, di=None):
+	"""Split the delta at di into two deltas, adjusting their sizes, absofss and data 
+	accordingly and adding them to the dcl.
+	:param absofs: absolute absofs at which to split the delta
+	:param di: a pre-determined delta-index, or None if it should be retrieved
+	:note: it will not split if it
+	:return: the closest index which has been split ( usually di if given)
+	:note: belongs to DeltaChunkList"""
+	if di is None:
+		di = _closest_index(dcl, absofs)
+	
+	d = dcl[di]
+	if d.to == absofs or d.abssize() == absofs:
+		return di
+		
+	_trunc_delta(d, absofs - d.to)
+		
+	# insert new one
+	ds = d.abssize()
+	relsize = absofs - ds
+	
+	self.insert(di+1, DeltaChunk(  ds, 
+									relsize, 
+									(d.so and ds) or None,
+									(d.data and d.data[relsize:]) or None))
+	# END adjust next one
+	return di
+	
+def _merge_delta(dcl, d):
+	"""Merge the given DeltaChunk instance into the dcl"""
+	index = _closest_index(dcl, d.to)
+	od = dcl[index]
+	
+	if d.data is None:
+		if od.data:
+			# OVERWRITE DATA
+			pass
+		else:
+			# MERGE SOURCE AREA
+			pass
+		# END overwrite data
+	else:
+		if od.data:
+			# MERGE DATA WITH DATA
+			pass
+		else:
+			# INSERT DATA INTO COPY AREA
+			pass
+		# END combine or insert data
+	# END handle chunk mode
+	
+
+class DeltaChunkList(list):
+	"""List with special functionality to deal with DeltaChunks"""
+	
+	def init(self, size):
+		"""Intialize this instance with chunks defining to fill up size from a base
+		buffer of equal size"""
+		if len(self) != 0:
+			return
+		# pretend we have one huge delta chunk, which just copies everything
+		# from source to destination
+		maxint32 = 2**32
+		for x in range(0, size, maxint32):
+			self.append(DeltaChunk(x, maxint32, x, None))
+		# END create copy chunks
+		offset = x*maxint32
+		remainder = size-offset
+		if remainder:
+			self.append(DeltaChunk(offset, remainder, offset, None))
+		# END handle all done in loop
+		
+	def terminate_at(self, size):
+		"""Chops the list at the given size, splitting and removing DeltaNodes 
+		as required"""
+		di = _closest_index(self, size)
+		d = self[di]
+		rsize = size - d.to
+		if rsize:
+			_trunc_delta(d, rsize)
+		# END truncate last node if possible
+		del(self[di+(rsize!=0):])
+		
 #} END structures
 
 #{ Routines
@@ -204,12 +334,10 @@ def stream_copy(read, write, size, chunk_size):
 	# END duplicate data
 	return dbw
 	
-	
 def reverse_merge_deltas(dcl, dstreams):
 	"""Read the condensed delta chunk information from dstream and merge its information
 	into a list of existing delta chunks
-	:param dcl: list of DeltaChunk objects, may be empty initially, and will be changed
-		during the merge process
+	:param dcl: see merge_deltas
 	:param dstreams: iterable of delta stream objects. They must be ordered latest first, 
 		hence the delta to be applied last comes first, then its ancestors
 	:return: None"""
@@ -218,31 +346,78 @@ def reverse_merge_deltas(dcl, dstreams):
 def merge_deltas(dcl, dstreams):
 	"""Read the condensed delta chunk information from dstream and merge its information
 	into a list of existing delta chunks
-	:param dcl: list of DeltaChunk objects, may be empty initially, and will be changed
+	:param dcl: DeltaChunkList, may be empty initially, and will be changed
 		during the merge process
 	:param dstreams: iterable of delta stream objects. They must be ordered latest last, 
 		hence the delta to be applied last comes last, its oldest ancestor first
 	:return: None"""
 	for ds in dstreams:
-		buf = ds.read()
-		i, src_size = msb_size(buf)
-		i, target_size = msb_size(buf, i)
+		db = ds.read()
+		delta_buf_size = ds.size
 		
-		# parse the commands
+		# read header
+		i, src_size = msb_size(db)
+		i, target_size = msb_size(db, i)
+		
+		if len(dcl) == 0:
+			dcl.init(target_size)
+		# END handle empty list
+		
+		# interpret opcodes
+		tbw = 0						# amount of target bytes written 
+		while i < delta_buf_size:
+			c = ord(db[i])
+			i += 1
+			if c & 0x80:
+				cp_off, cp_size = 0, 0
+				if (c & 0x01):
+					cp_off = ord(db[i])
+					i += 1
+				if (c & 0x02):
+					cp_off |= (ord(db[i]) << 8)
+					i += 1
+				if (c & 0x04):
+					cp_off |= (ord(db[i]) << 16)
+					i += 1
+				if (c & 0x08):
+					cp_off |= (ord(db[i]) << 24)
+					i += 1
+				if (c & 0x10):
+					cp_size = ord(db[i])
+					i += 1
+				if (c & 0x20):
+					cp_size |= (ord(db[i]) << 8)
+					i += 1
+				if (c & 0x40):
+					cp_size |= (ord(db[i]) << 16)
+					i += 1
+					
+				if not cp_size: 
+					cp_size = 0x10000
+				
+				rbound = cp_off + cp_size
+				if (rbound < cp_size or
+					rbound > src_size):
+					break
+				
+				_merge_delta(dcl, DeltaChunk(tbw, cp_size, cp_off, None))
+				tbw += cp_size
+			elif c:
+				# TODO: Concatenate multiple deltachunks 
+				_merge_delta(dcl, DeltaChunk(tbw, c, None, db[i:i+c]))
+				i += c
+				tbw += c
+			else:
+				raise ValueError("unexpected delta opcode 0")
+			# END handle command byte
+		# END while processing delta data
+		
+		dcl.terminate_at(target_size)
 		
 	# END for each delta stream
 	
-def apply_delta_chunks(src_buf, src_buf_size, dcl, target):
-	"""
-	Apply data from a delta chunk list and a source buffer to the target stream
 	
-	:param src_buf: random access data from which the delta was created
-	:param src_buf_size: size of the source buffer in bytes
-	:param delta_buf_size: size fo the delta buffer in bytes
-	:param target: ostream with a write method"""
-	
-	
-def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_file):
+def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):
 	"""
 	Apply data from a delta buffer using a source buffer to the target file
 	
@@ -250,10 +425,9 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_fi
 	:param src_buf_size: size of the source buffer in bytes
 	:param delta_buf_size: size fo the delta buffer in bytes
 	:param delta_buf: random access delta data
-	:param target_file: file like object to write the result to
+	:param write: write method taking a chunk of bytes
 	:note: transcribed to python from the similar routine in patch-delta.c"""
 	i = 0
-	twrite = target_file.write
 	db = delta_buf
 	while i < delta_buf_size:
 		c = ord(db[i])
@@ -289,9 +463,9 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_fi
 			if (rbound < cp_size or
 			    rbound > src_buf_size):
 				break
-			twrite(buffer(src_buf, cp_off, cp_size))
+			write(buffer(src_buf, cp_off, cp_size))
 		elif c:
-			twrite(db[i:i+c])
+			write(db[i:i+c])
 			i += c
 		else:
 			raise ValueError("unexpected delta opcode 0")
