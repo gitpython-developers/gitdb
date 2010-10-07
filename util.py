@@ -117,6 +117,10 @@ def make_sha(source=''):
 
 def allocate_memory(size):
 	""":return: a file-protocol accessible memory block of the given size"""
+	if size == 0:
+		return _RandomAccessStringIO('')
+	# END handle empty chunks gracefully
+	
 	try:
 		return mmap.mmap(-1, size)	# read-write by default
 	except EnvironmentError:

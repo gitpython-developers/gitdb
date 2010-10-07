@@ -41,7 +41,48 @@ chunk_size = 1000*mmap.PAGESIZE
 
 __all__ = ('is_loose_object', 'loose_object_header_info', 'msb_size', 'pack_object_header_info', 
 			'write_object', 'loose_object_header', 'stream_copy', 'apply_delta_data', 
-			'is_equal_canonical_sha' )
+			'is_equal_canonical_sha', 'apply_delta_chunks', 'reverse_merge_deltas',
+			'merge_deltas')
+
+
+#{ Structures
+
+class DeltaChunk(object):
+	"""Represents a piece of a delta, it can either add new data, or copy existing
+	one from a source buffer"""
+	__slots__ = (
+					'to',		# start offset in the target buffer in bytes 
+					'ts',		# size of this chunk in the target buffer in bytes
+					'so',		# start offset in the source buffer in bytes or None
+					'data'		# chunk of bytes to be added to the target buffer or None 
+				)
+	
+	def __init__(self, to, ts, so, data):
+		self.to = to
+		self.ts = ts
+		self.so = so
+		self.data = data
+		
+	#{ Interface
+		
+	def abssize(self):
+		return self.to + self.ts
+		
+	def apply(self, source, target):
+		"""Apply own data to the target buffer
+		:param source: buffer providing source bytes for copy operations
+		:param target: target buffer large enough to contain all the changes to be applied"""
+		if self.data is not None:
+			# APPEND DATA
+			pass
+		else:
+			# COPY DATA FROM SOURCE
+			pass
+		# END handle chunk mode
+		
+	#} END interface
+
+#} END structures
 
 #{ Routines
 
@@ -164,10 +205,46 @@ def stream_copy(read, write, size, chunk_size):
 	return dbw
 	
 	
+def reverse_merge_deltas(dcl, dstreams):
+	"""Read the condensed delta chunk information from dstream and merge its information
+	into a list of existing delta chunks
+	:param dcl: list of DeltaChunk objects, may be empty initially, and will be changed
+		during the merge process
+	:param dstreams: iterable of delta stream objects. They must be ordered latest first, 
+		hence the delta to be applied last comes first, then its ancestors
+	:return: None"""
+	raise NotImplementedError("This is left out up until we actually iterate the dstreams - they are prefetched right now")
+	
+def merge_deltas(dcl, dstreams):
+	"""Read the condensed delta chunk information from dstream and merge its information
+	into a list of existing delta chunks
+	:param dcl: list of DeltaChunk objects, may be empty initially, and will be changed
+		during the merge process
+	:param dstreams: iterable of delta stream objects. They must be ordered latest last, 
+		hence the delta to be applied last comes last, its oldest ancestor first
+	:return: None"""
+	for ds in dstreams:
+		buf = ds.read()
+		i, src_size = msb_size(buf)
+		i, target_size = msb_size(buf, i)
+		
+		# parse the commands
+		
+	# END for each delta stream
+	
+def apply_delta_chunks(src_buf, src_buf_size, dcl, target):
+	"""
+	Apply data from a delta chunk list and a source buffer to the target stream
+	
+	:param src_buf: random access data from which the delta was created
+	:param src_buf_size: size of the source buffer in bytes
+	:param delta_buf_size: size fo the delta buffer in bytes
+	:param target: ostream with a write method"""
+	
+	
 def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_file):
 	"""
-	Apply data from a delta buffer using a source buffer to the target file, 
-	which will be written to
+	Apply data from a delta buffer using a source buffer to the target file
 	
 	:param src_buf: random access data from which the delta was created
 	:param src_buf_size: size of the source buffer in bytes
