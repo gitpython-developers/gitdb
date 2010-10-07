@@ -326,7 +326,7 @@ class DeltaApplyReader(LazyMixin):
 		# the last delta, and reverse-merge its ancestor delta, until we receive
 		# the final delta data stream.
 		dcl = DeltaChunkList()
-		merge_deltas(dcl, self._dstreams)
+		merge_deltas(dcl, reversed(self._dstreams))
 		
 		if len(dcl) == 0:
 			self._size = 0
@@ -334,7 +334,7 @@ class DeltaApplyReader(LazyMixin):
 			return
 		# END handle empty list
 		
-		self._size = dcl[-1].abssize()
+		self._size = dcl[-1].rbound()
 		self._mm_target = allocate_memory(self._size)
 		
 		bbuf = allocate_memory(self._bstream.size)

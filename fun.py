@@ -47,7 +47,7 @@ __all__ = ('is_loose_object', 'loose_object_header_info', 'msb_size', 'pack_obje
 
 #{ Structures
 
-def _trunc_delta(d, size):
+def _set_delta_rbound(d, size):
 	"""Truncate the given delta to the given size
 	:param size: size relative to our target offset, may not be 0, must be smaller or equal
 		to our size"""
@@ -63,7 +63,7 @@ def _trunc_delta(d, size):
 	# NOTE: data is truncated automatically when applying the delta
 	# MUST NOT DO THIS HERE, see _split_delta
 			
-def _move_delta_offset(d, bytes):
+def _move_delta_lbound(d, bytes):
 	"""Move the delta by the given amount of bytes, reducing its size so that its
 	right bound stays static
 	:param bytes: amount of bytes to move, must be smaller than delta size"""
@@ -71,6 +71,7 @@ def _move_delta_offset(d, bytes):
 		raise ValueError("Cannot move offset that much")
 		
 	d.to += bytes
+	d.so += bytes
 	d.ts -= bytes
 	if d.data:
 		d.data = d.data[bytes:]
@@ -95,7 +96,7 @@ class DeltaChunk(object):
 		
 	#{ Interface
 		
-	def abssize(self):
+	def rbound(self):
 		return self.to + self.ts
 		
 	def apply(self, source, write):
@@ -129,39 +130,35 @@ def _closest_index(dcl, absofs):
 	# END for each delta absofs
 	raise AssertionError("Should never be here")
 	
-def _split_delta(dcl, absofs, di=None):
-	"""Split the delta at di into two deltas, adjusting their sizes, absofss and data 
-	accordingly and adding them to the dcl.
-	:param absofs: absolute absofs at which to split the delta
-	:param di: a pre-determined delta-index, or None if it should be retrieved
-	:note: it will not split if it
-	:return: the closest index which has been split ( usually di if given)
+def _split_delta(dcl, d, di, relofs, insert_offset=0):
+	"""Split the delta at di into two deltas, adjusting their sizes, offsets and data 
+	accordingly and adding the new part to the dcl
+	:param relofs: relative offset at which to split the delta
+	:param d: delta chunk to split
+	:param di: index of d in dcl
+	:param insert_offset: offset for the new split id
+	:return: newly created DeltaChunk
 	:note: belongs to DeltaChunkList"""
-	if di is None:
-		di = _closest_index(dcl, absofs)
-	
-	d = dcl[di]
-	if d.to == absofs or d.abssize() == absofs:
-		return di
+	if relofs > d.ts:
+		raise ValueError("Cannot split behinds a chunks rbound")
 		
-	_trunc_delta(d, absofs - d.to)
+	osize = d.ts - relofs
+	_set_delta_rbound(d, relofs)
 		
 	# insert new one
-	ds = d.abssize()
-	relsize = absofs - ds
+	drb = d.rbound()
 	
-	self.insert(di+1, DeltaChunk(  ds, 
-									relsize, 
-									(d.so and ds) or None,
-									(d.data and d.data[relsize:]) or None))
-	# END adjust next one
-	return di
+	nd = DeltaChunk(  	drb, 
+						osize, 
+						(d.so and d.so + osize) or None,
+						(d.data and d.data[osize:]) or None	)
 	
-def _merge_delta(dcl, d):
-	"""Merge the given DeltaChunk instance into the dcl"""
-	index = _closest_index(dcl, d.to)
-	od = dcl[index]
+	self.insert(di+1+insert_offset, nd)
+	return nd
 	
+def _handle_merge(ld, rd):
+	"""Optimize the layout of the lhs delta and the rhs delta
+	TODO: Once the default implementation is working""" 
 	if d.data is None:
 		if od.data:
 			# OVERWRITE DATA
@@ -173,12 +170,86 @@ def _merge_delta(dcl, d):
 	else:
 		if od.data:
 			# MERGE DATA WITH DATA
+			# overwrite the data at the respective spot
 			pass
 		else:
 			# INSERT DATA INTO COPY AREA
 			pass
 		# END combine or insert data
 	# END handle chunk mode
+	
+def _merge_delta(dcl, d):
+	"""Merge the given DeltaChunk instance into the dcl
+	:param d: the DeltaChunk to merge"""
+	cdi = _closest_index(dcl, d.to)		# current delta index
+	cd = dcl[cdi]						# current delta
+	
+	# either we go at his spot, or after
+	# cdi either moves one up, or stays
+	dcl.insert(di + (d.to > cd.to), d)
+	cdi += d.to == cd.to
+	
+	while True:
+		# are we larger than the current block
+		if d.to < cd.to:
+			if d.rbound() >= cd.rbound():
+				# xxx|xxx|x
+				# remove the current item completely
+				dcl.pop(cdi)
+				cdi -= 1
+			elif d.rbound() > cd.to:
+				# MOVE ITS LBOUND
+				# xxx|x--|
+				_move_delta_lbound(cd, d.rbound() - cd.to)
+				break
+			else:
+				# WE DON'T OVERLAP IT
+				# this can possibly happen
+				assert False, "Wow, this can really happen"
+				break
+			# END rbound overlap handling
+		# END lbound overlap handling
+		else:
+			if d.to >= cd.rbound():
+				#|---|...xx
+				break
+			# END 
+			
+			if d.rbound() >= cd.rbound():
+				if d.to == cd.to:
+					#|xxx|x
+					# REMOVE CD
+					dcl.pop(cdi)
+					cdi -= 1
+				else:
+					# TRUNCATE CD
+					#|-xx|
+					_set_delta_rbound(cd, d.to - cd.to)
+				# END handle offset special case
+			elif d.to == cd.to:
+				#|x--|
+				# we shift it by our size
+				_move_delta_lbound(cd, d.ts)
+			else:
+				#|-x-|
+				# SPLIT CD AND LBOUND MOVE ITS SECOND PART
+				# insert offset is required to insert it after us
+				nd = _split_delta(dcl, cd, cdi, 1)
+				_move_delta_lbound(nd, d.ts)
+				break
+			# END handle rbound overlap
+		# END handle overlap
+		
+		cdi += 1
+		if cdi < len(dcl):
+			cd = dcl[cdi]
+		else:
+			break
+		# END check for end of list
+	# while our chunk is not completely done
+	
+
+	
 	
 
 class DeltaChunkList(list):
@@ -208,7 +279,7 @@ class DeltaChunkList(list):
 		d = self[di]
 		rsize = size - d.to
 		if rsize:
-			_trunc_delta(d, rsize)
+			_set_delta_rbound(d, rsize)
 		# END truncate last node if possible
 		del(self[di+(rsize!=0):])
 		
