@@ -10,6 +10,7 @@ from util import zlib
 decompressobj = zlib.decompressobj
 
 import mmap
+from itertools import islice, izip
 
 # INVARIANTS
 OFS_DELTA = 6
@@ -93,7 +94,10 @@ class DeltaChunk(object):
 		self.ts = ts
 		self.so = so
 		self.data = data
-		
+
+	def __repr__(self):
+		return "DeltaChunk(%i, %i, %s, %s)" % (self.to, self.ts, self.so, self.data or "")
+	
 	#{ Interface
 		
 	def rbound(self):
@@ -105,6 +109,7 @@ class DeltaChunk(object):
 		:param write: write method to call with data to write"""
 		if self.data is None:
 			# COPY DATA FROM SOURCE
+			assert len(source) - self.so - self.ts > 0
 			write(buffer(source, self.so, self.ts))
 		else:
 			# APPEND DATA
@@ -121,14 +126,16 @@ class DeltaChunk(object):
 def _closest_index(dcl, absofs):
 	""":return: index at which the given absofs should be inserted. The index points
 	to the DeltaChunk with a target buffer absofs that equals or is greater than
-	absofs
+	absofs. 
 	:note: global method for performance only, it belongs to DeltaChunkList"""
 	# TODO: binary search !!
 	for i,d in enumerate(dcl):
-		if absofs >= d.to:
+		if absofs < d.to:
+			return i-1
+		elif absofs == d.to:
 			return i
 	# END for each delta absofs
-	raise AssertionError("Should never be here")
+	return len(dcl)-1
 	
 def _split_delta(dcl, d, di, relofs, insert_offset=0):
 	"""Split the delta at di into two deltas, adjusting their sizes, offsets and data 
@@ -150,7 +157,7 @@ def _split_delta(dcl, d, di, relofs, insert_offset=0):
 	
 	nd = DeltaChunk(  	drb, 
 						osize, 
-						(d.so and d.so + osize) or None,
+						d.so + osize,
 						(d.data and d.data[osize:]) or None	)
 	
 	self.insert(di+1+insert_offset, nd)
@@ -178,45 +185,51 @@ def _handle_merge(ld, rd):
 		# END combine or insert data
 	# END handle chunk mode
 	
-def _merge_delta(dcl, d):
+def _merge_delta(dcl, dc):
 	"""Merge the given DeltaChunk instance into the dcl
 	:param d: the DeltaChunk to merge"""
-	cdi = _closest_index(dcl, d.to)		# current delta index
+	if len(dcl) == 0:
+		dcl.append(dc)
+		return
+	# END early return on empty list
+	
+	cdi = _closest_index(dcl, dc.to)		# current delta index
 	cd = dcl[cdi]						# current delta
 	
 	# either we go at his spot, or after
 	# cdi either moves one up, or stays
-	dcl.insert(di + (d.to > cd.to), d)
-	cdi += d.to == cd.to
+	#print "insert at %i" % (cdi + (dc.to > cd.to))
+	#print cd, dc
+	dcl.insert(cdi + (dc.to > cd.to), dc)
+	cdi += dc.to == cd.to
 	
 	while True:
 		# are we larger than the current block
-		if d.to < cd.to:
-			if d.rbound() >= cd.rbound():
+		if dc.to < cd.to:
+			if dc.rbound() >= cd.rbound():
 				# xxx|xxx|x
 				# remove the current item completely
 				dcl.pop(cdi)
 				cdi -= 1
-			elif d.rbound() > cd.to:
+			elif dc.rbound() > cd.to:
 				# MOVE ITS LBOUND
 				# xxx|x--|
-				_move_delta_lbound(cd, d.rbound() - cd.to)
+				_move_delta_lbound(cd, dc.rbound() - cd.to)
 				break
 			else:
 				# WE DON'T OVERLAP IT
-				# this can possibly happen
-				assert False, "Wow, this can really happen"
+				# this can actually happen, once multiple streams are merged
 				break
 			# END rbound overlap handling
 		# END lbound overlap handling
 		else:
-			if d.to >= cd.rbound():
+			if dc.to >= cd.rbound():
 				#|---|...xx
 				break
 			# END 
 			
-			if d.rbound() >= cd.rbound():
-				if d.to == cd.to:
+			if dc.rbound() >= cd.rbound():
+				if dc.to == cd.to:
 					#|xxx|x
 					# REMOVE CD
 					dcl.pop(cdi)
@@ -224,18 +237,18 @@ def _merge_delta(dcl, d):
 				else:
 					# TRUNCATE CD
 					#|-xx|
-					_set_delta_rbound(cd, d.to - cd.to)
+					_set_delta_rbound(cd, dc.to - cd.to)
 				# END handle offset special case
-			elif d.to == cd.to:
+			elif dc.to == cd.to:
 				#|x--|
 				# we shift it by our size
-				_move_delta_lbound(cd, d.ts)
+				_move_delta_lbound(cd, dc.ts)
 			else:
 				#|-x-|
 				# SPLIT CD AND LBOUND MOVE ITS SECOND PART
 				# insert offset is required to insert it after us
 				nd = _split_delta(dcl, cd, cdi, 1)
-				_move_delta_lbound(nd, d.ts)
+				_move_delta_lbound(nd, dc.ts)
 				break
 			# END handle rbound overlap
 		# END handle overlap
@@ -248,30 +261,14 @@ def _merge_delta(dcl, d):
 		# END check for end of list
 	# while our chunk is not completely done
 	
-
+	## DEBUG ## 
+	dcl.check_integrity()
 	
 	
 
 class DeltaChunkList(list):
 	"""List with special functionality to deal with DeltaChunks"""
 	
-	def init(self, size):
-		"""Intialize this instance with chunks defining to fill up size from a base
-		buffer of equal size"""
-		if len(self) != 0:
-			return
-		# pretend we have one huge delta chunk, which just copies everything
-		# from source to destination
-		maxint32 = 2**32
-		for x in range(0, size, maxint32):
-			self.append(DeltaChunk(x, maxint32, x, None))
-		# END create copy chunks
-		offset = x*maxint32
-		remainder = size-offset
-		if remainder:
-			self.append(DeltaChunk(offset, remainder, offset, None))
-		# END handle all done in loop
-		
 	def terminate_at(self, size):
 		"""Chops the list at the given size, splitting and removing DeltaNodes 
 		as required"""
@@ -282,6 +279,38 @@ class DeltaChunkList(list):
 			_set_delta_rbound(d, rsize)
 		# END truncate last node if possible
 		del(self[di+(rsize!=0):])
+		
+		## DEBUG ##
+		self.check_integrity(size)
+		
+	def check_integrity(self, target_size=-1):
+		"""Verify the list has non-overlapping chunks only, and the total size matches
+		target_size
+		:param target_size: if not -1, the total size of the chain must be target_size
+		:raise AssertionError: if the size doen't match"""
+		if target_size > -1:
+			assert self[-1].rbound() == target_size
+			assert reduce(lambda x,y: x+y, (d.ts for d in self), 0) == target_size
+		# END target size verification
+		
+		if len(self) < 2:
+			return
+			
+		# check data
+		for dc in self:
+			if dc.data:
+				assert len(dc.data) >= dc.ts
+		# END for each dc
+			
+		left = islice(self, 0, len(self)-1)
+		right = iter(self)
+		right.next()
+		# this is very pythonic - we might have just use index based access here, 
+		# but this could actually be faster
+		for lft,rgt in izip(left, right):
+			assert lft.rbound() == rgt.to
+			assert lft.to + lft.ts == rgt.to
+		# END for each pair
 		
 #} END structures
 
@@ -422,17 +451,14 @@ def merge_deltas(dcl, dstreams):
 	:param dstreams: iterable of delta stream objects. They must be ordered latest last, 
 		hence the delta to be applied last comes last, its oldest ancestor first
 	:return: None"""
-	for ds in dstreams:
+	for dsi, ds in enumerate(dstreams):
+		# print "Stream", dsi
 		db = ds.read()
 		delta_buf_size = ds.size
 		
 		# read header
 		i, src_size = msb_size(db)
 		i, target_size = msb_size(db, i)
-		
-		if len(dcl) == 0:
-			dcl.init(target_size)
-		# END handle empty list
 		
 		# interpret opcodes
 		tbw = 0						# amount of target bytes written 
@@ -475,7 +501,7 @@ def merge_deltas(dcl, dstreams):
 				tbw += cp_size
 			elif c:
 				# TODO: Concatenate multiple deltachunks 
-				_merge_delta(dcl, DeltaChunk(tbw, c, None, db[i:i+c]))
+				_merge_delta(dcl, DeltaChunk(tbw, c, 0, db[i:i+c]))
 				i += c
 				tbw += c
 			else:
@@ -486,6 +512,8 @@ def merge_deltas(dcl, dstreams):
 		dcl.terminate_at(target_size)
 		
 	# END for each delta stream
+	
+	# print dcl
 	
 	
 def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):

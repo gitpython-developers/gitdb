@@ -346,6 +346,19 @@ class DeltaApplyReader(LazyMixin):
 			dc.apply(bbuf, write)
 		# END for each deltachunk to apply
 		
+		self._mm_target.seek(0)
+		
+		## DEBUG ##
+		mt = self._mm_target
+		for ds in self._dstreams:
+			ds.stream.seek(0)
+		self._bstream.stream.seek(0)
+		self._set_cache_old(attr)
+		
+		import chardet
+		if chardet.detect(mt[:])['encoding'] == 'ascii':
+			assert self._mm_target[:] == mt[:]
+		
 	def _set_cache_old(self, attr):
 		"""If we are here, we apply the actual deltas"""
 		
@@ -399,7 +412,7 @@ class DeltaApplyReader(LazyMixin):
 			stream_copy(dstream.read, ddata.write, dstream.size, 256*mmap.PAGESIZE)
 			
 			#######################################################################
-			apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf)
+			apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf.write)
 			#######################################################################
 			
 			# finally, swap out source and target buffers. The target is now the 
