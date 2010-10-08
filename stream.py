@@ -325,8 +325,7 @@ class DeltaApplyReader(LazyMixin):
 		# Aggregate all deltas into one delta in reverse order. Hence we take 
 		# the last delta, and reverse-merge its ancestor delta, until we receive
 		# the final delta data stream.
-		dcl = DeltaChunkList()
-		merge_deltas(dcl, reversed(self._dstreams))
+		dcl = merge_deltas(reversed(self._dstreams))
 		
 		if len(dcl) == 0:
 			self._size = 0
@@ -342,9 +341,7 @@ class DeltaApplyReader(LazyMixin):
 		
 		# APPLY CHUNKS
 		write = self._mm_target.write
-		for dc in dcl:
-			dc.apply(bbuf, write)
-		# END for each deltachunk to apply
+		dcl.apply(bbuf, write)
 		
 		self._mm_target.seek(0)
 		

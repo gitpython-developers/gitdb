@@ -86,13 +86,14 @@ class DeltaChunk(object):
 					'to',		# start offset in the target buffer in bytes 
 					'ts',		# size of this chunk in the target buffer in bytes
 					'so',		# start offset in the source buffer in bytes or None
-					'data'		# chunk of bytes to be added to the target buffer or None 
+					'data'		# chunk of bytes to be added to the target buffer,
+								# DeltaChunkList to use as base, or None
 				)
 	
 	def __init__(self, to, ts, so, data):
 		self.to = to
 		self.ts = ts
-		self.so = so
+		self.so = sos
 		self.data = data
 
 	def __repr__(self):
@@ -103,11 +104,15 @@ class DeltaChunk(object):
 	def rbound(self):
 		return self.to + self.ts
 		
+	def has_data(self):
+		""":return: True if the instance has data to add to the target stream"""
+		return self.data is None or not isinstance(self.data, DeltaChunkList)
+		
 	def apply(self, source, write):
 		"""Apply own data to the target buffer
 		:param source: buffer providing source bytes for copy operations
 		:param write: write method to call with data to write"""
-		if self.data is None:
+		if self.has_data():
 			# COPY DATA FROM SOURCE
 			assert len(source) - self.so - self.ts > 0
 			write(buffer(source, self.so, self.ts))
@@ -166,7 +171,7 @@ def _split_delta(dcl, d, di, relofs, insert_offset=0):
 def _handle_merge(ld, rd):
 	"""Optimize the layout of the lhs delta and the rhs delta
 	TODO: Once the default implementation is working""" 
-	if d.data is None:
+	if d.has_data():
 		if od.data:
 			# OVERWRITE DATA
 			pass
@@ -217,6 +222,7 @@ def _merge_delta(dcl, dc):
 				_move_delta_lbound(cd, dc.rbound() - cd.to)
 				break
 			else:
+				# xx.|---|
 				# WE DON'T OVERLAP IT
 				# this can actually happen, once multiple streams are merged
 				break
@@ -224,7 +230,7 @@ def _merge_delta(dcl, dc):
 		# END lbound overlap handling
 		else:
 			if dc.to >= cd.rbound():
-				#|---|...xx
+				#|---|xx
 				break
 			# END 
 			
@@ -269,9 +275,30 @@ def _merge_delta(dcl, dc):
 class DeltaChunkList(list):
 	"""List with special functionality to deal with DeltaChunks"""
 	
-	def terminate_at(self, size):
+	def init(self, size):
+		"""Intialize this instance with chunks defining to fill up size from a base
+		buffer of equal size
+		:return: self"""
+		if len(self) != 0:
+			return
+		# pretend we have one huge delta chunk, which just copies everything
+		# from source to destination
+		maxint32 = 2**32
+		for x in range(0, size, maxint32):
+			self.append(DeltaChunk(x, maxint32, x, None))
+		# END create copy chunks
+		offset = x*maxint32
+		remainder = size-offset
+		if remainder:
+			self.append(DeltaChunk(offset, remainder, offset, None))
+		# END handle all done in loop
+		
+		return self
+		
+	def set_rbound(self, size):
 		"""Chops the list at the given size, splitting and removing DeltaNodes 
-		as required"""
+		as required
+		:return: self"""
 		di = _closest_index(self, size)
 		d = self[di]
 		rsize = size - d.to
@@ -282,6 +309,26 @@ class DeltaChunkList(list):
 		
 		## DEBUG ##
 		self.check_integrity(size)
+		
+		return self
+		
+	def connect_with(self, bdlc):
+		"""Connect this instance's delta chunks virtually with the given base.
+		This means that all copy deltas will simply apply to the given region 
+		of the given base. Afterwards, the base is optimized so that add-deltas
+		will be truncated to the region actually used, or removed completely where
+		adequate. This way, memory usage is reduced.
+		:param bdlc: DeltaChunkList to serve as base"""
+		raise NotImplementedError("todo")
+		
+	def apply(self, bbuf, write):
+		"""Apply the chain's changes and write the final result using the passed
+		write function.
+		:param bbuf: base buffer containing the base of all deltas contained in this
+			list. It will only be used if the chunk in question does not have a base
+			chain.
+		:param write: function taking a string of bytes to write to the output"""
+		raise NotImplementedError("todo")
 		
 	def check_integrity(self, target_size=-1):
 		"""Verify the list has non-overlapping chunks only, and the total size matches
@@ -437,31 +484,31 @@ def stream_copy(read, write, size, chunk_size):
 def reverse_merge_deltas(dcl, dstreams):
 	"""Read the condensed delta chunk information from dstream and merge its information
 	into a list of existing delta chunks
-	:param dcl: see merge_deltas
+	:param dcl: see 3
 	:param dstreams: iterable of delta stream objects. They must be ordered latest first, 
 		hence the delta to be applied last comes first, then its ancestors
 	:return: None"""
 	raise NotImplementedError("This is left out up until we actually iterate the dstreams - they are prefetched right now")
 	
-def merge_deltas(dcl, dstreams):
+def merge_deltas(dstreams):
 	"""Read the condensed delta chunk information from dstream and merge its information
 	into a list of existing delta chunks
-	:param dcl: DeltaChunkList, may be empty initially, and will be changed
-		during the merge process
 	:param dstreams: iterable of delta stream objects. They must be ordered latest last, 
 		hence the delta to be applied last comes last, its oldest ancestor first
-	:return: None"""
+	:return: DeltaChunkList, containing all operations to apply"""
+	bdcl = None							# data chunk list for initial base
+	dcl = DeltaChunkList()
 	for dsi, ds in enumerate(dstreams):
 		# print "Stream", dsi
 		db = ds.read()
 		delta_buf_size = ds.size
 		
 		# read header
-		i, src_size = msb_size(db)
+		i, base_size = msb_size(db)
 		i, target_size = msb_size(db, i)
 		
 		# interpret opcodes
-		tbw = 0						# amount of target bytes written 
+		tbw = 0						# amount of target bytes written
 		while i < delta_buf_size:
 			c = ord(db[i])
 			i += 1
@@ -494,14 +541,16 @@ def merge_deltas(dcl, dstreams):
 				
 				rbound = cp_off + cp_size
 				if (rbound < cp_size or
-					rbound > src_size):
+					rbound > base_size):
 					break
 				
-				_merge_delta(dcl, DeltaChunk(tbw, cp_size, cp_off, None))
+				# _merge_delta(dcl, DeltaChunk(tbw, cp_size, cp_off, None))
+				dcl.append(DeltaChunk(tbw, cp_size, cp_off, None))
 				tbw += cp_size
 			elif c:
 				# TODO: Concatenate multiple deltachunks 
-				_merge_delta(dcl, DeltaChunk(tbw, c, 0, db[i:i+c]))
+				# _merge_delta(dcl, DeltaChunk(tbw, c, 0, db[i:i+c]))
+				dcl.append(DeltaChunk(tbw, c, 0, db[i:i+c]))
 				i += c
 				tbw += c
 			else:
@@ -509,8 +558,14 @@ def merge_deltas(dcl, dstreams):
 			# END handle command byte
 		# END while processing delta data
 		
-		dcl.terminate_at(target_size)
+		# merge the lists !
+		if base is not None:
+			dcl.connect_with(base)
+		# END handle merge
 		
+		# prepare next base
+		base = dcl
+		dcl = DeltaChunkList()
 	# END for each delta stream
 	
 	# print dcl
