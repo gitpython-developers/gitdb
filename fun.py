@@ -12,7 +12,6 @@ decompressobj = zlib.decompressobj
 import mmap
 from itertools import islice, izip
 
-from copy import copy
 from cStringIO import StringIO
 
 # INVARIANTS
@@ -82,6 +81,9 @@ def _move_delta_lbound(d, bytes):
 	# END handle data
 	
 	return d
+	
+def delta_duplicate(src):
+	return DeltaChunk(src.to, src.ts, src.so, src.data)
 
 class DeltaChunk(object):
 	"""Represents a piece of a delta, it can either add new data, or copy existing
@@ -277,7 +279,7 @@ class DeltaChunkList(list):
 			cdi = _closest_index(self, absofs)
 			cd = self[cdi]
 			if cd.to != absofs:
-				tcd = copy(cd)
+				tcd = delta_duplicate(cd)
 				_move_delta_lbound(tcd, absofs - cd.to)
 				_set_delta_rbound(tcd, min(tcd.ts, size)) 
 				dapply(tcd, bbuf, write)
@@ -293,7 +295,7 @@ class DeltaChunkList(list):
 					dapply(cd, bbuf, write)
 					size -= cd.ts
 				else:
-					tcd = copy(cd)
+					tcd = delta_duplicate(cd)
 					_set_delta_rbound(tcd, size)
 					dapply(tcd, bbuf, write)
 					size -= tcd.ts
@@ -355,7 +357,7 @@ class DeltaChunkList(list):
 		ndcl = self.__class__()
 		
 		if cd.to != absofs:
-			tcd = copy(cd)
+			tcd = delta_duplicate(cd)
 			_move_delta_lbound(tcd, absofs - cd.to)
 			_set_delta_rbound(tcd, min(tcd.ts, size))
 			ndcl.append(tcd)
@@ -367,10 +369,10 @@ class DeltaChunkList(list):
 			# are we larger than the current block
 			cd = self[cdi]
 			if cd.ts <= size:
-				ndcl.append(copy(cd))
+				ndcl.append(delta_duplicate(cd))
 				size -= cd.ts
 			else:
-				tcd = copy(cd)
+				tcd = delta_duplicate(cd)
 				_set_delta_rbound(tcd, size)
 				ndcl.append(tcd)
 				size -= tcd.ts

@@ -358,7 +358,7 @@ class DeltaApplyReader(LazyMixin):
 		
 		self._mm_target.seek(0)
 		
-	def _set_cache_(self, attr):
+	def _set_cache_brute_(self, attr):
 		"""If we are here, we apply the actual deltas"""
 		
 		buffer_info_list = list()
