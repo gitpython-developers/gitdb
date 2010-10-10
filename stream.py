@@ -8,7 +8,7 @@ from fun import (
 					msb_size,
 					stream_copy, 
 					apply_delta_data,
-					merge_deltas,
+					connect_deltas,
 					DeltaChunkList,
 					delta_types
 				)
@@ -325,7 +325,7 @@ class DeltaApplyReader(LazyMixin):
 		# Aggregate all deltas into one delta in reverse order. Hence we take 
 		# the last delta, and reverse-merge its ancestor delta, until we receive
 		# the final delta data stream.
-		dcl = merge_deltas(reversed(self._dstreams))
+		dcl = connect_deltas(reversed(self._dstreams))
 		
 		if len(dcl) == 0:
 			self._size = 0
@@ -333,7 +333,7 @@ class DeltaApplyReader(LazyMixin):
 			return
 		# END handle empty list
 		
-		self._size = dcl[-1].rbound()
+		self._size = dcl.rbound()
 		self._mm_target = allocate_memory(self._size)
 		
 		bbuf = allocate_memory(self._bstream.size)
@@ -353,8 +353,16 @@ class DeltaApplyReader(LazyMixin):
 		self._set_cache_old(attr)
 		
 		import chardet
-		if chardet.detect(mt[:])['encoding'] == 'ascii':
-			assert self._mm_target[:] == mt[:]
+		
+		print "num dstreams", len(self._dstreams)
+		#if chardet.detect(mt[:self._size])['encoding'] == 'ascii':
+		if self._mm_target[:self._size] != mt[:]:
+			open("working.txt", "w").write(self._mm_target[:self._size])
+			open("incorrect.txt", "w").write(mt[:])
+			raise AssertionError("Output didn't match")
+		# END debug
+		print "success"
+		
 		
 	def _set_cache_old(self, attr):
 		"""If we are here, we apply the actual deltas"""
