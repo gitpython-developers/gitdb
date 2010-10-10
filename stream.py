@@ -311,6 +311,10 @@ class DeltaApplyReader(LazyMixin):
 					"_br"					# number of bytes read 
 				)
 	
+	#{ Configuration
+	k_max_memory_move = 250*1000*1000
+	#} END configuration
+	
 	def __init__(self, stream_list):
 		"""Initialize this instance with a list of streams, the first stream being 
 		the delta to apply on top of all following deltas, the last stream being the
@@ -325,8 +329,9 @@ class DeltaApplyReader(LazyMixin):
 		# the direct algorithm is fastest and most direct if there is only one 
 		# delta. Also, the extra overhead might not be worth it for items smaller
 		# than X - definitely the case in python
-		#print "num streams", len(self._dstreams)
-		#if len(self._dstreams) == 1 or (len(self._dstreams) * self._dstreams.size) > 25*1000*1000:
+		# hence we apply a worst-case scenario here
+		# TODO: read the final size from the deltastream - have to partly unpack
+		# if len(self._dstreams) * self._size < self.k_max_memory_move:
 		if len(self._dstreams) == 1:
 			return self._set_cache_brute_(attr)
 		
@@ -353,7 +358,7 @@ class DeltaApplyReader(LazyMixin):
 		
 		self._mm_target.seek(0)
 		
-	def _set_cache_brute_(self, attr):
+	def _set_cache_(self, attr):
 		"""If we are here, we apply the actual deltas"""
 		
 		buffer_info_list = list()

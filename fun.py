@@ -76,7 +76,6 @@ def _move_delta_lbound(d, bytes):
 		
 	d.to += bytes
 	d.so += bytes
-	d.sob += bytes
 	d.ts -= bytes
 	if d.has_data():
 		d.data = d.data[bytes:]
@@ -93,14 +92,12 @@ class DeltaChunk(object):
 					'so',		# start offset in the source buffer in bytes or None
 					'data',		# chunk of bytes to be added to the target buffer,
 								# DeltaChunkList to use as base, or None
-					'sob'		# DEBUG: Backup
 				)
 	
 	def __init__(self, to, ts, so, data):
 		self.to = to
 		self.ts = ts
 		self.so = so
-		self.sob = so
 		self.data = data
 
 	def __repr__(self):
@@ -135,7 +132,6 @@ class DeltaChunk(object):
 		"""Set the deltachunk list to be used as basis for copying.
 		:note: only works if this chunk is a copy delta chunk"""
 		self.data = dcl
-		self.sob = self.so
 		self.so = 0				# allows lbound moves to be virtual
 		
 	def apply(self, bbuf, write):
