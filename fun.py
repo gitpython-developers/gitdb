@@ -165,12 +165,18 @@ def _closest_index(dcl, absofs):
 	to the DeltaChunk with a target buffer absofs that equals or is greater than
 	absofs. 
 	:note: global method for performance only, it belongs to DeltaChunkList"""
-	# TODO: binary search !!
-	for i,d in enumerate(dcl):
-		if absofs < d.to:
-			return i-1
-		elif absofs == d.to:
-			return i
+	lo = 0
+	hi = len(dcl)
+	while lo < hi:
+		mid = (lo + hi) / 2
+		dc = dcl[mid]
+		if dc.to > absofs:
+			hi = mid
+		elif dc.rbound() > absofs or dc.to == absofs:
+			return mid
+		else:
+			lo = mid + 1
+		# END handle bound
 	# END for each delta absofs
 	return len(dcl)-1
 	
