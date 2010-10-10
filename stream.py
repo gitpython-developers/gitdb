@@ -322,6 +322,14 @@ class DeltaApplyReader(LazyMixin):
 		self._br = 0
 		
 	def _set_cache_(self, attr):
+		# the direct algorithm is fastest and most direct if there is only one 
+		# delta. Also, the extra overhead might not be worth it for items smaller
+		# than X - definitely the case in python
+		#print "num streams", len(self._dstreams)
+		#if len(self._dstreams) == 1 or (len(self._dstreams) * self._dstreams.size) > 25*1000*1000:
+		if len(self._dstreams) == 1:
+			return self._set_cache_brute_(attr)
+		
 		# Aggregate all deltas into one delta in reverse order. Hence we take 
 		# the last delta, and reverse-merge its ancestor delta, until we receive
 		# the final delta data stream.
@@ -345,26 +353,7 @@ class DeltaApplyReader(LazyMixin):
 		
 		self._mm_target.seek(0)
 		
-		## DEBUG ##
-		mt = self._mm_target
-		for ds in self._dstreams:
-			ds.stream.seek(0)
-		self._bstream.stream.seek(0)
-		self._set_cache_old(attr)
-		
-		import chardet
-		
-		print "num dstreams", len(self._dstreams)
-		#if chardet.detect(mt[:self._size])['encoding'] == 'ascii':
-		if self._mm_target[:self._size] != mt[:]:
-			open("working.txt", "w").write(self._mm_target[:self._size])
-			open("incorrect.txt", "w").write(mt[:])
-			raise AssertionError("Output didn't match")
-		# END debug
-		print "success"
-		
-		
-	def _set_cache_old(self, attr):
+	def _set_cache_brute_(self, attr):
 		"""If we are here, we apply the actual deltas"""
 		
 		buffer_info_list = list()

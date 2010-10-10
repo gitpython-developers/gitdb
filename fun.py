@@ -13,6 +13,7 @@ import mmap
 from itertools import islice, izip
 
 from copy import copy
+from cStringIO import StringIO
 
 # INVARIANTS
 OFS_DELTA = 6
@@ -57,10 +58,6 @@ def _set_delta_rbound(d, size):
 	:return: d"""
 	if d.ts == size:
 		return
-	if size == 0:
-		raise ValueError("size to truncate to must not be 0")
-	if size > d.ts:
-		raise ValueError("Cannot extend rbound")
 		
 	d.ts = size
 	
@@ -76,8 +73,6 @@ def _move_delta_lbound(d, bytes):
 	:return: d"""
 	if bytes == 0:
 		return
-	if bytes >= d.ts:
-		raise ValueError("Cannot move offset that much")
 		
 	d.to += bytes
 	d.so += bytes
@@ -139,7 +134,6 @@ class DeltaChunk(object):
 	def set_copy_chunklist(self, dcl):
 		"""Set the deltachunk list to be used as basis for copying.
 		:note: only works if this chunk is a copy delta chunk"""
-		assert self.data is None, "Cannot assign chain to add delta chunk" 
 		self.data = dcl
 		self.sob = self.so
 		self.so = 0				# allows lbound moves to be virtual
@@ -150,13 +144,13 @@ class DeltaChunk(object):
 		:param write: write method to call with data to write"""
 		if self.data is None:
 			# COPY DATA FROM SOURCE
-			assert len(bbuf) - self.so - self.ts > -1
 			write(buffer(bbuf, self.so, self.ts))
 		elif isinstance(self.data, DeltaChunkList):
 			self.data.apply(bbuf, write, self.so, self.ts)
 		else:
 			# APPEND DATA
 			# whats faster: if + 4 function calls or just a write with a slice ?
+			# Considering data can be larger than 127 bytes now, it should be worth it
 			if self.ts < len(self.data):
 				write(self.data[:self.ts])
 			else:
@@ -209,10 +203,53 @@ class DeltaChunkList(list):
 		:param bdcl: DeltaChunkList to serve as base"""
 		for dc in self:
 			if not dc.has_data():
-				# dc.set_copy_chunklist(bdcl[dc.copy_offset():dc.ts])
 				dc.set_copy_chunklist(bdcl[dc.so:dc.ts])
 			# END handle overlap
 		# END for each dc
+		
+	def compress(self):
+		"""Alter the list to reduce the amount of nodes. Currently we concatenate
+		add-chunks
+		:return: self"""
+		slen = len(self)
+		if slen < 2:
+			return self
+		i = 0
+		slen_orig = slen
+		
+		first_data_index = None
+		while i < slen:
+			dc = self[i]
+			i += 1
+			if not dc.has_data():
+				if first_data_index is not None and i-2-first_data_index > 1:
+				#if first_data_index is not None:
+					nd = StringIO()						# new data
+					so = self[first_data_index].to		# start offset in target buffer
+					for x in xrange(first_data_index, i-1):
+						xdc = self[x]
+						nd.write(xdc.data[:xdc.ts])
+					# END collect data
+					
+					del(self[first_data_index:i-1])
+					buf = nd.getvalue()
+					self.insert(first_data_index, DeltaChunk(so, len(buf), 0, buf)) 
+					
+					slen = len(self)
+					i = first_data_index + 1
+					
+				# END concatenate data
+				first_data_index = None
+				continue
+			# END skip non-data chunks
+			
+			if first_data_index is None:
+				first_data_index = i-1
+		# END iterate list
+		
+		#if slen_orig != len(self):
+		#	print "INFO: Reduced delta list len to %f %% of former size" % ((float(len(self)) / slen_orig) * 100)
+		return self
 		
 	def apply(self, bbuf, write, lbound_offset=0, size=0):
 		"""Apply the chain's changes and write the final result using the passed
@@ -232,12 +269,6 @@ class DeltaChunkList(list):
 		if size == 0:
 			size = self.rbound() - absofs
 		# END initialize size
-		if absofs + size > self.rbound():
-			raise ValueError("Cannot apply more bytes than there are in this chain")
-		# END sanity check
-		
-		if size > self.rbound() - absofs:
-			raise ValueError("Trying to apply more than there is available")
 		
 		dapply = DeltaChunk.apply
 		if lbound_offset or absofs + size != self.rbound():
@@ -347,7 +378,7 @@ class DeltaChunkList(list):
 		# END for each chunk
 		assert size == 0, "size was %i" % size
 		
-		ndcl.check_integrity()
+		# ndcl.check_integrity()
 		return ndcl
 			
 			
@@ -540,7 +571,8 @@ def connect_deltas(dstreams):
 				dcl.append(DeltaChunk(tbw, cp_size, cp_off, None))
 				tbw += cp_size
 			elif c:
-				# TODO: Concatenate multiple deltachunks 
+				# NOTE: in C, the data chunks should probably be concatenated here.
+				# In python, we do it as a post-process
 				dcl.append(DeltaChunk(tbw, c, 0, db[i:i+c]))
 				i += c
 				tbw += c
@@ -549,12 +581,14 @@ def connect_deltas(dstreams):
 			# END handle command byte
 		# END while processing delta data
 		
+		dcl.compress()
+		
 		# merge the lists !
 		if bdcl is not None:
 			dcl.connect_with(bdcl)
 		# END handle merge
 		
-		dcl.check_integrity()
+		# dcl.check_integrity()
 		
 		# prepare next base
 		bdcl = dcl
