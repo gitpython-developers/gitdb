@@ -84,6 +84,26 @@ def _move_delta_lbound(d, bytes):
 	
 def delta_duplicate(src):
 	return DeltaChunk(src.to, src.ts, src.so, src.data)
+	
+def delta_chunk_apply(dc, bbuf, write):
+	"""Apply own data to the target buffer
+	:param bbuf: buffer providing source bytes for copy operations
+	:param write: write method to call with data to write"""
+	if dc.data is None:
+		# COPY DATA FROM SOURCE
+		write(buffer(bbuf, dc.so, dc.ts))
+	elif isinstance(dc.data, DeltaChunkList):
+		delta_list_apply(dc.data, bbuf, write, dc.so, dc.ts)
+	else:
+		# APPEND DATA
+		# whats faster: if + 4 function calls or just a write with a slice ?
+		# Considering data can be larger than 127 bytes now, it should be worth it
+		if dc.ts < len(dc.data):
+			write(dc.data[:dc.ts])
+		else:
+			write(dc.data)
+		# END handle truncation
+	# END handle chunk mode
 
 class DeltaChunk(object):
 	"""Represents a piece of a delta, it can either add new data, or copy existing
@@ -136,25 +156,7 @@ class DeltaChunk(object):
 		self.data = dcl
 		self.so = 0				# allows lbound moves to be virtual
 		
-	def apply(self, bbuf, write):
-		"""Apply own data to the target buffer
-		:param bbuf: buffer providing source bytes for copy operations
-		:param write: write method to call with data to write"""
-		if self.data is None:
-			# COPY DATA FROM SOURCE
-			write(buffer(bbuf, self.so, self.ts))
-		elif isinstance(self.data, DeltaChunkList):
-			self.data.apply(bbuf, write, self.so, self.ts)
-		else:
-			# APPEND DATA
-			# whats faster: if + 4 function calls or just a write with a slice ?
-			# Considering data can be larger than 127 bytes now, it should be worth it
-			if self.ts < len(self.data):
-				write(self.data[:self.ts])
-			else:
-				write(self.data)
-			# END handle truncation
-		# END handle chunk mode
+	
 		
 	#} END interface
 
@@ -178,6 +180,59 @@ def _closest_index(dcl, absofs):
 	# END for each delta absofs
 	return len(dcl)-1
 	
+def delta_list_apply(dcl, bbuf, write, lbound_offset=0, size=0):
+	"""Apply the chain's changes and write the final result using the passed
+	write function.
+	:param bbuf: base buffer containing the base of all deltas contained in this
+		list. It will only be used if the chunk in question does not have a base
+		chain.
+	:param lbound_offset: offset at which to start applying the delta, relative to 
+		our lbound
+	:param size: if larger than 0, only the given amount of bytes will be applied
+	:param write: function taking a string of bytes to write to the output"""
+	slen = len(dcl)
+	if slen == 0:
+		return
+	# END early abort
+	absofs = dcl.lbound() + lbound_offset
+	if size == 0:
+		size = dcl.rbound() - absofs
+	# END initialize size
+	
+	if lbound_offset or absofs + size != dcl.rbound():
+		cdi = _closest_index(dcl, absofs)
+		cd = dcl[cdi]
+		if cd.to != absofs:
+			tcd = delta_duplicate(cd)
+			_move_delta_lbound(tcd, absofs - cd.to)
+			_set_delta_rbound(tcd, min(tcd.ts, size)) 
+			delta_chunk_apply(tcd, bbuf, write)
+			size -= tcd.ts
+			cdi += 1
+		# END handle first chunk
+		
+		# here we have to either apply full chunks, or smaller ones, but 
+		# we always start at the chunks target offset
+		while cdi < slen and size:
+			cd = dcl[cdi]
+			if cd.ts <= size:
+				delta_chunk_apply(cd, bbuf, write)
+				size -= cd.ts
+			else:
+				tcd = delta_duplicate(cd)
+				_set_delta_rbound(tcd, size)
+				delta_chunk_apply(tcd, bbuf, write)
+				size -= tcd.ts
+				break
+			# END handle bytes to apply
+			cdi += 1
+		# END handle rest
+	else:
+		for dc in dcl:
+			delta_chunk_apply(dc, bbuf, write)
+		# END for each dc
+	# END handle application values
+
 	
 class DeltaChunkList(list):
 	"""List with special functionality to deal with DeltaChunks"""
@@ -210,6 +265,11 @@ class DeltaChunkList(list):
 				dc.set_copy_chunklist(bdcl[dc.so:dc.ts])
 			# END handle overlap
 		# END for each dc
+		
+	def apply(self, bbuf, write, lbound_offset=0, size=0):
+		"""Only used by public clients, internally we only use the global routines
+		for performance"""
+		return delta_list_apply(self, bbuf, write, lbound_offset, size)
 		
 	def compress(self):
 		"""Alter the list to reduce the amount of nodes. Currently we concatenate
@@ -254,61 +314,6 @@ class DeltaChunkList(list):
 		#if slen_orig != len(self):
 		#	print "INFO: Reduced delta list len to %f %% of former size" % ((float(len(self)) / slen_orig) * 100)
 		return self
-		
-	def apply(self, bbuf, write, lbound_offset=0, size=0):
-		"""Apply the chain's changes and write the final result using the passed
-		write function.
-		:param bbuf: base buffer containing the base of all deltas contained in this
-			list. It will only be used if the chunk in question does not have a base
-			chain.
-		:param lbound_offset: offset at which to start applying the delta, relative to 
-			our lbound
-		:param size: if larger than 0, only the given amount of bytes will be applied
-		:param write: function taking a string of bytes to write to the output"""
-		slen = len(self)
-		if slen == 0:
-			return
-		# END early abort
-		absofs = self.lbound() + lbound_offset
-		if size == 0:
-			size = self.rbound() - absofs
-		# END initialize size
-		
-		dapply = DeltaChunk.apply
-		if lbound_offset or absofs + size != self.rbound():
-			cdi = _closest_index(self, absofs)
-			cd = self[cdi]
-			if cd.to != absofs:
-				tcd = delta_duplicate(cd)
-				_move_delta_lbound(tcd, absofs - cd.to)
-				_set_delta_rbound(tcd, min(tcd.ts, size)) 
-				dapply(tcd, bbuf, write)
-				size -= tcd.ts
-				cdi += 1
-			# END handle first chunk
-			
-			# here we have to either apply full chunks, or smaller ones, but 
-			# we always start at the chunks target offset
-			while cdi < slen and size:
-				cd = self[cdi]
-				if cd.ts <= size:
-					dapply(cd, bbuf, write)
-					size -= cd.ts
-				else:
-					tcd = delta_duplicate(cd)
-					_set_delta_rbound(tcd, size)
-					dapply(tcd, bbuf, write)
-					size -= tcd.ts
-					break
-				# END handle bytes to apply
-				cdi += 1
-			# END handle rest
-			assert size == 0
-		else:
-			for dc in self:
-				dapply(dc, bbuf, write)
-			# END for each dc
-		# END handle application values
 		
 	def check_integrity(self, target_size=-1):
 		"""Verify the list has non-overlapping chunks only, and the total size matches
@@ -380,7 +385,6 @@ class DeltaChunkList(list):
 			# END hadle size
 			cdi += 1
 		# END for each chunk
-		assert size == 0, "size was %i" % size
 		
 		# ndcl.check_integrity()
 		return ndcl
