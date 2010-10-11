@@ -83,7 +83,7 @@ def _move_delta_lbound(d, bytes):
 	return d
 	
 def delta_duplicate(src):
-	return DeltaChunk(src.to, src.ts, src.so, src.data)
+	return DeltaChunk(src.to, src.ts, src.so, src.data, src.flags)
 	
 def delta_chunk_apply(dc, bbuf, write):
 	"""Apply own data to the target buffer
@@ -114,16 +114,18 @@ class DeltaChunk(object):
 					'so',		# start offset in the source buffer in bytes or None
 					'data',		# chunk of bytes to be added to the target buffer,
 								# DeltaChunkList to use as base, or None
+					'flags'		# currently only True or False
 				)
 	
-	def __init__(self, to, ts, so, data):
+	def __init__(self, to, ts, so, data, flags):
 		self.to = to
 		self.ts = ts
 		self.so = so
 		self.data = data
+		self.flags = flags
 
 	def __repr__(self):
-		return "DeltaChunk(%i, %i, %s, %s)" % (self.to, self.ts, self.so, self.data or "")
+		return "DeltaChunk(%i, %i, %s, %s, %i)" % (self.to, self.ts, self.so, self.data or "", self.flags)
 	
 	#{ Interface
 		
@@ -253,18 +255,24 @@ class DeltaChunkList(list):
 		""":return: size of bytes as measured by our delta chunks"""
 		return self.rbound() - self.lbound()
 		
-	def connect_with(self, bdcl):
+	def connect_with(self, bdcl, tdcl):
 		"""Connect this instance's delta chunks virtually with the given base.
 		This means that all copy deltas will simply apply to the given region 
 		of the given base. Afterwards, the base is optimized so that add-deltas
 		will be truncated to the region actually used, or removed completely where
 		adequate. This way, memory usage is reduced.
-		:param bdcl: DeltaChunkList to serve as base"""
-		for dc in self:
-			if not dc.has_data():
-				dc.set_copy_chunklist(bdcl[dc.so:dc.ts])
-			# END handle overlap
-		# END for each dc
+		:param bdcl: DeltaChunkList to serve as base
+		:param tdcl: topmost delta chunk list. If set, reverse order is assumed
+			and the list is connected more efficiently"""
+		if tdcl is None:
+			for dc in self:
+				if not dc.has_data():
+					dc.set_copy_chunklist(bdcl[dc.so:dc.ts])
+				# END handle overlap
+			# END for each dc
+		else:
+			raise NotImplementedError("todo")
+		# END handle order
 		
 	def apply(self, bbuf, write, lbound_offset=0, size=0):
 		"""Only used by public clients, internally we only use the global routines
@@ -297,7 +305,7 @@ class DeltaChunkList(list):
 					
 					del(self[first_data_index:i-1])
 					buf = nd.getvalue()
-					self.insert(first_data_index, DeltaChunk(so, len(buf), 0, buf)) 
+					self.insert(first_data_index, DeltaChunk(so, len(buf), 0, buf, False)) 
 					
 					slen = len(self)
 					i = first_data_index + 1
@@ -522,14 +530,18 @@ def reverse_connect_deltas(dcl, dstreams):
 	:return: None"""
 	raise NotImplementedError("This is left out up until we actually iterate the dstreams - they are prefetched right now")
 	
-def connect_deltas(dstreams):
+def connect_deltas(dstreams, reverse):
 	"""Read the condensed delta chunk information from dstream and merge its information
 	into a list of existing delta chunks
 	:param dstreams: iterable of delta stream objects. They must be ordered latest last, 
 		hence the delta to be applied last comes last, its oldest ancestor first
+	:param reverse: If False, the given iterable of delta-streams returns
+		items in from latest ancestor to the last delta.
+		If True, deltas are ordered so that the one to be applied last comes first.
 	:return: DeltaChunkList, containing all operations to apply"""
 	bdcl = None							# data chunk list for initial base
 	dcl = DeltaChunkList()
+	tdcl = None							# topmost dcl, only effective if reverse is True
 	for dsi, ds in enumerate(dstreams):
 		# print "Stream", dsi
 		db = ds.read()
@@ -576,12 +588,12 @@ def connect_deltas(dstreams):
 					rbound > base_size):
 					break
 				
-				dcl.append(DeltaChunk(tbw, cp_size, cp_off, None))
+				dcl.append(DeltaChunk(tbw, cp_size, cp_off, None, False))
 				tbw += cp_size
 			elif c:
 				# NOTE: in C, the data chunks should probably be concatenated here.
 				# In python, we do it as a post-process
-				dcl.append(DeltaChunk(tbw, c, 0, db[i:i+c]))
+				dcl.append(DeltaChunk(tbw, c, 0, db[i:i+c], False))
 				i += c
 				tbw += c
 			else:
@@ -591,9 +603,13 @@ def connect_deltas(dstreams):
 		
 		dcl.compress()
 		
+		if reverse and tdcl is None:
+			tdcl = dcl
+		# END handle reverse
+		
 		# merge the lists !
 		if bdcl is not None:
-			dcl.connect_with(bdcl)
+			dcl.connect_with(bdcl, tdcl)
 		# END handle merge
 		
 		# dcl.check_integrity()
