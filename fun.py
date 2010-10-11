@@ -62,7 +62,6 @@ def _set_delta_rbound(d, size):
 	
 	# NOTE: data is truncated automatically when applying the delta
 	# MUST NOT DO THIS HERE
-	
 	return d
 			
 def _move_delta_lbound(d, bytes):
@@ -76,7 +75,7 @@ def _move_delta_lbound(d, bytes):
 	d.to += bytes
 	d.so += bytes
 	d.ts -= bytes
-	if d.has_data():
+	if d.data is not None:
 		d.data = d.data[bytes:]
 	# END handle data
 	
@@ -92,8 +91,6 @@ def delta_chunk_apply(dc, bbuf, write):
 	if dc.data is None:
 		# COPY DATA FROM SOURCE
 		write(buffer(bbuf, dc.so, dc.ts))
-	elif isinstance(dc.data, DeltaChunkList):
-		delta_list_apply(dc.data, bbuf, write, dc.so, dc.ts)
 	else:
 		# APPEND DATA
 		# whats faster: if + 4 function calls or just a write with a slice ?
@@ -104,6 +101,7 @@ def delta_chunk_apply(dc, bbuf, write):
 			write(dc.data)
 		# END handle truncation
 	# END handle chunk mode
+
 
 class DeltaChunk(object):
 	"""Represents a piece of a delta, it can either add new data, or copy existing
@@ -127,36 +125,12 @@ class DeltaChunk(object):
 	
 	#{ Interface
 		
-	def copy_offset(self):
-		""":return: offset to apply when copying from a base buffer, or 0 
-			if this is not a copying delta chunk"""
-		
-		if self.data is not None:
-			if isinstance(self.data, DeltaChunkList):
-				return self.data.lbound() + self.so
-			else:
-				return self.so
-		# END handle data type
-		return 0
-		
 	def rbound(self):
 		return self.to + self.ts
 		
 	def has_data(self):
 		""":return: True if the instance has data to add to the target stream"""
-		return self.data is not None and not isinstance(self.data, DeltaChunkList)
-		
-	def has_copy_chunklist(self):
-		""":return: True if we copy our data from a chunklist"""
-		return self.data is not None and isinstance(self.data, DeltaChunkList)
-		
-	def set_copy_chunklist(self, dcl):
-		"""Set the deltachunk list to be used as basis for copying.
-		:note: only works if this chunk is a copy delta chunk"""
-		self.data = dcl
-		self.so = 0				# allows lbound moves to be virtual
-		
-	
+		return self.data is not None
 		
 	#} END interface
 
@@ -233,9 +207,54 @@ def delta_list_apply(dcl, bbuf, write, lbound_offset=0, size=0):
 		# END for each dc
 	# END handle application values
 
+def delta_list_slice(dcl, absofs, size):
+	""":return: Subsection of this  list at the given absolute  offset, with the given 
+		size in bytes.
+	:return: list (copy) which represents the given chunk"""
+	dcllbound = dcl.lbound()
+	absofs = max(absofs, dcllbound)
+	size = min(dcl.rbound() - dcllbound, size)
+	cdi = _closest_index(dcl, absofs)	# delta start index
+	cd = dcl[cdi]
+	slen = len(dcl)
+	ndcl = list()
+	lappend = ndcl.append 
+	
+	if cd.to != absofs:
+		tcd = delta_duplicate(cd)
+		_move_delta_lbound(tcd, absofs - cd.to)
+		_set_delta_rbound(tcd, min(tcd.ts, size))
+		lappend(tcd)
+		size -= tcd.ts
+		cdi += 1
+	# END lbound overlap handling
+	
+	while cdi < slen and size:
+		# are we larger than the current block
+		cd = dcl[cdi]
+		if cd.ts <= size:
+			lappend(delta_duplicate(cd))
+			size -= cd.ts
+		else:
+			tcd = delta_duplicate(cd)
+			_set_delta_rbound(tcd, size)
+			lappend(tcd)
+			size -= tcd.ts
+			break
+		# END hadle size
+		cdi += 1
+	# END for each chunk
+	
+	return ndcl
 	
 class DeltaChunkList(list):
-	"""List with special functionality to deal with DeltaChunks"""
+	"""List with special functionality to deal with DeltaChunks.
+	There are two types of lists we represent. The one was created bottom-up, working
+	towards the latest delta, the other kind was created top-down, working from the 
+	latest delta down to the earliest ancestor. This attribute is queryable 
+	after all processing with is_reversed."""
+	
+	__slots__ = tuple()
 	
 	def rbound(self):
 		""":return: rightmost extend in bytes, absolute"""
@@ -252,19 +271,6 @@ class DeltaChunkList(list):
 	def size(self):
 		""":return: size of bytes as measured by our delta chunks"""
 		return self.rbound() - self.lbound()
-		
-	def connect_with(self, bdcl):
-		"""Connect this instance's delta chunks virtually with the given base.
-		This means that all copy deltas will simply apply to the given region 
-		of the given base. Afterwards, the base is optimized so that add-deltas
-		will be truncated to the region actually used, or removed completely where
-		adequate. This way, memory usage is reduced.
-		:param bdcl: DeltaChunkList to serve as base"""
-		for dc in self:
-			if not dc.has_data():
-				dc.set_copy_chunklist(bdcl[dc.so:dc.ts])
-			# END handle overlap
-		# END for each dc
 		
 	def apply(self, bbuf, write, lbound_offset=0, size=0):
 		"""Only used by public clients, internally we only use the global routines
@@ -285,7 +291,7 @@ class DeltaChunkList(list):
 		while i < slen:
 			dc = self[i]
 			i += 1
-			if not dc.has_data():
+			if dc.data is None:
 				if first_data_index is not None and i-2-first_data_index > 1:
 				#if first_data_index is not None:
 					nd = StringIO()						# new data
@@ -333,8 +339,6 @@ class DeltaChunkList(list):
 			assert dc.ts > 0
 			if dc.has_data():
 				assert len(dc.data) >= dc.ts
-			if dc.has_copy_chunklist():
-				assert dc.ts <= dc.data.size()
 		# END for each dc
 			
 		left = islice(self, 0, len(self)-1)
@@ -347,49 +351,71 @@ class DeltaChunkList(list):
 			assert lft.to + lft.ts == rgt.to
 		# END for each pair
 		
-	def __getslice__(self, absofs, size):
-		""":return: Subsection of this  list at the given absolute  offset, with the given 
-			size in bytes.
-		:return: DeltaChunkList (copy) which represents the given chunk"""
-		if len(self) == 0:
-			return DeltaChunkList()
+
+class TopdownDeltaChunkList(DeltaChunkList):
+	"""Represents a list which is generated by feeding its ancestor streams one by 
+	one"""
+	__slots__ = tuple() 
+	
+	def connect_with_next_base(self, bdcl):
+		"""Connect this chain with the next level of our base delta chunklist.
+		The goal in this game is to mark as many of our chunks rigid, hence they
+		cannot be changed by any of the upcoming bases anymore. Once all our 
+		chunks are marked like that, we can stop all processing
+		:param bdcl: data chunk list being one of our bases. They must be fed in 
+			consequtively and in order, towards the earliest ancestor delta
+		:return: True if processing was done. Use it to abort processing of
+			remaining streams if False is returned"""
+		nfc = 0								# number of frozen chunks
+		dci = 0								# delta chunk index
+		slen = len(self)					# len of self
+		while dci < slen:
+			dc = self[dci]
+			dci += 1
 			
-		absofs = max(absofs, self.lbound())
-		size = min(self.rbound() - self.lbound(), size)
-		cdi = _closest_index(self, absofs)	# delta start index
-		cd = self[cdi]
-		slen = len(self)
-		ndcl = self.__class__()
-		
-		if cd.to != absofs:
-			tcd = delta_duplicate(cd)
-			_move_delta_lbound(tcd, absofs - cd.to)
-			_set_delta_rbound(tcd, min(tcd.ts, size))
-			ndcl.append(tcd)
-			size -= tcd.ts
-			cdi += 1
-		# END lbound overlap handling
-		
-		while cdi < slen and size:
-			# are we larger than the current block
-			cd = self[cdi]
-			if cd.ts <= size:
-				ndcl.append(delta_duplicate(cd))
-				size -= cd.ts
+			# all add-chunks which are already topmost don't need additional processing
+			if dc.data is not None:
+				nfc += 1
+				continue
+			# END skip add chunks
+			
+			# copy chunks
+			# integrate the portion of the base list into ourselves. Lists
+			# dont support efficient insertion ( just one at a time ), but for now
+			# we live with it. Internally, its all just a 32/64bit pointer, and
+			# the portions of moved memory should be smallish. Maybe we just rebuild
+			# ourselves in order to reduce the amount of insertions ... 
+			ccl = delta_list_slice(bdcl, dc.so, dc.ts)
+			
+			# move the target bounds into place to match with our chunk
+			ofs = dc.to - dc.so
+			for cdc in ccl:
+				cdc.to += ofs
+			# END update target bounds
+			
+			if len(ccl) == 1:
+				self[dci-1] = ccl[0]
 			else:
-				tcd = delta_duplicate(cd)
-				_set_delta_rbound(tcd, size)
-				ndcl.append(tcd)
-				size -= tcd.ts
-				break
-			# END hadle size
-			cdi += 1
+				# maybe try to compute the expenses here, and pick the right algorithm
+				# It would normally be faster than copying everything physically though
+				# TODO: Use a deque here, and decide by the index whether to extend
+				# or extend left !
+				post_dci = self[dci:]
+				del(self[dci-1:])			# include deletion of dc
+				self.extend(ccl)
+				self.extend(post_dci)
+				
+				slen = len(self)
+				dci += len(ccl)-1			# deleted dc, added rest
+				
+			# END handle chunk replacement
 		# END for each chunk
 		
-		# ndcl.check_integrity()
-		return ndcl
-			
-			
+		if nfc == slen:
+			return False
+		# END handle completeness
+		return True
+		
 		
 #} END structures
 
@@ -513,23 +539,16 @@ def stream_copy(read, write, size, chunk_size):
 	# END duplicate data
 	return dbw
 	
-def reverse_connect_deltas(dcl, dstreams):
-	"""Read the condensed delta chunk information from dstream and merge its information
-	into a list of existing delta chunks
-	:param dcl: see 3
-	:param dstreams: iterable of delta stream objects. They must be ordered latest first, 
-		hence the delta to be applied last comes first, then its ancestors
-	:return: None"""
-	raise NotImplementedError("This is left out up until we actually iterate the dstreams - they are prefetched right now")
-	
 def connect_deltas(dstreams):
 	"""Read the condensed delta chunk information from dstream and merge its information
 	into a list of existing delta chunks
-	:param dstreams: iterable of delta stream objects. They must be ordered latest last, 
-		hence the delta to be applied last comes last, its oldest ancestor first
+	:param dstreams: iterable of delta stream objects, the delta to be applied last
+		comes first, then all its ancestors in order
 	:return: DeltaChunkList, containing all operations to apply"""
 	bdcl = None							# data chunk list for initial base
-	dcl = DeltaChunkList()
+	tdcl = None							# topmost dcl
+	
+	dcl = tdcl = TopdownDeltaChunkList()
 	for dsi, ds in enumerate(dstreams):
 		# print "Stream", dsi
 		db = ds.read()
@@ -593,18 +612,16 @@ def connect_deltas(dstreams):
 		
 		# merge the lists !
 		if bdcl is not None:
-			dcl.connect_with(bdcl)
+			if not tdcl.connect_with_next_base(dcl):
+				break
 		# END handle merge
-		
-		# dcl.check_integrity()
 		
 		# prepare next base
 		bdcl = dcl
 		dcl = DeltaChunkList()
 	# END for each delta stream
 	
-	return bdcl
-	
+	return tdcl
 	
 def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):
 	"""

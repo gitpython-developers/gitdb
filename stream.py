@@ -328,17 +328,16 @@ class DeltaApplyReader(LazyMixin):
 	def _set_cache_(self, attr):
 		# the direct algorithm is fastest and most direct if there is only one 
 		# delta. Also, the extra overhead might not be worth it for items smaller
-		# than X - definitely the case in python
-		# hence we apply a worst-case scenario here
-		# TODO: read the final size from the deltastream - have to partly unpack
-		# if len(self._dstreams) * self._size < self.k_max_memory_move:
+		# than X - definitely the case in python, every function call costs 
+		# huge amounts of time
+		# if len(self._dstreams) * self._bstream.size < self.k_max_memory_move:
 		if len(self._dstreams) == 1:
 			return self._set_cache_brute_(attr)
 		
 		# Aggregate all deltas into one delta in reverse order. Hence we take 
 		# the last delta, and reverse-merge its ancestor delta, until we receive
 		# the final delta data stream.
-		dcl = connect_deltas(reversed(self._dstreams))
+		dcl = connect_deltas(self._dstreams)
 		
 		if len(dcl) == 0:
 			self._size = 0

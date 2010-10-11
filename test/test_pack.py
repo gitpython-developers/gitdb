@@ -130,7 +130,7 @@ class TestPack(TestBase):
 			self._assert_pack_file(pack, version, size)
 		# END for each pack to test
 		
-	def _test_pack_entity(self):
+	def test_pack_entity(self):
 		for packinfo, indexinfo in (	(self.packfile_v2_1, self.packindexfile_v1), 
 										(self.packfile_v2_2, self.packindexfile_v2),
 										(self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):
