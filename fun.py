@@ -701,3 +701,8 @@ def is_equal_canonical_sha(canonical_length, match, sha1):
 	
 #} END routines
 
+
+try:
+	from _fun import connect_deltas
+except ImportError:
+	pass

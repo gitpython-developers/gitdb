@@ -338,8 +338,11 @@ class DeltaApplyReader(LazyMixin):
 		# the last delta, and reverse-merge its ancestor delta, until we receive
 		# the final delta data stream.
 		dcl = connect_deltas(self._dstreams)
+		assert dcl is not None
 		
-		if len(dcl) == 0:
+		# call len directly, as the (optional) c version doesn't implement the sequence
+		# protocol
+		if dcl.__len__() == 0:
 			self._size = 0
 			self._mm_target = allocate_memory(0)
 			return
