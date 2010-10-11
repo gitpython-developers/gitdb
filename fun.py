@@ -10,6 +10,9 @@ from util import zlib
 decompressobj = zlib.decompressobj
 
 import mmap
+from itertools import islice, izip
+
+from cStringIO import StringIO
 
 # INVARIANTS
 OFS_DELTA = 6
@@ -41,7 +44,354 @@ chunk_size = 1000*mmap.PAGESIZE
 
 __all__ = ('is_loose_object', 'loose_object_header_info', 'msb_size', 'pack_object_header_info', 
 			'write_object', 'loose_object_header', 'stream_copy', 'apply_delta_data', 
-			'is_equal_canonical_sha' )
+			'is_equal_canonical_sha', 'reverse_connect_deltas',
+			'connect_deltas', 'DeltaChunkList')
+
+
+#{ Structures
+
+def _set_delta_rbound(d, size):
+	"""Truncate the given delta to the given size
+	:param size: size relative to our target offset, may not be 0, must be smaller or equal
+		to our size
+	:return: d"""
+	if d.ts == size:
+		return
+		
+	d.ts = size
+	
+	# NOTE: data is truncated automatically when applying the delta
+	# MUST NOT DO THIS HERE
+	
+	return d
+			
+def _move_delta_lbound(d, bytes):
+	"""Move the delta by the given amount of bytes, reducing its size so that its
+	right bound stays static
+	:param bytes: amount of bytes to move, must be smaller than delta size
+	:return: d"""
+	if bytes == 0:
+		return
+		
+	d.to += bytes
+	d.so += bytes
+	d.ts -= bytes
+	if d.has_data():
+		d.data = d.data[bytes:]
+	# END handle data
+	
+	return d
+	
+def delta_duplicate(src):
+	return DeltaChunk(src.to, src.ts, src.so, src.data)
+	
+def delta_chunk_apply(dc, bbuf, write):
+	"""Apply own data to the target buffer
+	:param bbuf: buffer providing source bytes for copy operations
+	:param write: write method to call with data to write"""
+	if dc.data is None:
+		# COPY DATA FROM SOURCE
+		write(buffer(bbuf, dc.so, dc.ts))
+	elif isinstance(dc.data, DeltaChunkList):
+		delta_list_apply(dc.data, bbuf, write, dc.so, dc.ts)
+	else:
+		# APPEND DATA
+		# whats faster: if + 4 function calls or just a write with a slice ?
+		# Considering data can be larger than 127 bytes now, it should be worth it
+		if dc.ts < len(dc.data):
+			write(dc.data[:dc.ts])
+		else:
+			write(dc.data)
+		# END handle truncation
+	# END handle chunk mode
+
+class DeltaChunk(object):
+	"""Represents a piece of a delta, it can either add new data, or copy existing
+	one from a source buffer"""
+	__slots__ = (
+					'to',		# start offset in the target buffer in bytes 
+					'ts',		# size of this chunk in the target buffer in bytes
+					'so',		# start offset in the source buffer in bytes or None
+					'data',		# chunk of bytes to be added to the target buffer,
+								# DeltaChunkList to use as base, or None
+				)
+	
+	def __init__(self, to, ts, so, data):
+		self.to = to
+		self.ts = ts
+		self.so = so
+		self.data = data
+
+	def __repr__(self):
+		return "DeltaChunk(%i, %i, %s, %s)" % (self.to, self.ts, self.so, self.data or "")
+	
+	#{ Interface
+		
+	def copy_offset(self):
+		""":return: offset to apply when copying from a base buffer, or 0 
+			if this is not a copying delta chunk"""
+		
+		if self.data is not None:
+			if isinstance(self.data, DeltaChunkList):
+				return self.data.lbound() + self.so
+			else:
+				return self.so
+		# END handle data type
+		return 0
+		
+	def rbound(self):
+		return self.to + self.ts
+		
+	def has_data(self):
+		""":return: True if the instance has data to add to the target stream"""
+		return self.data is not None and not isinstance(self.data, DeltaChunkList)
+		
+	def has_copy_chunklist(self):
+		""":return: True if we copy our data from a chunklist"""
+		return self.data is not None and isinstance(self.data, DeltaChunkList)
+		
+	def set_copy_chunklist(self, dcl):
+		"""Set the deltachunk list to be used as basis for copying.
+		:note: only works if this chunk is a copy delta chunk"""
+		self.data = dcl
+		self.so = 0				# allows lbound moves to be virtual
+		
+	
+		
+	#} END interface
+
+def _closest_index(dcl, absofs):
+	""":return: index at which the given absofs should be inserted. The index points
+	to the DeltaChunk with a target buffer absofs that equals or is greater than
+	absofs. 
+	:note: global method for performance only, it belongs to DeltaChunkList"""
+	lo = 0
+	hi = len(dcl)
+	while lo < hi:
+		mid = (lo + hi) / 2
+		dc = dcl[mid]
+		if dc.to > absofs:
+			hi = mid
+		elif dc.rbound() > absofs or dc.to == absofs:
+			return mid
+		else:
+			lo = mid + 1
+		# END handle bound
+	# END for each delta absofs
+	return len(dcl)-1
+	
+def delta_list_apply(dcl, bbuf, write, lbound_offset=0, size=0):
+	"""Apply the chain's changes and write the final result using the passed
+	write function.
+	:param bbuf: base buffer containing the base of all deltas contained in this
+		list. It will only be used if the chunk in question does not have a base
+		chain.
+	:param lbound_offset: offset at which to start applying the delta, relative to 
+		our lbound
+	:param size: if larger than 0, only the given amount of bytes will be applied
+	:param write: function taking a string of bytes to write to the output"""
+	slen = len(dcl)
+	if slen == 0:
+		return
+	# END early abort
+	absofs = dcl.lbound() + lbound_offset
+	if size == 0:
+		size = dcl.rbound() - absofs
+	# END initialize size
+	
+	if lbound_offset or absofs + size != dcl.rbound():
+		cdi = _closest_index(dcl, absofs)
+		cd = dcl[cdi]
+		if cd.to != absofs:
+			tcd = delta_duplicate(cd)
+			_move_delta_lbound(tcd, absofs - cd.to)
+			_set_delta_rbound(tcd, min(tcd.ts, size)) 
+			delta_chunk_apply(tcd, bbuf, write)
+			size -= tcd.ts
+			cdi += 1
+		# END handle first chunk
+		
+		# here we have to either apply full chunks, or smaller ones, but 
+		# we always start at the chunks target offset
+		while cdi < slen and size:
+			cd = dcl[cdi]
+			if cd.ts <= size:
+				delta_chunk_apply(cd, bbuf, write)
+				size -= cd.ts
+			else:
+				tcd = delta_duplicate(cd)
+				_set_delta_rbound(tcd, size)
+				delta_chunk_apply(tcd, bbuf, write)
+				size -= tcd.ts
+				break
+			# END handle bytes to apply
+			cdi += 1
+		# END handle rest
+	else:
+		for dc in dcl:
+			delta_chunk_apply(dc, bbuf, write)
+		# END for each dc
+	# END handle application values
+
+	
+class DeltaChunkList(list):
+	"""List with special functionality to deal with DeltaChunks"""
+	
+	def rbound(self):
+		""":return: rightmost extend in bytes, absolute"""
+		if len(self) == 0:
+			return 0
+		return self[-1].rbound()
+		
+	def lbound(self):
+		""":return: leftmost byte at which this chunklist starts"""
+		if len(self) == 0:
+			return 0
+		return self[0].to
+		
+	def size(self):
+		""":return: size of bytes as measured by our delta chunks"""
+		return self.rbound() - self.lbound()
+		
+	def connect_with(self, bdcl):
+		"""Connect this instance's delta chunks virtually with the given base.
+		This means that all copy deltas will simply apply to the given region 
+		of the given base. Afterwards, the base is optimized so that add-deltas
+		will be truncated to the region actually used, or removed completely where
+		adequate. This way, memory usage is reduced.
+		:param bdcl: DeltaChunkList to serve as base"""
+		for dc in self:
+			if not dc.has_data():
+				dc.set_copy_chunklist(bdcl[dc.so:dc.ts])
+			# END handle overlap
+		# END for each dc
+		
+	def apply(self, bbuf, write, lbound_offset=0, size=0):
+		"""Only used by public clients, internally we only use the global routines
+		for performance"""
+		return delta_list_apply(self, bbuf, write, lbound_offset, size)
+		
+	def compress(self):
+		"""Alter the list to reduce the amount of nodes. Currently we concatenate
+		add-chunks
+		:return: self"""
+		slen = len(self)
+		if slen < 2:
+			return self
+		i = 0
+		slen_orig = slen
+		
+		first_data_index = None
+		while i < slen:
+			dc = self[i]
+			i += 1
+			if not dc.has_data():
+				if first_data_index is not None and i-2-first_data_index > 1:
+				#if first_data_index is not None:
+					nd = StringIO()						# new data
+					so = self[first_data_index].to		# start offset in target buffer
+					for x in xrange(first_data_index, i-1):
+						xdc = self[x]
+						nd.write(xdc.data[:xdc.ts])
+					# END collect data
+					
+					del(self[first_data_index:i-1])
+					buf = nd.getvalue()
+					self.insert(first_data_index, DeltaChunk(so, len(buf), 0, buf)) 
+					
+					slen = len(self)
+					i = first_data_index + 1
+					
+				# END concatenate data
+				first_data_index = None
+				continue
+			# END skip non-data chunks
+			
+			if first_data_index is None:
+				first_data_index = i-1
+		# END iterate list
+		
+		#if slen_orig != len(self):
+		#	print "INFO: Reduced delta list len to %f %% of former size" % ((float(len(self)) / slen_orig) * 100)
+		return self
+		
+	def check_integrity(self, target_size=-1):
+		"""Verify the list has non-overlapping chunks only, and the total size matches
+		target_size
+		:param target_size: if not -1, the total size of the chain must be target_size
+		:raise AssertionError: if the size doen't match"""
+		if target_size > -1:
+			assert self[-1].rbound() == target_size
+			assert reduce(lambda x,y: x+y, (d.ts for d in self), 0) == target_size
+		# END target size verification
+		
+		if len(self) < 2:
+			return
+			
+		# check data
+		for dc in self:
+			assert dc.ts > 0
+			if dc.has_data():
+				assert len(dc.data) >= dc.ts
+			if dc.has_copy_chunklist():
+				assert dc.ts <= dc.data.size()
+		# END for each dc
+			
+		left = islice(self, 0, len(self)-1)
+		right = iter(self)
+		right.next()
+		# this is very pythonic - we might have just use index based access here, 
+		# but this could actually be faster
+		for lft,rgt in izip(left, right):
+			assert lft.rbound() == rgt.to
+			assert lft.to + lft.ts == rgt.to
+		# END for each pair
+		
+	def __getslice__(self, absofs, size):
+		""":return: Subsection of this  list at the given absolute  offset, with the given 
+			size in bytes.
+		:return: DeltaChunkList (copy) which represents the given chunk"""
+		if len(self) == 0:
+			return DeltaChunkList()
+			
+		absofs = max(absofs, self.lbound())
+		size = min(self.rbound() - self.lbound(), size)
+		cdi = _closest_index(self, absofs)	# delta start index
+		cd = self[cdi]
+		slen = len(self)
+		ndcl = self.__class__()
+		
+		if cd.to != absofs:
+			tcd = delta_duplicate(cd)
+			_move_delta_lbound(tcd, absofs - cd.to)
+			_set_delta_rbound(tcd, min(tcd.ts, size))
+			ndcl.append(tcd)
+			size -= tcd.ts
+			cdi += 1
+		# END lbound overlap handling
+		
+		while cdi < slen and size:
+			# are we larger than the current block
+			cd = self[cdi]
+			if cd.ts <= size:
+				ndcl.append(delta_duplicate(cd))
+				size -= cd.ts
+			else:
+				tcd = delta_duplicate(cd)
+				_set_delta_rbound(tcd, size)
+				ndcl.append(tcd)
+				size -= tcd.ts
+				break
+			# END hadle size
+			cdi += 1
+		# END for each chunk
+		
+		# ndcl.check_integrity()
+		return ndcl
+			
+			
+		
+#} END structures
 
 #{ Routines
 
@@ -163,20 +513,110 @@ def stream_copy(read, write, size, chunk_size):
 	# END duplicate data
 	return dbw
 	
+def reverse_connect_deltas(dcl, dstreams):
+	"""Read the condensed delta chunk information from dstream and merge its information
+	into a list of existing delta chunks
+	:param dcl: see 3
+	:param dstreams: iterable of delta stream objects. They must be ordered latest first, 
+		hence the delta to be applied last comes first, then its ancestors
+	:return: None"""
+	raise NotImplementedError("This is left out up until we actually iterate the dstreams - they are prefetched right now")
 	
-def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_file):
+def connect_deltas(dstreams):
+	"""Read the condensed delta chunk information from dstream and merge its information
+	into a list of existing delta chunks
+	:param dstreams: iterable of delta stream objects. They must be ordered latest last, 
+		hence the delta to be applied last comes last, its oldest ancestor first
+	:return: DeltaChunkList, containing all operations to apply"""
+	bdcl = None							# data chunk list for initial base
+	dcl = DeltaChunkList()
+	for dsi, ds in enumerate(dstreams):
+		# print "Stream", dsi
+		db = ds.read()
+		delta_buf_size = ds.size
+		
+		# read header
+		i, base_size = msb_size(db)
+		i, target_size = msb_size(db, i)
+		
+		# interpret opcodes
+		tbw = 0						# amount of target bytes written
+		while i < delta_buf_size:
+			c = ord(db[i])
+			i += 1
+			if c & 0x80:
+				cp_off, cp_size = 0, 0
+				if (c & 0x01):
+					cp_off = ord(db[i])
+					i += 1
+				if (c & 0x02):
+					cp_off |= (ord(db[i]) << 8)
+					i += 1
+				if (c & 0x04):
+					cp_off |= (ord(db[i]) << 16)
+					i += 1
+				if (c & 0x08):
+					cp_off |= (ord(db[i]) << 24)
+					i += 1
+				if (c & 0x10):
+					cp_size = ord(db[i])
+					i += 1
+				if (c & 0x20):
+					cp_size |= (ord(db[i]) << 8)
+					i += 1
+				if (c & 0x40):
+					cp_size |= (ord(db[i]) << 16)
+					i += 1
+					
+				if not cp_size: 
+					cp_size = 0x10000
+				
+				rbound = cp_off + cp_size
+				if (rbound < cp_size or
+					rbound > base_size):
+					break
+				
+				dcl.append(DeltaChunk(tbw, cp_size, cp_off, None))
+				tbw += cp_size
+			elif c:
+				# NOTE: in C, the data chunks should probably be concatenated here.
+				# In python, we do it as a post-process
+				dcl.append(DeltaChunk(tbw, c, 0, db[i:i+c]))
+				i += c
+				tbw += c
+			else:
+				raise ValueError("unexpected delta opcode 0")
+			# END handle command byte
+		# END while processing delta data
+		
+		dcl.compress()
+		
+		# merge the lists !
+		if bdcl is not None:
+			dcl.connect_with(bdcl)
+		# END handle merge
+		
+		# dcl.check_integrity()
+		
+		# prepare next base
+		bdcl = dcl
+		dcl = DeltaChunkList()
+	# END for each delta stream
+	
+	return bdcl
+	
+	
+def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):
 	"""
-	Apply data from a delta buffer using a source buffer to the target file, 
-	which will be written to
+	Apply data from a delta buffer using a source buffer to the target file
 	
 	:param src_buf: random access data from which the delta was created
 	:param src_buf_size: size of the source buffer in bytes
 	:param delta_buf_size: size fo the delta buffer in bytes
 	:param delta_buf: random access delta data
-	:param target_file: file like object to write the result to
+	:param write: write method taking a chunk of bytes
 	:note: transcribed to python from the similar routine in patch-delta.c"""
 	i = 0
-	twrite = target_file.write
 	db = delta_buf
 	while i < delta_buf_size:
 		c = ord(db[i])
@@ -212,9 +652,9 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, target_fi
 			if (rbound < cp_size or
 			    rbound > src_buf_size):
 				break
-			twrite(buffer(src_buf, cp_off, cp_size))
+			write(buffer(src_buf, cp_off, cp_size))
 		elif c:
-			twrite(db[i:i+c])
+			write(db[i:i+c])
 			i += c
 		else:
 			raise ValueError("unexpected delta opcode 0")

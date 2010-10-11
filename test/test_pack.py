@@ -34,8 +34,10 @@ class TestPack(TestBase):
 	
 	packindexfile_v1 = (fixture_path('packs/pack-c0438c19fb16422b6bbcce24387b3264416d485b.idx'), 1, 67)
 	packindexfile_v2 = (fixture_path('packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.idx'), 2, 30)
+	packindexfile_v2_3_ascii = (fixture_path('packs/pack-a2bf8e71d8c18879e499335762dd95119d93d9f1.idx'), 2, 42)
 	packfile_v2_1 = (fixture_path('packs/pack-c0438c19fb16422b6bbcce24387b3264416d485b.pack'), 2, packindexfile_v1[2])
 	packfile_v2_2 = (fixture_path('packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.pack'), 2, packindexfile_v2[2])
+	packfile_v2_3_ascii = (fixture_path('packs/pack-a2bf8e71d8c18879e499335762dd95119d93d9f1.pack'), 2, packindexfile_v2_3_ascii[2])
 	
 	
 	def _assert_index_file(self, index, version, size):
@@ -123,14 +125,15 @@ class TestPack(TestBase):
 		
 	def test_pack(self):
 		# there is this special version 3, but apparently its like 2 ... 
-		for packfile, version, size in (self.packfile_v2_1, self.packfile_v2_2):
+		for packfile, version, size in (self.packfile_v2_3_ascii, self.packfile_v2_1, self.packfile_v2_2):
 			pack = PackFile(packfile)
 			self._assert_pack_file(pack, version, size)
 		# END for each pack to test
 		
-	def test_pack_entity(self):
+	def _test_pack_entity(self):
 		for packinfo, indexinfo in (	(self.packfile_v2_1, self.packindexfile_v1), 
-										(self.packfile_v2_2, self.packindexfile_v2)):
+										(self.packfile_v2_2, self.packindexfile_v2),
+										(self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):
 			packfile, version, size = packinfo
 			indexfile, version, size = indexinfo
 			entity = PackEntity(packfile)

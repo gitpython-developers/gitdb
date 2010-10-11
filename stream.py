@@ -7,7 +7,9 @@ import os
 from fun import (
 					msb_size,
 					stream_copy, 
-					apply_delta_data, 
+					apply_delta_data,
+					connect_deltas,
+					DeltaChunkList,
 					delta_types
 				)
 
@@ -309,6 +311,10 @@ class DeltaApplyReader(LazyMixin):
 					"_br"					# number of bytes read 
 				)
 	
+	#{ Configuration
+	k_max_memory_move = 250*1000*1000
+	#} END configuration
+	
 	def __init__(self, stream_list):
 		"""Initialize this instance with a list of streams, the first stream being 
 		the delta to apply on top of all following deltas, the last stream being the
@@ -320,9 +326,41 @@ class DeltaApplyReader(LazyMixin):
 		self._br = 0
 		
 	def _set_cache_(self, attr):
+		# the direct algorithm is fastest and most direct if there is only one 
+		# delta. Also, the extra overhead might not be worth it for items smaller
+		# than X - definitely the case in python
+		# hence we apply a worst-case scenario here
+		# TODO: read the final size from the deltastream - have to partly unpack
+		# if len(self._dstreams) * self._size < self.k_max_memory_move:
+		if len(self._dstreams) == 1:
+			return self._set_cache_brute_(attr)
+		
+		# Aggregate all deltas into one delta in reverse order. Hence we take 
+		# the last delta, and reverse-merge its ancestor delta, until we receive
+		# the final delta data stream.
+		dcl = connect_deltas(reversed(self._dstreams))
+		
+		if len(dcl) == 0:
+			self._size = 0
+			self._mm_target = allocate_memory(0)
+			return
+		# END handle empty list
+		
+		self._size = dcl.rbound()
+		self._mm_target = allocate_memory(self._size)
+		
+		bbuf = allocate_memory(self._bstream.size)
+		stream_copy(self._bstream.read, bbuf.write, self._bstream.size, 256 * mmap.PAGESIZE)
+		
+		# APPLY CHUNKS
+		write = self._mm_target.write
+		dcl.apply(bbuf, write)
+		
+		self._mm_target.seek(0)
+		
+	def _set_cache_brute_(self, attr):
 		"""If we are here, we apply the actual deltas"""
 		
-		# prefetch information
 		buffer_info_list = list()
 		max_target_size = 0
 		for dstream in self._dstreams:
@@ -373,7 +411,7 @@ class DeltaApplyReader(LazyMixin):
 			stream_copy(dstream.read, ddata.write, dstream.size, 256*mmap.PAGESIZE)
 			
 			#######################################################################
-			apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf)
+			apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf.write)
 			#######################################################################
 			
 			# finally, swap out source and target buffers. The target is now the 
