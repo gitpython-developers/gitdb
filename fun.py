@@ -210,14 +210,14 @@ def delta_list_apply(dcl, bbuf, write, lbound_offset=0, size=0):
 def delta_list_slice(dcl, absofs, size):
 	""":return: Subsection of this  list at the given absolute  offset, with the given 
 		size in bytes.
-	:return: DeltaChunkList (copy) which represents the given chunk"""
+	:return: list (copy) which represents the given chunk"""
 	dcllbound = dcl.lbound()
 	absofs = max(absofs, dcllbound)
 	size = min(dcl.rbound() - dcllbound, size)
 	cdi = _closest_index(dcl, absofs)	# delta start index
 	cd = dcl[cdi]
 	slen = len(dcl)
-	ndcl = DeltaChunkList()
+	ndcl = list()
 	lappend = ndcl.append 
 	
 	if cd.to != absofs:
