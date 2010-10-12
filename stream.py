@@ -339,6 +339,9 @@ class DeltaApplyReader(LazyMixin):
 		# the final delta data stream.
 		dcl = connect_deltas(self._dstreams)
 		assert dcl is not None
+		print "got dcl"
+		del(dcl)
+		print "dealloc worked"
 		
 		# call len directly, as the (optional) c version doesn't implement the sequence
 		# protocol

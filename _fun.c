@@ -136,16 +136,18 @@ Return 1 on success, 0 on failure
 static
 int DCV_grow(DeltaChunkVector* vec, uint num_dc)
 {
-	const ull grow_by_chunks = (vec->size + num_dc) - vec->reserved_size;  
+	const uint grow_by_chunks = (vec->size + num_dc) - vec->reserved_size;  
 	if (grow_by_chunks <= 0){
 		return 1;
 	}
 	
-	if (vec->mem){
-		vec->mem = PyMem_Malloc(grow_by_chunks*sizeof(DeltaChunk));
+	if (vec->mem == NULL){
+		vec->mem = PyMem_Malloc(grow_by_chunks * sizeof(vec->mem));
 	} else {
-		vec->mem = PyMem_Realloc(vec->mem, (vec->size + grow_by_chunks)*sizeof(DeltaChunk));
+		vec->mem = PyMem_Realloc(vec->mem, (vec->reserved_size + grow_by_chunks) * sizeof(vec->mem));
 	}
+	assert(vec->mem != NULL);
+	vec->reserved_size = vec->reserved_size + grow_by_chunks;
 	
 	return vec->mem != NULL;
 }
@@ -159,17 +161,6 @@ int DCV_init(DeltaChunkVector* vec, ull initial_size)
 	return DCV_grow(vec, initial_size);
 }
 
-
-void DCV_dealloc(DeltaChunkVector* vec)
-{
-	if (vec->mem){
-		PyMem_Free(vec->mem);
-		vec->size = 0;
-		vec->reserved_size = 0;
-		vec->mem = 0;
-	}
-}
-
 static inline
 ull DCV_len(DeltaChunkVector* vec)
 {
@@ -181,13 +172,55 @@ static inline
 DeltaChunk* DCV_get(DeltaChunkVector* vec, Py_ssize_t i)
 {
 	assert(i < vec->size && vec->mem);
-	return &(vec->mem[i]);
+	return &vec->mem[i];
 }
 
 static inline
 int DCV_empty(DeltaChunkVector* vec)
 {
 	return vec->size == 0;
+}
+
+// Return end pointer of the vector
+static inline
+DeltaChunk* DCV_end(DeltaChunkVector* vec)
+{
+	assert(!DCV_empty(vec));
+	return &vec->mem[vec->size];
+}
+
+void DCV_dealloc(DeltaChunkVector* vec)
+{
+	if (vec->mem){
+		if (vec->size){
+			const DeltaChunk* end = DCV_end(vec);
+			DeltaChunk* i;
+			for(i = &vec->mem[0]; i < end; i++){
+				DC_destroy(i);
+			}
+		}
+		PyMem_Free(vec->mem);
+		vec->size = 0;
+		vec->reserved_size = 0;
+		vec->mem = 0;
+	}
+}
+
+// Append num-chunks to the end of the list, possibly reallocating existing ones
+// Return a pointer to the first of the added items. They are not yet initialized
+// If num-chunks == 0, it returns the end pointer of the allocated memory
+static inline
+DeltaChunk* DCV_append_multiple(DeltaChunkVector* vec, uint num_chunks)
+{
+	if (vec->size + num_chunks > vec->reserved_size){
+		if (!DCV_grow(vec, (vec->size + num_chunks) - vec->reserved_size)){
+			Py_FatalError("Could not allocate memory for append operation");
+		}
+	}
+	Py_FatalError("Could not allocate memory for append operation");
+	Py_ssize_t old_size = vec->size;
+	vec->size += num_chunks;
+	return &vec->mem[old_size];
 }
 
 // DELTA CHUNK LIST (PYTHON)
@@ -200,12 +233,6 @@ typedef struct {
 	
 } DeltaChunkList;
 
-static
-int DCL_new(DeltaChunkList* self, PyObject* args, PyObject* kwds)
-{
-	return DCV_init(&self->vec, 0);
-}
-
 
 static 
 int DCL_init(DeltaChunkList *self, PyObject *args, PyObject *kwds)
@@ -215,19 +242,20 @@ int DCL_init(DeltaChunkList *self, PyObject *args, PyObject *kwds)
 		return 0;
 	}
 	
+	assert(self->vec.mem == NULL);
+	
 	ull init_size = 0;
 	PyArg_ParseTuple(args, "K", &init_size);
 	if (init_size == 0){
-		init_size = 125000;
+		init_size = 12500;
 	}
-	
-	return DCV_grow(&self->vec, init_size);
+	return DCV_init(&self->vec, init_size);
 }
 
 static
 void DCL_dealloc(DeltaChunkList* self)
 {
-	DCV_dealloc(&self->vec);
+	DCV_dealloc(&(self->vec));
 }
 
 static
@@ -305,7 +333,7 @@ static PyTypeObject DeltaChunkListType = {
 	0,						   /* tp_dictoffset */
 	(initproc)DCL_init,		/* tp_init */
 	0,						/* tp_alloc */
-	(newfunc)DCL_new,		/* tp_new */
+	0,						/* tp_new */
 };
 
 
