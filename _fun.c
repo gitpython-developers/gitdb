@@ -85,27 +85,26 @@ static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 
 
 typedef unsigned long long ull;
+typedef unsigned int uint;
 
+
+// DELTA CHUNK 
+////////////////
 // Internal Delta Chunk Objects
 typedef struct {
 	ull to;
 	ull ts;
 	ull so;
 	PyObject* data;
-	
-	void* next;
 } DeltaChunk;
 
-
-void DC_init(DeltaChunk* dc, ull to, ull ts, ull so, PyObject* data, DeltaChunk* next)
+void DC_init(DeltaChunk* dc, ull to, ull ts, ull so, PyObject* data)
 {
 	dc->to = to;
 	dc->ts = ts;
 	dc->so = so;
 	Py_XINCREF(data);
 	dc->data = data;
-	
-	dc->next = next;
 }
 
 void DC_destroy(DeltaChunk* dc)
@@ -113,28 +112,20 @@ void DC_destroy(DeltaChunk* dc)
 	Py_XDECREF(dc->data);
 }
 
-typedef struct {
-	PyObject_HEAD
-	// -----------
-	DeltaChunk* mem;
-	ull size;
-	ull reserved_size;
-	
-} DeltaChunkList;
-
 ull DC_rbound(DeltaChunk* dc)
 {
 	return dc->to + dc->ts;
 }
 
-static
-int DCL_new(DeltaChunkList* self, PyObject* args, PyObject* kwds)
-{
-	self->mem = NULL;			// Memory
-	self->size = 0;				// Size in DeltaChunks
-	self->reserved_size = 0;	// Reserve in DeltaChunks
-	return 1;
-}
+
+// DELTA CHUNK VECTOR
+/////////////////////
+
+typedef struct {
+	DeltaChunk* mem;			// Memory
+	Py_ssize_t size;					// Size in DeltaChunks
+	Py_ssize_t reserved_size;			// Reserve in DeltaChunks
+} DeltaChunkVector;
 
 /*
 Grow the delta chunk list by the given amount of bytes.
@@ -143,20 +134,76 @@ large enough.
 Return 1 on success, 0 on failure
 */
 static
-int DCL_grow(DeltaChunkList* self, ull num_dc)
+int DCV_grow(DeltaChunkVector* vec, uint num_dc)
 {
-	const ull grow_by_chunks = (self->size + num_dc) - self->reserved_size;  
+	const ull grow_by_chunks = (vec->size + num_dc) - vec->reserved_size;  
 	if (grow_by_chunks <= 0){
 		return 1;
 	}
 	
-	if (self->mem){
-		self->mem = PyMem_Malloc(grow_by_chunks*sizeof(DeltaChunk));
+	if (vec->mem){
+		vec->mem = PyMem_Malloc(grow_by_chunks*sizeof(DeltaChunk));
 	} else {
-		self->mem = PyMem_Realloc(self->mem, (self->size + grow_by_chunks)*sizeof(DeltaChunk));
+		vec->mem = PyMem_Realloc(vec->mem, (vec->size + grow_by_chunks)*sizeof(DeltaChunk));
 	}
 	
-	return self->mem != NULL;
+	return vec->mem != NULL;
+}
+
+int DCV_init(DeltaChunkVector* vec, ull initial_size)
+{
+	vec->mem = NULL;
+	vec->size = 0;
+	vec->reserved_size = 0;
+	
+	return DCV_grow(vec, initial_size);
+}
+
+
+void DCV_dealloc(DeltaChunkVector* vec)
+{
+	if (vec->mem){
+		PyMem_Free(vec->mem);
+		vec->size = 0;
+		vec->reserved_size = 0;
+		vec->mem = 0;
+	}
+}
+
+static inline
+ull DCV_len(DeltaChunkVector* vec)
+{
+	return vec->size;
+}
+
+// Return item at index
+static inline
+DeltaChunk* DCV_get(DeltaChunkVector* vec, Py_ssize_t i)
+{
+	assert(i < vec->size && vec->mem);
+	return &(vec->mem[i]);
+}
+
+static inline
+int DCV_empty(DeltaChunkVector* vec)
+{
+	return vec->size == 0;
+}
+
+// DELTA CHUNK LIST (PYTHON)
+/////////////////////////////
+
+typedef struct {
+	PyObject_HEAD
+	// -----------
+	DeltaChunkVector vec;
+	
+} DeltaChunkList;
+
+static
+int DCL_new(DeltaChunkList* self, PyObject* args, PyObject* kwds)
+{
+	return DCV_init(&self->vec, 0);
 }
 
 
@@ -174,34 +221,27 @@ int DCL_init(DeltaChunkList *self, PyObject *args, PyObject *kwds)
 		init_size = 125000;
 	}
 	
-	return DCL_grow(self, init_size);
+	return DCV_grow(&self->vec, init_size);
 }
 
 static
 void DCL_dealloc(DeltaChunkList* self)
 {
-	// TODO: deallocate linked list
-	if (self->mem){
-		PyMem_Free(self->mem);
-		self->size = 0;
-		self->reserved_size = 0;
-		self->mem = 0;
-	}
+	DCV_dealloc(&self->vec);
 }
 
 static
-PyObject* DCL_len(PyObject* self)
+PyObject* DCL_len(DeltaChunkList* self)
 {
-	return PyLong_FromUnsignedLongLong(0);
+	return PyLong_FromUnsignedLongLong(DCV_len(&self->vec));
 }
 
-static
-inline
+static inline
 ull DCL_rbound(DeltaChunkList* self)
 {
-	if (!self->mem | !self->size)
+	if (DCV_empty(&self->vec))
 		return 0;
-	return DC_rbound(&(self->mem[self->size-1]));
+	return DC_rbound(DCV_get(&self->vec, self->vec.size - 1));
 }
 
 static
