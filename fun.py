@@ -55,9 +55,6 @@ def _set_delta_rbound(d, size):
 	:param size: size relative to our target offset, may not be 0, must be smaller or equal
 		to our size
 	:return: d"""
-	if d.ts == size:
-		return
-		
 	d.ts = size
 	
 	# NOTE: data is truncated automatically when applying the delta
@@ -154,76 +151,30 @@ def _closest_index(dcl, absofs):
 	# END for each delta absofs
 	return len(dcl)-1
 	
-def delta_list_apply(dcl, bbuf, write, lbound_offset=0, size=0):
+def delta_list_apply(dcl, bbuf, write):
 	"""Apply the chain's changes and write the final result using the passed
 	write function.
 	:param bbuf: base buffer containing the base of all deltas contained in this
 		list. It will only be used if the chunk in question does not have a base
 		chain.
-	:param lbound_offset: offset at which to start applying the delta, relative to 
-		our lbound
-	:param size: if larger than 0, only the given amount of bytes will be applied
 	:param write: function taking a string of bytes to write to the output"""
-	slen = len(dcl)
-	if slen == 0:
-		return
-	# END early abort
-	absofs = dcl.lbound() + lbound_offset
-	if size == 0:
-		size = dcl.rbound() - absofs
-	# END initialize size
-	
-	if lbound_offset or absofs + size != dcl.rbound():
-		cdi = _closest_index(dcl, absofs)
-		cd = dcl[cdi]
-		if cd.to != absofs:
-			tcd = delta_duplicate(cd)
-			_move_delta_lbound(tcd, absofs - cd.to)
-			_set_delta_rbound(tcd, min(tcd.ts, size)) 
-			delta_chunk_apply(tcd, bbuf, write)
-			size -= tcd.ts
-			cdi += 1
-		# END handle first chunk
-		
-		# here we have to either apply full chunks, or smaller ones, but 
-		# we always start at the chunks target offset
-		while cdi < slen and size:
-			cd = dcl[cdi]
-			if cd.ts <= size:
-				delta_chunk_apply(cd, bbuf, write)
-				size -= cd.ts
-			else:
-				tcd = delta_duplicate(cd)
-				_set_delta_rbound(tcd, size)
-				delta_chunk_apply(tcd, bbuf, write)
-				size -= tcd.ts
-				break
-			# END handle bytes to apply
-			cdi += 1
-		# END handle rest
-	else:
-		for dc in dcl:
-			delta_chunk_apply(dc, bbuf, write)
-		# END for each dc
-	# END handle application values
+	for dc in dcl:
+		delta_chunk_apply(dc, bbuf, write)
+	# END for each dc
 
-def delta_list_slice(dcl, absofs, size):
+def delta_list_slice(dcl, absofs, size, ndcl):
 	""":return: Subsection of this  list at the given absolute  offset, with the given 
 		size in bytes.
-	:return: list (copy) which represents the given chunk"""
-	dcllbound = dcl.lbound()
-	absofs = max(absofs, dcllbound)
-	size = min(dcl.rbound() - dcllbound, size)
+	:return: None"""
 	cdi = _closest_index(dcl, absofs)	# delta start index
 	cd = dcl[cdi]
 	slen = len(dcl)
-	ndcl = list()
 	lappend = ndcl.append 
 	
 	if cd.to != absofs:
-		tcd = delta_duplicate(cd)
+		tcd = DeltaChunk(cd.to, cd.ts, cd.so, cd.data)
 		_move_delta_lbound(tcd, absofs - cd.to)
-		_set_delta_rbound(tcd, min(tcd.ts, size))
+		tcd.ts = min(tcd.ts, size)
 		lappend(tcd)
 		size -= tcd.ts
 		cdi += 1
@@ -233,11 +184,11 @@ def delta_list_slice(dcl, absofs, size):
 		# are we larger than the current block
 		cd = dcl[cdi]
 		if cd.ts <= size:
-			lappend(delta_duplicate(cd))
+			lappend(DeltaChunk(cd.to, cd.ts, cd.so, cd.data))
 			size -= cd.ts
 		else:
-			tcd = delta_duplicate(cd)
-			_set_delta_rbound(tcd, size)
+			tcd = DeltaChunk(cd.to, cd.ts, cd.so, cd.data)
+			tcd.ts = size
 			lappend(tcd)
 			size -= tcd.ts
 			break
@@ -245,7 +196,6 @@ def delta_list_slice(dcl, absofs, size):
 		cdi += 1
 	# END for each chunk
 	
-	return ndcl
 	
 class DeltaChunkList(list):
 	"""List with special functionality to deal with DeltaChunks.
@@ -272,10 +222,10 @@ class DeltaChunkList(list):
 		""":return: size of bytes as measured by our delta chunks"""
 		return self.rbound() - self.lbound()
 		
-	def apply(self, bbuf, write, lbound_offset=0, size=0):
+	def apply(self, bbuf, write):
 		"""Only used by public clients, internally we only use the global routines
 		for performance"""
-		return delta_list_apply(self, bbuf, write, lbound_offset, size)
+		return delta_list_apply(self, bbuf, write)
 		
 	def compress(self):
 		"""Alter the list to reduce the amount of nodes. Currently we concatenate
@@ -369,6 +319,7 @@ class TopdownDeltaChunkList(DeltaChunkList):
 		nfc = 0								# number of frozen chunks
 		dci = 0								# delta chunk index
 		slen = len(self)					# len of self
+		ccl = list()						# temporary list
 		while dci < slen:
 			dc = self[dci]
 			dci += 1
@@ -384,8 +335,9 @@ class TopdownDeltaChunkList(DeltaChunkList):
 			# dont support efficient insertion ( just one at a time ), but for now
 			# we live with it. Internally, its all just a 32/64bit pointer, and
 			# the portions of moved memory should be smallish. Maybe we just rebuild
-			# ourselves in order to reduce the amount of insertions ... 
-			ccl = delta_list_slice(bdcl, dc.so, dc.ts)
+			# ourselves in order to reduce the amount of insertions ...
+			del(ccl[:])
+			delta_list_slice(bdcl, dc.so, dc.ts, ccl)
 			
 			# move the target bounds into place to match with our chunk
 			ofs = dc.to - dc.so
