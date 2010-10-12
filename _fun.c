@@ -501,22 +501,24 @@ void DCV_copy_slice_to(const DeltaChunkVector* src, DeltaChunkVector* dest, ull 
 inline
 void DCV_replace_one_by_many(const DeltaChunkVector* from, DeltaChunkVector* to, DeltaChunk* at)
 {
-	fprintf(stderr, "Replace one by many: from->size = %i, to->size = %i, to->reserved = %i\n", (int)from->size, (int)to->size, (int)to->reserved_size);
+	//fprintf(stderr, "Replace one by many: from->size = %i, to->size = %i, to->reserved = %i\n", (int)from->size, (int)to->size, (int)to->reserved_size);
 	assert(from->size > 1);
 	assert(to->size + from->size - 1 <= to->reserved_size);
 	
 	// -1 because we replace 'at'
 	DC_destroy(at);
-	to->size += from->size - 1;
 	
 	// If we are somewhere in the middle, we have to make some space
 	if (DCV_last(to) != at) {
-		fprintf(stderr, "moving to %p from %p, num bytes = %i\n", at+from->size, at+1, (int)((DCV_end(to) - (at+1)) * sizeof(DeltaChunk)));
-		memmove((void*)(at+from->size), (void*)(at+1), (size_t)(DCV_end(to) - (at+1)) * sizeof(DeltaChunk));
+		//fprintf(stderr, "moving to %i from %i, num chunks = %i\n", (int)((at+from->size)-to->mem), (int)((at+1)-to->mem), (int)(DCV_end(to) - (at+1)));
+		memmove((void*)(at+from->size), (void*)(at+1), (size_t)((DCV_end(to) - (at+1)) * sizeof(DeltaChunk)));
 	}
-
+	
 	// Finally copy all the items in
 	memcpy((void*) at, (void*)from->mem, from->size*sizeof(DeltaChunk));
+	
+	// FINALLY: update size
+	to->size += from->size - 1;
 }
 
 // Take slices of bdcv into the corresponding area of the tdcv, which is the topmost
