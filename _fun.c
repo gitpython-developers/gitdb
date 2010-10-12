@@ -91,6 +91,9 @@ typedef unsigned int uint;
 typedef unsigned char uchar;
 typedef uchar bool;
 
+// Constants
+const ull gDVC_grow_by = 50;
+
 // DELTA CHUNK 
 ////////////////
 // Internal Delta Chunk Objects
@@ -277,10 +280,17 @@ DeltaChunk* DCV_get(DeltaChunkVector* vec, Py_ssize_t i)
 	return &vec->mem[i];
 }
 
+// Return last item
+inline
+DeltaChunk* DCV_last(DeltaChunkVector* vec)
+{
+	return DCV_get(vec, vec->size-1);
+}
+
 inline
 ull DCV_rbound(DeltaChunkVector* vec)
 {
-	return DC_rbound(DCV_get(vec, vec->size-1)); 
+	return DC_rbound(DCV_last(vec)); 
 }
 
 inline
@@ -371,12 +381,39 @@ static inline
 DeltaChunk* DCV_append(DeltaChunkVector* vec)
 {
 	if (vec->size + 1 > vec->reserved_size){
-		DCV_grow_by(vec, 1);
+		DCV_grow_by(vec, gDVC_grow_by);
 	}
 	
 	DeltaChunk* next = vec->mem + vec->size; 
 	vec->size += 1;
 	return next;
+}
+
+// Return delta chunk being closest to the given absolute offset
+inline
+DeltaChunk* DCV_closest_chunk(DeltaChunkVector* vec, ull ofs)
+{
+	assert(vec->mem);
+	
+	ull lo = 0;
+	ull hi = vec->size;
+	ull mid;
+	DeltaChunk* dc;
+	
+	while (lo < hi)
+	{
+		mid = (lo + hi) / 2;
+		dc = vec->mem + mid;
+		if (dc->to > ofs){
+			hi = mid;
+		} else if ((DC_rbound(dc) > ofs) | (dc->to == ofs)) {
+			return dc;
+		} else {
+			lo = mid + 1;
+		}
+	}
+	
+	return DCV_last(vec);
 }
 
 // Write a slice as defined by its absolute offset in bytes and its size into the given
@@ -387,14 +424,67 @@ DeltaChunk* DCV_append(DeltaChunkVector* vec)
 inline
 void DCV_copy_slice_to(DeltaChunkVector* src, DeltaChunkVector* dest, ull ofs, ull size)
 {
+	assert(DCV_lbound(src) <= ofs);
+	assert(DCV_rbound(src) <= ofs + size);
 	
+	DeltaChunk* cdc = DCV_closest_chunk(src, ofs);
+	
+	// partial overlap
+	if (cdc->to != ofs) {
+		DeltaChunk* destc = DCV_append(dest);
+		const ull relofs = ofs - cdc->to;
+		DC_offset_copy_to(cdc, destc, relofs, cdc->ts - relofs < size ? cdc->ts - relofs : size);
+		cdc += 1;
+		size -= destc->ts;
+		
+		if (size == 0){
+			return;
+		}
+	}
+	
+	DeltaChunk* vecend = DCV_end(src);
+	for( ;(cdc < vecend) && size; ++cdc)
+	{
+		if (cdc->ts < size) {
+			DC_copy_to(cdc, DCV_append(dest));
+			size -= cdc->ts;
+		} else {
+			DC_offset_copy_to(cdc, DCV_append(dest), 0, size);
+			size = 0;
+			break;
+		}
+	}
+	
+	assert(size == 0);
 }
 
+
+// Insert all chunks in 'from' to 'to', starting at the delta chunk named 'at' which
+// originates in to
+// 'at' will be replaced by the items to insert ( special purpose )
+// 'at' will be properly destroyed, but all items will just be copied bytewise
+// using memcpy. Hence from must just forget about them !
+inline
+void DCV_replace_one_by_many(DeltaChunkVector* from, DeltaChunkVector* to, DeltaChunk* at)
+{
+	assert(from->size > 1);
+	
+	DCV_reserve_memory(to, to->size + from->size - 1);	// -1 because we replace at
+	DC_destroy(at);
+	to->size -= 1 + from->size;
+	
+	// If we are somewhere in the middle, we have to make some space
+	if (DCV_last(to) != at) {
+		memmove((void*)at+from->size, (void*)(at+1), (size_t)(DCV_end(to) - (at+1)));
+	}
+
+	// Finally copy all the items in
+	memcpy((void*) at, (void*)from->mem, from->size*sizeof(DeltaChunk));
+}
 
 // Take slices of bdcv into the corresponding area of the tdcv, which is the topmost
 // delta to apply. tmpl is used as temporary space and must be initialzed and destroyed by the 
 // caller
-static
 void DCV_connect_with_base(DeltaChunkVector* tdcv, DeltaChunkVector* bdcv, DeltaChunkVector* tmpl)
 {
 	DeltaChunk* dc = tdcv->mem;
@@ -413,18 +503,20 @@ void DCV_connect_with_base(DeltaChunkVector* tdcv, DeltaChunkVector* bdcv, Delta
 		// assert(tmpl->size);
 		
 		// move target bounds
-		DeltaChunk* cdc = tmpl->mem;
-		DeltaChunk* cdcend = tmpl->mem + tmpl->size;
+		DeltaChunk* tdc = tmpl->mem;
+		DeltaChunk* tdcend = tmpl->mem + tmpl->size;
 		const ull ofs = dc->to - dc->so;
-		for(;cdc < cdcend; cdc++){
-			cdc->to += ofs;
+		for(;tdc < tdcend; tdc++){
+			tdc->to += ofs;
 		}
 		
-		// insert slice into our list, replacing our current chunk
+		// insert slice into our list
 		if (tmpl->size == 1){
+			// Its not data, so destroy is not really required, anyhow ... 
+			DC_destroy(dc);
 			*dc = *DCV_get(tmpl, 0);
 		} else {
-			
+			DCV_replace_one_by_many(tmpl, tdcv, dc);
 		}
 	
 		// make sure the members will not be deallocated by the list
