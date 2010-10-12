@@ -192,13 +192,12 @@ DeltaChunk* DCV_end(DeltaChunkVector* vec)
 void DCV_dealloc(DeltaChunkVector* vec)
 {
 	if (vec->mem){
-		if (vec->size){
-			const DeltaChunk* end = DCV_end(vec);
-			DeltaChunk* i;
-			for(i = &vec->mem[0]; i < end; i++){
-				DC_destroy(i);
-			}
+		const DeltaChunk* end = DCV_end(vec);
+		DeltaChunk* i;
+		for(i = vec->mem; i < end; i++){
+			DC_destroy(i);
 		}
+		
 		PyMem_Free(vec->mem);
 		vec->size = 0;
 		vec->reserved_size = 0;
@@ -207,7 +206,7 @@ void DCV_dealloc(DeltaChunkVector* vec)
 }
 
 // Append num-chunks to the end of the list, possibly reallocating existing ones
-// Return a pointer to the first of the added items. They are not yet initialized
+// Return a pointer to the first of the added items. They are already null initialized
 // If num-chunks == 0, it returns the end pointer of the allocated memory
 static inline
 DeltaChunk* DCV_append_multiple(DeltaChunkVector* vec, uint num_chunks)
@@ -220,6 +219,11 @@ DeltaChunk* DCV_append_multiple(DeltaChunkVector* vec, uint num_chunks)
 	Py_FatalError("Could not allocate memory for append operation");
 	Py_ssize_t old_size = vec->size;
 	vec->size += num_chunks;
+	
+	for(;old_size < vec->size; ++old_size){
+		DC_init(DCV_get(vec, old_size), 0, 0, 0, NULL);
+	}
+	
 	return &vec->mem[old_size];
 }
 
@@ -235,21 +239,15 @@ typedef struct {
 
 
 static 
-int DCL_init(DeltaChunkList *self, PyObject *args, PyObject *kwds)
+int DCL_init(DeltaChunkList*self, PyObject *args, PyObject *kwds)
 {
-	if(PySequence_Size(args) > 1){
-		PyErr_SetString(PyExc_ValueError, "Zero or one arguments are allowed, providing the initial size of the queue in DeltaChunks");
-		return 0;
+	if(args && PySequence_Size(args) > 0){
+		PyErr_SetString(PyExc_ValueError, "Too many arguments");
+		return -1;
 	}
 	
-	assert(self->vec.mem == NULL);
-	
-	ull init_size = 0;
-	PyArg_ParseTuple(args, "K", &init_size);
-	if (init_size == 0){
-		init_size = 12500;
-	}
-	return DCV_init(&self->vec, init_size);
+	DCV_init(&self->vec, 0);
+	return 0;
 }
 
 static
@@ -284,8 +282,6 @@ PyObject* DCL_apply(PyObject* self, PyObject* args)
 	
 	Py_RETURN_NONE;
 }
-
-
 
 static PyMethodDef DCL_methods[] = {
     {"apply", (PyCFunction)DCL_apply, METH_VARARGS, "Apply the given iterable of delta streams" },
@@ -331,11 +327,23 @@ static PyTypeObject DeltaChunkListType = {
 	0,						   /* tp_descr_get */
 	0,						   /* tp_descr_set */
 	0,						   /* tp_dictoffset */
-	(initproc)DCL_init,		/* tp_init */
+	(initproc)DCL_init,						/* tp_init */
 	0,						/* tp_alloc */
-	0,						/* tp_new */
+	0,		/* tp_new */
 };
 
+
+// Makes a new copy of the DeltaChunkList - you have to do everything yourselve
+// in C ... want C++ !!
+DeltaChunkList* DCL_new_instance(void)
+{
+	DeltaChunkList* dcl = (DeltaChunkList*) PyType_GenericNew(&DeltaChunkListType, 0, 0);
+	assert(dcl);
+	
+	DCL_init(dcl, 0, 0);
+	assert(dcl->vec.size == 0);
+	return dcl;
+}
 
 static inline
 ull msb_size(const char* data, Py_ssize_t dlen, Py_ssize_t offset, Py_ssize_t* out_bytes_read){
@@ -351,7 +359,7 @@ ull msb_size(const char* data, Py_ssize_t dlen, Py_ssize_t offset, Py_ssize_t* o
 	}// END while in range
 	
 	*out_bytes_read = i+offset;
-	assert((*out_bytes_read * 8) - (*out_bytes_read - 1) <= sizeof(ull));
+	assert((*out_bytes_read * 8) - (*out_bytes_read - 1) <= sizeof(ull) * 8);
 	return size;
 }
 
@@ -373,7 +381,8 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 	DeltaChunkList* tdcl = 0;
 	DeltaChunkList* dcl = 0;
 	
-	dcl = tdcl = PyObject_New(DeltaChunkList, &DeltaChunkListType);
+	dcl = tdcl = DCL_new_instance();
+	assert(dcl != NULL);
 	if (!dcl){
 		PyErr_SetString(PyExc_RuntimeError, "Couldn't allocate list");
 		return NULL;
@@ -478,7 +487,6 @@ PyMODINIT_FUNC init_fun(void)
 {
 	PyObject *m;
 
-	DeltaChunkListType.tp_new = PyType_GenericNew;
 	if (PyType_Ready(&DeltaChunkListType) < 0)
 		return;
 	
