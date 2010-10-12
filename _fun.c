@@ -89,6 +89,7 @@ static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 typedef unsigned long long ull;
 typedef unsigned int uint;
 typedef unsigned char uchar;
+typedef uchar bool;
 
 // DELTA CHUNK 
 ////////////////
@@ -97,43 +98,94 @@ typedef struct {
 	ull to;
 	ull ts;
 	ull so;
-	uchar* data;
+	const uchar* data;
+	bool data_shared;
 } DeltaChunk;
 
+inline
 void DC_init(DeltaChunk* dc, ull to, ull ts, ull so)
 {
 	dc->to = to;
 	dc->ts = ts;
 	dc->so = so;
 	dc->data = NULL;
+	dc->data_shared = 0;
 }
 
+inline
+void DC_deallocate_data(DeltaChunk* dc)
+{
+	if (!dc->data_shared && dc->data){
+		PyMem_Free((void*)dc->data);
+	}
+	dc->data = NULL;
+}
+
+inline
 void DC_destroy(DeltaChunk* dc)
 {
-	if (dc->data){
-		PyMem_Free((void*)dc->data);
-	}
+	DC_deallocate_data(dc);
 }
 
-// Store a copy of data in our instance
-void DC_set_data(DeltaChunk* dc, const uchar* data, Py_ssize_t dlen)
+// Store a copy of data in our instance. If shared is 1, the data will be shared, 
+// hence it will only be stored, but the memory will not be touched, or copied.
+inline
+void DC_set_data(DeltaChunk* dc, const uchar* data, Py_ssize_t dlen, bool shared)
 {
-	if (dc->data){
-		PyMem_Free((void*)dc->data);
-	}
+	DC_deallocate_data(dc);
 	
 	if (data == 0){
 		dc->data = NULL;
+		dc->data_shared = 0;
 		return;
 	}
 	
-	dc->data = (uchar*)PyMem_Malloc(dlen);
-	memcpy(dc->data, data, dlen);
+	dc->data_shared = shared;
+	if (shared){
+		dc->data = data;
+	} else {
+		dc->data = (uchar*)PyMem_Malloc(dlen);
+		memcpy((void*)dc->data, (void*)data, dlen);
+	}
+	
 }
 
+inline
 ull DC_rbound(DeltaChunk* dc)
 {
 	return dc->to + dc->ts;
+}
+
+// Copy all data from src to dest, the data pointer will be copied too
+inline
+void DC_copy_to(DeltaChunk* src, DeltaChunk* dest)
+{
+	dest->to = src->to;
+	dest->ts = src->ts;
+	dest->so = src->so;
+	dest->data_shared = 0;
+	
+	DC_set_data(dest, src->data, src->ts, 0);
+}
+
+// Copy all data with the given offset and size. The source offset, as well
+// as the data will be truncated accordingly
+inline
+void DC_offset_copy_to(DeltaChunk* src, DeltaChunk* dest, ull ofs, ull size)
+{
+	assert(size <= src->ts);
+	assert(src->to + ofs + size <= DC_rbound(src));
+	
+	dest->to = src->to + ofs;
+	dest->ts = size;
+	dest->so = src->so + ofs;
+	
+	if (src->data){
+		DC_set_data(dest, src->data + ofs, size, 0);
+	} else {
+		dest->data = NULL;
+		dest->data_shared = 0;
+	}
 }
 
 
@@ -152,7 +204,7 @@ This may trigger a realloc, but will do nothing if the reserved size is already
 large enough.
 Return 1 on success, 0 on failure
 */
-static
+inline
 int DCV_grow(DeltaChunkVector* vec, uint num_dc)
 {
 	const uint grow_by_chunks = (vec->size + num_dc) - vec->reserved_size;  
@@ -188,35 +240,48 @@ int DCV_init(DeltaChunkVector* vec, ull initial_size)
 	return DCV_grow(vec, initial_size);
 }
 
-static inline
+inline
 ull DCV_len(DeltaChunkVector* vec)
 {
 	return vec->size;
 }
 
+inline
+ull DCV_lbound(DeltaChunkVector* vec)
+{
+	assert(vec->size && vec->mem);
+	return vec->mem->to;
+}
+
 // Return item at index
-static inline
+inline
 DeltaChunk* DCV_get(DeltaChunkVector* vec, Py_ssize_t i)
 {
 	assert(i < vec->size && vec->mem);
 	return &vec->mem[i];
 }
 
-static inline
+inline
+ull DCV_rbound(DeltaChunkVector* vec)
+{
+	return DC_rbound(DCV_get(vec, vec->size-1)); 
+}
+
+inline
 int DCV_empty(DeltaChunkVector* vec)
 {
 	return vec->size == 0;
 }
 
 // Return end pointer of the vector
-static inline
+inline
 DeltaChunk* DCV_end(DeltaChunkVector* vec)
 {
 	assert(!DCV_empty(vec));
 	return &vec->mem[vec->size];
 }
 
-void DCV_dealloc(DeltaChunkVector* vec)
+void DCV_destroy(DeltaChunkVector* vec)
 {
 	if (vec->mem){
 #ifdef DEBUG
@@ -236,6 +301,14 @@ void DCV_dealloc(DeltaChunkVector* vec)
 	}
 }
 
+// Reset this vector so that its existing memory can be filled again.
+// Memory will be kept, but not cleaned up
+inline
+void DCV_forget_members(DeltaChunkVector* vec)
+{
+	vec->size = 0;
+}
+
 // Append num-chunks to the end of the list, possibly reallocating existing ones
 // Return a pointer to the first of the added items. They are already null initialized
 // If num-chunks == 0, it returns the end pointer of the allocated memory
@@ -249,15 +322,17 @@ DeltaChunk* DCV_append_multiple(DeltaChunkVector* vec, uint num_chunks)
 	Py_ssize_t old_size = vec->size;
 	vec->size += num_chunks;
 	
+#ifdef DEBUG
 	for(;old_size < vec->size; ++old_size){
 		DC_init(DCV_get(vec, old_size), 0, 0, 0);
 	}
+#endif
 	
 	return &vec->mem[old_size];
 }
 
 // Append one chunk to the end of the list, and return a pointer to it
-// It will have been initialized.
+// It will not have been initialized !
 static inline
 DeltaChunk* DCV_append(DeltaChunkVector* vec)
 {
@@ -268,6 +343,59 @@ DeltaChunk* DCV_append(DeltaChunkVector* vec)
 	DeltaChunk* next = vec->mem + vec->size; 
 	vec->size += 1;
 	return next;
+}
+
+// Write a slice as defined by its absolute offset in bytes and its size into the given
+// destination. The individual chunks written will be a deep copy of the source 
+// data chunks
+// TODO: this could trigger copying many smallish add-chunk pieces - maybe some sort
+// of append-only memory pool would improve performance
+inline
+void DCV_copy_slice_to(DeltaChunkVector* src, DeltaChunkVector* dest, ull ofs, ull size)
+{
+	
+}
+
+
+// Take slices of bdcv into the corresponding area of the tdcv, which is the topmost
+// delta to apply. tmpl is used as temporary space and must be initialzed and destroyed by the 
+// caller
+static
+void DCV_connect_with_base(DeltaChunkVector* tdcv, DeltaChunkVector* bdcv, DeltaChunkVector* tmpl)
+{
+	DeltaChunk* dc = tdcv->mem;
+	DeltaChunk* end = tdcv->mem + tdcv->size;
+	assert(dc);
+	
+	for (;dc < end; dc++)
+	{
+		// Data chunks don't need processing
+		if (dc->data){
+			continue;
+		}
+		
+		// Copy Chunk Handling
+		DCV_copy_slice_to(bdcv, tmpl, dc->so, dc->ts);
+		// assert(tmpl->size);
+		
+		// move target bounds
+		DeltaChunk* cdc = tmpl->mem;
+		DeltaChunk* cdcend = tmpl->mem + tmpl->size;
+		const ull ofs = dc->to - dc->so;
+		for(;cdc < cdcend; cdc++){
+			cdc->to += ofs;
+		}
+		
+		// insert slice into our list, replacing our current chunk
+		if (tmpl->size == 1){
+			*dc = *DCV_get(tmpl, 0);
+		} else {
+			
+		}
+	
+		// make sure the members will not be deallocated by the list
+		DCV_forget_members(tmpl);
+	}
 }
 
 // DELTA CHUNK LIST (PYTHON)
@@ -296,7 +424,7 @@ int DCL_init(DeltaChunkList*self, PyObject *args, PyObject *kwds)
 static
 void DCL_dealloc(DeltaChunkList* self)
 {
-	DCV_dealloc(&(self->vec));
+	DCV_destroy(&(self->vec));
 }
 
 static
@@ -310,7 +438,7 @@ ull DCL_rbound(DeltaChunkList* self)
 {
 	if (DCV_empty(&self->vec))
 		return 0;
-	return DC_rbound(DCV_get(&self->vec, self->vec.size - 1));
+	return DCV_rbound(&self->vec);
 }
 
 static
@@ -421,10 +549,11 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 	DeltaChunkVector bdcv;
 	DeltaChunkVector tdcv;
 	DeltaChunkVector dcv;
+	DeltaChunkVector tmpl;
 	DCV_init(&bdcv, 0);
 	DCV_init(&dcv, 0);
 	DCV_init(&tdcv, 0);
-	
+	DCV_init(&tmpl, 200);
 	
 	unsigned int dsi;
 	PyObject* ds;
@@ -453,6 +582,9 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 	
 		// parse command stream
 		ull tbw = 0;							// Amount of target bytes written
+		bool shared_data = dsi != 0;
+		bool is_first_run = dsi == 0;
+		
 		assert(data < dend);
 		while (data < dend)
 		{
@@ -481,9 +613,12 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 				
 			} else if (cmd) {
 				// TODO: Compress nodes by parsing them in advance
+				// NOTE: Compression only necessary for all other deltas, not 
+				// for the first one, as we will share the data. It really depends
+				// What's faster
 				DeltaChunk* dc = DCV_append(&dcv); 
 				DC_init(dc, tbw, cmd, 0);
-				DC_set_data(dc, data, cmd);
+				DC_set_data(dc, data, cmd, shared_data);
 				tbw += cmd;
 				data += cmd;
 			} else {
@@ -493,18 +628,20 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 			}
 		}// END handle command opcodes
 		assert(tbw == target_size);
-		
+
+		if (!is_first_run){
+			DCV_connect_with_base(&tdcv, &dcv, &tmpl);
+		}
 		// swap the vector
 		// Skip the first vector, as it is also used as top chunk vector
 		if (bdcv.mem != tdcv.mem){
-			DCV_dealloc(&bdcv);
+			DCV_destroy(&bdcv);
 		}
 		bdcv = dcv;
-		if (dsi == 0){
+		if (is_first_run){
 			tdcv = dcv;
 		}
 		DCV_init(&dcv, 0);
-		
 
 loop_end:
 		// perform cleanup
@@ -524,10 +661,11 @@ loop_end:
 		Py_DECREF(stream_iter);
 	}
 	
-	DCV_dealloc(&bdcv);
+	DCV_destroy(&tmpl);
+	DCV_destroy(&bdcv);
 	if (dsi > 1){
 		// otherwise dcv equals tcl
-		DCV_dealloc(&dcv);
+		DCV_destroy(&dcv);
 	}
 	
 	// Return the actual python object - its just a container
@@ -535,7 +673,7 @@ loop_end:
 	if (!dcl){
 		PyErr_SetString(PyExc_RuntimeError, "Couldn't allocate list");
 		// Otherwise tdcv would be deallocated by the chunk list
-		DCV_dealloc(&tdcv);
+		DCV_destroy(&tdcv);
 		error = 1;
 	} else {
 		// Plain copy, don't deallocate
