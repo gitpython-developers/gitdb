@@ -95,7 +95,7 @@ typedef uchar bool;
 const ull gDVC_grow_by = 50;
 
 #ifdef DEBUG
-#define DBG_check(vec) DCV_dbg_check_integrity(vec)
+#define DBG_check(vec) asser(DCV_dbg_check_integrity(vec))
 #else
 #define DBG_check(vec)
 #endif
@@ -163,6 +163,26 @@ inline
 ull DC_rbound(const DeltaChunk* dc)
 {
 	return dc->to + dc->ts;
+}
+
+// Apply 
+inline
+void DC_apply(const DeltaChunk* dc, const uchar* base, PyObject* writer, PyObject* tmpargs)
+{
+	PyObject* buffer = 0;
+	if (dc->data){
+		buffer = PyBuffer_FromMemory((void*)dc->data, dc->ts);
+	} else {
+		buffer = PyBuffer_FromMemory((void*)(base + dc->so), dc->ts);
+	}
+
+	if (PyTuple_SetItem(tmpargs, 0, buffer)){
+		assert(0);
+	}
+	
+	// tuple steals reference, and will take care about the deallocation
+	PyObject_Call(writer, tmpargs, NULL);
+	
 }
 
 // Copy all data from src to dest, the data pointer will be copied too
@@ -423,9 +443,12 @@ DeltaChunk* DCV_closest_chunk(const DeltaChunkVector* vec, ull ofs)
 }
 
 // Assert the given vector has correct datachunks
-void DCV_dbg_check_integrity(const DeltaChunkVector* vec)
+// return 1 on success
+int DCV_dbg_check_integrity(const DeltaChunkVector* vec)
 {
-	assert(!DCV_empty(vec));
+	if(DCV_empty(vec)){
+		return 0;
+	}
 	const DeltaChunk* i = vec->mem;
 	const DeltaChunk* end = DCV_end(vec);
 	
@@ -434,18 +457,22 @@ void DCV_dbg_check_integrity(const DeltaChunkVector* vec)
 	for(; i < end; i++){
 		acc_size += i->ts;
 	}
-	assert(acc_size == aparent_size);
+	if (acc_size != aparent_size)
+		return 0;
 	
 	if (vec->size < 2){
-		return;
+		return 1;
 	}
 	
 	const DeltaChunk* endm1 = DCV_end(vec) - 1;
 	for(i = vec->mem; i < endm1; i++){
 		const DeltaChunk* n = i+1;
-		assert(DC_rbound(i) == n->to);
+		if (DC_rbound(i) != n->to){
+			return 0;
+		}
 	}
 	
+	return 1;
 }
 
 // Write a slice as defined by its absolute offset in bytes and its size into the given
@@ -624,10 +651,41 @@ PyObject* DCL_py_rbound(DeltaChunkList* self)
 	return PyLong_FromUnsignedLongLong(DCL_rbound(self));
 }
 
+// Write using a write function, taking remaining bytes from a base buffer
 static
-PyObject* DCL_apply(PyObject* self, PyObject* args)
+PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 {
+	PyObject* pybuf = 0;
+	PyObject* writeproc = 0;
+	if (!PyArg_ParseTuple(args, "OO", &pybuf, &writeproc)){
+		PyErr_BadArgument();
+		return NULL;
+	}
 	
+	if (!PyObject_CheckReadBuffer(pybuf)){
+		PyErr_SetString(PyExc_ValueError, "First argument must be a buffer-compatible object, like a string, or a memory map");
+		return NULL;
+	}
+	
+	if (!PyCallable_Check(writeproc)){
+		PyErr_SetString(PyExc_ValueError, "Second argument must be a writer method with signature write(buf)");
+		return NULL;
+	}
+	
+	const DeltaChunk* i = self->vec.mem;
+	const DeltaChunk* end = DCV_end(&self->vec);
+	
+	const uchar* data;
+	Py_ssize_t dlen;
+	PyObject_AsReadBuffer(pybuf, (const void**)&data, &dlen);
+	
+	PyObject* tmpargs = PyTuple_New(1);
+	
+	for(; i < end; i++){
+		DC_apply(i, data, writeproc, tmpargs);
+	}
+	
+	Py_DECREF(tmpargs);
 	Py_RETURN_NONE;
 }
 
