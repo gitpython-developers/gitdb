@@ -198,6 +198,43 @@ typedef struct {
 	Py_ssize_t reserved_size;			// Reserve in DeltaChunks
 } DeltaChunkVector;
 
+
+
+// Reserve enough memory to hold the given amount of delta chunks
+// Return 1 on success
+inline
+int DCV_reserve_memory(DeltaChunkVector* vec, uint num_dc)
+{
+	if (num_dc <= vec->reserved_size){
+		return 1;
+	}
+	
+#ifdef DEBUG
+	bool was_null = vec->mem == NULL;
+#endif
+	
+	if (vec->mem == NULL){
+		vec->mem = PyMem_Malloc(num_dc * sizeof(DeltaChunk));
+	} else {
+		vec->mem = PyMem_Realloc(vec->mem, num_dc * sizeof(DeltaChunk));
+	}
+	
+	if (vec->mem == NULL){
+		Py_FatalError("Could not allocate memory for append operation");
+	}
+	
+	vec->reserved_size = num_dc;
+	
+#ifdef DEBUG
+	const char* format = "Allocated %i bytes at %p, to hold up to %i chunks\n";
+	if (!was_null)
+		format = "Re-allocated %i bytes at %p, to hold up to %i chunks\n";
+	fprintf(stderr, format, (int)(vec->reserved_size * sizeof(DeltaChunk)), vec->mem, (int)vec->reserved_size);
+#endif
+	
+	return vec->mem != NULL;
+}
+
 /*
 Grow the delta chunk list by the given amount of bytes.
 This may trigger a realloc, but will do nothing if the reserved size is already
@@ -205,30 +242,9 @@ large enough.
 Return 1 on success, 0 on failure
 */
 inline
-int DCV_grow(DeltaChunkVector* vec, uint num_dc)
+int DCV_grow_by(DeltaChunkVector* vec, uint num_dc)
 {
-	const uint grow_by_chunks = (vec->size + num_dc) - vec->reserved_size;  
-	if (grow_by_chunks <= 0){
-		return 1;
-	}
-	
-	if (vec->mem == NULL){
-		vec->mem = PyMem_Malloc(grow_by_chunks * sizeof(DeltaChunk));
-	} else {
-		vec->mem = PyMem_Realloc(vec->mem, (vec->reserved_size + grow_by_chunks) * sizeof(DeltaChunk));
-	}
-	
-	if (vec->mem == NULL){
-		Py_FatalError("Could not allocate memory for append operation");
-	}
-	
-	vec->reserved_size = vec->reserved_size + grow_by_chunks;
-	
-#ifdef DEBUG
-	fprintf(stderr, "Allocated %i bytes at %p, to hold up to %i chunks\n", (int)((vec->reserved_size + grow_by_chunks) * sizeof(DeltaChunk)), vec->mem, (int)(vec->reserved_size + grow_by_chunks));
-#endif
-	
-	return vec->mem != NULL;
+	return DCV_reserve_memory(vec, vec->reserved_size + num_dc);
 }
 
 int DCV_init(DeltaChunkVector* vec, ull initial_size)
@@ -237,7 +253,7 @@ int DCV_init(DeltaChunkVector* vec, ull initial_size)
 	vec->size = 0;
 	vec->reserved_size = 0;
 	
-	return DCV_grow(vec, initial_size);
+	return DCV_grow_by(vec, initial_size);
 }
 
 inline
@@ -309,6 +325,24 @@ void DCV_forget_members(DeltaChunkVector* vec)
 	vec->size = 0;
 }
 
+// Reset the vector so that its size will be zero, and its members will 
+// have been deallocated properly.
+// It will keep its memory though, and hence can be filled again
+inline
+void DCV_reset(DeltaChunkVector* vec)
+{
+	if (vec->size == 0)
+		return;
+	
+	DeltaChunk* dc = vec->mem;
+	DeltaChunk* dcend = DCV_end(vec);
+	for(;dc < dcend; dc++){
+		DC_destroy(dc);
+	}
+	
+	vec->size = 0;
+}
+
 // Append num-chunks to the end of the list, possibly reallocating existing ones
 // Return a pointer to the first of the added items. They are already null initialized
 // If num-chunks == 0, it returns the end pointer of the allocated memory
@@ -316,7 +350,7 @@ static inline
 DeltaChunk* DCV_append_multiple(DeltaChunkVector* vec, uint num_chunks)
 {
 	if (vec->size + num_chunks > vec->reserved_size){
-		DCV_grow(vec, (vec->size + num_chunks) - vec->reserved_size);
+		DCV_grow_by(vec, (vec->size + num_chunks) - vec->reserved_size);
 	}
 	Py_FatalError("Could not allocate memory for append operation");
 	Py_ssize_t old_size = vec->size;
@@ -337,7 +371,7 @@ static inline
 DeltaChunk* DCV_append(DeltaChunkVector* vec)
 {
 	if (vec->size + 1 > vec->reserved_size){
-		DCV_grow(vec, 1);
+		DCV_grow_by(vec, 1);
 	}
 	
 	DeltaChunk* next = vec->mem + vec->size; 
@@ -546,12 +580,10 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		stream_iter = dstreams;
 	}
 	
-	DeltaChunkVector bdcv;
-	DeltaChunkVector tdcv;
 	DeltaChunkVector dcv;
+	DeltaChunkVector tdcv;
 	DeltaChunkVector tmpl;
-	DCV_init(&bdcv, 0);
-	DCV_init(&dcv, 0);
+	DCV_init(&dcv, 100);			// should be enough to keep the average text file
 	DCV_init(&tdcv, 0);
 	DCV_init(&tmpl, 200);
 	
@@ -578,7 +610,7 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		
 		// estimate number of ops - assume one third adds, half two byte (size+offset) copies
 		const uint approx_num_cmds = (dlen / 3) + (((dlen / 3) * 2) / (2+2+1));
-		DCV_grow(&dcv, approx_num_cmds);
+		DCV_reserve_memory(&dcv, approx_num_cmds);
 	
 		// parse command stream
 		ull tbw = 0;							// Amount of target bytes written
@@ -632,16 +664,15 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		if (!is_first_run){
 			DCV_connect_with_base(&tdcv, &dcv, &tmpl);
 		}
-		// swap the vector
-		// Skip the first vector, as it is also used as top chunk vector
-		if (bdcv.mem != tdcv.mem){
-			DCV_destroy(&bdcv);
-		}
-		bdcv = dcv;
+		
 		if (is_first_run){
 			tdcv = dcv;
+			// wipe out dcv without destroying the members, get its own memory
+			DCV_init(&dcv, tdcv.size);
+		} else {
+			// destroy members, but keep memory
+			DCV_reset(&dcv);
 		}
-		DCV_init(&dcv, 0);
 
 loop_end:
 		// perform cleanup
@@ -662,7 +693,6 @@ loop_end:
 	}
 	
 	DCV_destroy(&tmpl);
-	DCV_destroy(&bdcv);
 	if (dsi > 1){
 		// otherwise dcv equals tcl
 		DCV_destroy(&dcv);

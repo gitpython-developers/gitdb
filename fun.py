@@ -545,7 +545,6 @@ def connect_deltas(dstreams):
 	:param dstreams: iterable of delta stream objects, the delta to be applied last
 		comes first, then all its ancestors in order
 	:return: DeltaChunkList, containing all operations to apply"""
-	bdcl = None							# data chunk list for initial base
 	tdcl = None							# topmost dcl
 	
 	dcl = tdcl = TopdownDeltaChunkList()
@@ -611,13 +610,12 @@ def connect_deltas(dstreams):
 		dcl.compress()
 		
 		# merge the lists !
-		if bdcl is not None:
+		if dsi > 0:
 			if not tdcl.connect_with_next_base(dcl):
 				break
 		# END handle merge
 		
 		# prepare next base
-		bdcl = dcl
 		dcl = DeltaChunkList()
 	# END for each delta stream
 	
