@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 {
@@ -87,6 +88,7 @@ static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 
 typedef unsigned long long ull;
 typedef unsigned int uint;
+typedef unsigned char uchar;
 
 // DELTA CHUNK 
 ////////////////
@@ -95,21 +97,38 @@ typedef struct {
 	ull to;
 	ull ts;
 	ull so;
-	PyObject* data;
+	uchar* data;
 } DeltaChunk;
 
-void DC_init(DeltaChunk* dc, ull to, ull ts, ull so, PyObject* data)
+void DC_init(DeltaChunk* dc, ull to, ull ts, ull so)
 {
 	dc->to = to;
 	dc->ts = ts;
 	dc->so = so;
-	Py_XINCREF(data);
-	dc->data = data;
+	dc->data = NULL;
 }
 
 void DC_destroy(DeltaChunk* dc)
 {
-	Py_XDECREF(dc->data);
+	if (dc->data){
+		PyMem_Free((void*)dc->data);
+	}
+}
+
+// Store a copy of data in our instance
+void DC_set_data(DeltaChunk* dc, const uchar* data, Py_ssize_t dlen)
+{
+	if (dc->data){
+		PyMem_Free((void*)dc->data);
+	}
+	
+	if (data == 0){
+		dc->data = NULL;
+		return;
+	}
+	
+	dc->data = (uchar*)PyMem_Malloc(dlen);
+	memcpy(dc->data, data, dlen);
 }
 
 ull DC_rbound(DeltaChunk* dc)
@@ -146,7 +165,11 @@ int DCV_grow(DeltaChunkVector* vec, uint num_dc)
 	} else {
 		vec->mem = PyMem_Realloc(vec->mem, (vec->reserved_size + grow_by_chunks) * sizeof(DeltaChunk));
 	}
-	assert(vec->mem != NULL);
+	
+	if (vec->mem == NULL){
+		Py_FatalError("Could not allocate memory for append operation");
+	}
+	
 	vec->reserved_size = vec->reserved_size + grow_by_chunks;
 	
 #ifdef DEBUG
@@ -220,19 +243,31 @@ static inline
 DeltaChunk* DCV_append_multiple(DeltaChunkVector* vec, uint num_chunks)
 {
 	if (vec->size + num_chunks > vec->reserved_size){
-		if (!DCV_grow(vec, (vec->size + num_chunks) - vec->reserved_size)){
-			Py_FatalError("Could not allocate memory for append operation");
-		}
+		DCV_grow(vec, (vec->size + num_chunks) - vec->reserved_size);
 	}
 	Py_FatalError("Could not allocate memory for append operation");
 	Py_ssize_t old_size = vec->size;
 	vec->size += num_chunks;
 	
 	for(;old_size < vec->size; ++old_size){
-		DC_init(DCV_get(vec, old_size), 0, 0, 0, NULL);
+		DC_init(DCV_get(vec, old_size), 0, 0, 0);
 	}
 	
 	return &vec->mem[old_size];
+}
+
+// Append one chunk to the end of the list, and return a pointer to it
+// It will have been initialized.
+static inline
+DeltaChunk* DCV_append(DeltaChunkVector* vec)
+{
+	if (vec->size + 1 > vec->reserved_size){
+		DCV_grow(vec, 1);
+	}
+	
+	DeltaChunk* next = vec->mem + vec->size; 
+	vec->size += 1;
+	return next;
 }
 
 // DELTA CHUNK LIST (PYTHON)
@@ -354,21 +389,18 @@ DeltaChunkList* DCL_new_instance(void)
 	return dcl;
 }
 
-static inline
-ull msb_size(const char* data, Py_ssize_t dlen, Py_ssize_t offset, Py_ssize_t* out_bytes_read){
-	ull size = 0;
-	Py_ssize_t i = 0;
-	const char* dend = data + dlen;
-	for (data = data + offset; data < dend; data+=1, i+=1){
-		char c = *data;
-		size |= (c & 0x7f) << i*7;
-		if (!(c & 0x80)){
-			break;
-		}
-	}// END while in range
-	
-	*out_bytes_read = i+offset;
-	assert((*out_bytes_read * 8) - (*out_bytes_read - 1) <= sizeof(ull) * 8);
+inline
+ull msb_size(const uchar** datap, const uchar* top)
+{
+	const uchar *data = *datap;
+	ull cmd, size = 0;
+	uint i = 0;
+	do {
+		cmd = *data++;
+		size |= (cmd & 0x7f) << i;
+		i += 7;
+	} while (cmd & 0x80 && data < top);
+	*datap = data;
 	return size;
 }
 
@@ -406,25 +438,25 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 			goto loop_end;
 		}
 		
-		const char* data;
+		const uchar* data;
 		Py_ssize_t dlen;
 		PyObject_AsReadBuffer(db, (const void**)&data, &dlen);
+		const uchar* dend = data + dlen;
 		
 		// read header
-		Py_ssize_t ofs = 0;
-		const ull base_size = msb_size(data, dlen, 0, &ofs);
-		const ull target_size = msb_size(data, dlen, ofs, &ofs);
+		const ull base_size = msb_size(&data, dend);
+		const ull target_size = msb_size(&data, dend);
 		
 		// estimate number of ops - assume one third adds, half two byte (size+offset) copies
 		const uint approx_num_cmds = (dlen / 3) + (((dlen / 3) * 2) / (2+2+1));
 		DCV_grow(&dcv, approx_num_cmds);
 	
 		// parse command stream
-		const char* dend = data + dlen;
 		ull tbw = 0;							// Amount of target bytes written
-		for (data = data + ofs; data < dend; ++data)
+		assert(data < dend);
+		while (data < dend)
 		{
-			const char cmd = *data;
+			const char cmd = *data++;
 			
 			if (cmd & 0x80) 
 			{
@@ -444,12 +476,16 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 					break;
 				}
 				
-				// TODO: Add node
+				DC_init(DCV_append(&dcv), tbw, cp_size, cp_off);
 				tbw += cp_size;
 				
 			} else if (cmd) {
-				// TODO: Add node
+				// TODO: Compress nodes by parsing them in advance
+				DeltaChunk* dc = DCV_append(&dcv); 
+				DC_init(dc, tbw, cmd, 0);
+				DC_set_data(dc, data, cmd);
 				tbw += cmd;
+				data += cmd;
 			} else {
 				error = 1;
 				PyErr_SetString(PyExc_RuntimeError, "Encountered an unsupported delta cmd: 0");
