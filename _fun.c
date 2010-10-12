@@ -116,9 +116,9 @@ void DC_destroy(DeltaChunk* dc)
 typedef struct {
 	PyObject_HEAD
 	// -----------
-	DeltaChunk* head;
-	DeltaChunk* tail;
+	DeltaChunk* mem;
 	ull size;
+	ull reserved_size;
 	
 } DeltaChunkList;
 
@@ -127,22 +127,65 @@ ull DC_rbound(DeltaChunk* dc)
 	return dc->to + dc->ts;
 }
 
+static
+int DCL_new(DeltaChunkList* self, PyObject* args, PyObject* kwds)
+{
+	self->mem = NULL;			// Memory
+	self->size = 0;				// Size in DeltaChunks
+	self->reserved_size = 0;	// Reserve in DeltaChunks
+	return 1;
+}
+
+/*
+Grow the delta chunk list by the given amount of bytes.
+This may trigger a realloc, but will do nothing if the reserved size is already
+large enough.
+Return 1 on success, 0 on failure
+*/
+static
+int DCL_grow(DeltaChunkList* self, ull num_dc)
+{
+	const ull grow_by_chunks = (self->size + num_dc) - self->reserved_size;  
+	if (grow_by_chunks <= 0){
+		return 1;
+	}
+	
+	if (self->mem){
+		self->mem = PyMem_Malloc(grow_by_chunks*sizeof(DeltaChunk));
+	} else {
+		self->mem = PyMem_Realloc(self->mem, (self->size + grow_by_chunks)*sizeof(DeltaChunk));
+	}
+	
+	return self->mem != NULL;
+}
+
 
 static 
 int DCL_init(DeltaChunkList *self, PyObject *args, PyObject *kwds)
 {
-	((DeltaChunkList*)self)->head = NULL;
-	return 1;
+	if(PySequence_Size(args) > 1){
+		PyErr_SetString(PyExc_ValueError, "Zero or one arguments are allowed, providing the initial size of the queue in DeltaChunks");
+		return 0;
+	}
+	
+	ull init_size = 0;
+	PyArg_ParseTuple(args, "K", &init_size);
+	if (init_size == 0){
+		init_size = 125000;
+	}
+	
+	return DCL_grow(self, init_size);
 }
 
 static
 void DCL_dealloc(DeltaChunkList* self)
 {
 	// TODO: deallocate linked list
-	if (self->head){
-		self->head = NULL;
-		self->tail = NULL;
+	if (self->mem){
+		PyMem_Free(self->mem);
 		self->size = 0;
+		self->reserved_size = 0;
+		self->mem = 0;
 	}
 }
 
@@ -153,11 +196,18 @@ PyObject* DCL_len(PyObject* self)
 }
 
 static
-PyObject* DCL_rbound(DeltaChunkList* self)
+inline
+ull DCL_rbound(DeltaChunkList* self)
 {
-	if (!self->head)
-		return PyLong_FromUnsignedLongLong(0);
-	return PyLong_FromUnsignedLongLong(DC_rbound(self->tail));
+	if (!self->mem | !self->size)
+		return 0;
+	return DC_rbound(&(self->mem[self->size-1]));
+}
+
+static
+PyObject* DCL_py_rbound(DeltaChunkList* self)
+{
+	return PyLong_FromUnsignedLongLong(DCL_rbound(self));
 }
 
 static
@@ -172,7 +222,7 @@ PyObject* DCL_apply(PyObject* self, PyObject* args)
 static PyMethodDef DCL_methods[] = {
     {"apply", (PyCFunction)DCL_apply, METH_VARARGS, "Apply the given iterable of delta streams" },
     {"__len__", (PyCFunction)DCL_len, METH_NOARGS, NULL},
-    {"rbound", (PyCFunction)DCL_rbound, METH_NOARGS, NULL},
+    {"rbound", (PyCFunction)DCL_py_rbound, METH_NOARGS, NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -215,7 +265,7 @@ static PyTypeObject DeltaChunkListType = {
 	0,						   /* tp_dictoffset */
 	(initproc)DCL_init,		/* tp_init */
 	0,						/* tp_alloc */
-	0,				   		/* tp_new */
+	(newfunc)DCL_new,		/* tp_new */
 };
 
 
@@ -233,6 +283,7 @@ ull msb_size(const char* data, Py_ssize_t dlen, Py_ssize_t offset, Py_ssize_t* o
 	}// END while in range
 	
 	*out_bytes_read = i+offset;
+	assert((*out_bytes_read * 8) - (*out_bytes_read - 1) <= sizeof(ull));
 	return size;
 }
 
