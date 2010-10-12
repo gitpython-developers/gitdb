@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
+#include <math.h>
 
 static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 {
@@ -87,7 +88,6 @@ static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 typedef unsigned long long ull;
 typedef unsigned int uint;
 
-
 // DELTA CHUNK 
 ////////////////
 // Internal Delta Chunk Objects
@@ -142,12 +142,16 @@ int DCV_grow(DeltaChunkVector* vec, uint num_dc)
 	}
 	
 	if (vec->mem == NULL){
-		vec->mem = PyMem_Malloc(grow_by_chunks * sizeof(vec->mem));
+		vec->mem = PyMem_Malloc(grow_by_chunks * sizeof(DeltaChunk));
 	} else {
-		vec->mem = PyMem_Realloc(vec->mem, (vec->reserved_size + grow_by_chunks) * sizeof(vec->mem));
+		vec->mem = PyMem_Realloc(vec->mem, (vec->reserved_size + grow_by_chunks) * sizeof(DeltaChunk));
 	}
 	assert(vec->mem != NULL);
 	vec->reserved_size = vec->reserved_size + grow_by_chunks;
+	
+#ifdef DEBUG
+	fprintf(stderr, "Allocated %i bytes at %p, to hold up to %i chunks\n", (int)((vec->reserved_size + grow_by_chunks) * sizeof(DeltaChunk)), vec->mem, (int)(vec->reserved_size + grow_by_chunks));
+#endif
 	
 	return vec->mem != NULL;
 }
@@ -192,7 +196,11 @@ DeltaChunk* DCV_end(DeltaChunkVector* vec)
 void DCV_dealloc(DeltaChunkVector* vec)
 {
 	if (vec->mem){
-		const DeltaChunk* end = DCV_end(vec);
+#ifdef DEBUG
+		fprintf(stderr, "Freeing %p\n", (void*)vec->mem);
+#endif
+
+		const DeltaChunk* end = &vec->mem[vec->size];
 		DeltaChunk* i;
 		for(i = vec->mem; i < end; i++){
 			DC_destroy(i);
@@ -342,6 +350,7 @@ DeltaChunkList* DCL_new_instance(void)
 	
 	DCL_init(dcl, 0, 0);
 	assert(dcl->vec.size == 0);
+	assert(dcl->vec.mem == NULL);
 	return dcl;
 }
 
@@ -377,16 +386,13 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		stream_iter = dstreams;
 	}
 	
-	DeltaChunkList* bdcl = 0;
-	DeltaChunkList* tdcl = 0;
-	DeltaChunkList* dcl = 0;
+	DeltaChunkVector bdcv;
+	DeltaChunkVector tdcv;
+	DeltaChunkVector dcv;
+	DCV_init(&bdcv, 0);
+	DCV_init(&dcv, 0);
+	DCV_init(&tdcv, 0);
 	
-	dcl = tdcl = DCL_new_instance();
-	assert(dcl != NULL);
-	if (!dcl){
-		PyErr_SetString(PyExc_RuntimeError, "Couldn't allocate list");
-		return NULL;
-	}
 	
 	unsigned int dsi;
 	PyObject* ds;
@@ -408,6 +414,10 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		Py_ssize_t ofs = 0;
 		const ull base_size = msb_size(data, dlen, 0, &ofs);
 		const ull target_size = msb_size(data, dlen, ofs, &ofs);
+		
+		// estimate number of ops - assume one third adds, half two byte (size+offset) copies
+		const uint approx_num_cmds = (dlen / 3) + (((dlen / 3) * 2) / (2+2+1));
+		DCV_grow(&dcv, approx_num_cmds);
 	
 		// parse command stream
 		const char* dend = data + dlen;
@@ -431,7 +441,7 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 				const unsigned long rbound = cp_off + cp_size; 
 				if (rbound < cp_size ||
 					rbound > base_size){
-					goto loop_end;
+					break;
 				}
 				
 				// TODO: Add node
@@ -446,8 +456,19 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 				goto loop_end;
 			}
 		}// END handle command opcodes
-		
 		assert(tbw == target_size);
+		
+		// swap the vector
+		// Skip the first vector, as it is also used as top chunk vector
+		if (bdcv.mem != tdcv.mem){
+			DCV_dealloc(&bdcv);
+		}
+		bdcv = dcv;
+		if (dsi == 0){
+			tdcv = dcv;
+		}
+		DCV_init(&dcv, 0);
+		
 
 loop_end:
 		// perform cleanup
@@ -467,11 +488,31 @@ loop_end:
 		Py_DECREF(stream_iter);
 	}
 	
+	DCV_dealloc(&bdcv);
+	if (dsi > 1){
+		// otherwise dcv equals tcl
+		DCV_dealloc(&dcv);
+	}
+	
+	// Return the actual python object - its just a container
+	DeltaChunkList* dcl = DCL_new_instance();
+	if (!dcl){
+		PyErr_SetString(PyExc_RuntimeError, "Couldn't allocate list");
+		// Otherwise tdcv would be deallocated by the chunk list
+		DCV_dealloc(&tdcv);
+		error = 1;
+	} else {
+		// Plain copy, don't deallocate
+		dcl->vec = tdcv;
+	}
+	
 	if (error){
+		// Will dealloc tdcv
+		Py_XDECREF(dcl);
 		return NULL;
 	}
 	
-	return (PyObject*)tdcl;
+	return (PyObject*)dcl;
 }
 
 static PyMethodDef py_fun[] = {
