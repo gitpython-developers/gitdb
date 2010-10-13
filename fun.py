@@ -654,6 +654,6 @@ def is_equal_canonical_sha(canonical_length, match, sha1):
 
 try:
 	# raise ImportError; # DEBUG
-	from _delta_apply import connect_deltas
+	from _perf import connect_deltas
 except ImportError:
 	pass

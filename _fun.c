@@ -1,4 +1,5 @@
 #include <Python.h>
+#include "_delta_apply.c"
 
 static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 {
@@ -80,21 +81,26 @@ static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 	Py_RETURN_NONE;
 }
 
-
 static PyMethodDef py_fun[] = {
 	{ "PackIndexFile_sha_to_index", (PyCFunction)PackIndexFile_sha_to_index, METH_VARARGS, "TODO" },
+	{ "connect_deltas", (PyCFunction)connect_deltas, METH_O, "TODO" },
 	{ NULL, NULL, 0, NULL }
 };
 
 #ifndef PyMODINIT_FUNC	/* declarations for DLL import/export */
 #define PyMODINIT_FUNC void
 #endif
-PyMODINIT_FUNC init_fun(void)
+PyMODINIT_FUNC init_perf(void)
 {
 	PyObject *m;
 
-	m = Py_InitModule3("_fun", py_fun, NULL);
+	if (PyType_Ready(&DeltaChunkListType) < 0)
+		return;
+	
+	m = Py_InitModule3("_perf", py_fun, NULL);
 	if (m == NULL)
 		return;
 	
+	Py_INCREF(&DeltaChunkListType);
+	PyModule_AddObject(m, "DeltaChunkList", (PyObject *)&DeltaChunkListType);
 }

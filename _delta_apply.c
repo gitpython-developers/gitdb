@@ -879,25 +879,3 @@ loop_end:
 	return (PyObject*)dcl;
 }
 
-static PyMethodDef py_fun[] = {
-	{ "connect_deltas", (PyCFunction)connect_deltas, METH_O, "TODO" },
-	{ NULL, NULL, 0, NULL }
-};
-
-#ifndef PyMODINIT_FUNC	/* declarations for DLL import/export */
-#define PyMODINIT_FUNC void
-#endif
-PyMODINIT_FUNC init_delta_apply(void)
-{
-	PyObject *m;
-
-	if (PyType_Ready(&DeltaChunkListType) < 0)
-		return;
-	
-	m = Py_InitModule3("_delta_apply", py_fun, NULL);
-	if (m == NULL)
-		return;
-	
-	Py_INCREF(&DeltaChunkListType);
-	PyModule_AddObject(m, "DeltaChunkList", (PyObject *)&DeltaChunkListType);
-}
