@@ -83,7 +83,8 @@ static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 
 static PyMethodDef py_fun[] = {
 	{ "PackIndexFile_sha_to_index", (PyCFunction)PackIndexFile_sha_to_index, METH_VARARGS, "TODO" },
-	{ "connect_deltas", (PyCFunction)connect_deltas, METH_O, "TODO" },
+	{ "connect_deltas", (PyCFunction)connect_deltas, METH_O, "See python implementation" },
+	{ "apply_delta", (PyCFunction)apply_delta, METH_VARARGS, "See python implementation" },
 	{ NULL, NULL, 0, NULL }
 };
 

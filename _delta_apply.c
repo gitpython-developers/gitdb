@@ -886,3 +886,73 @@ loop_end:
 	return (PyObject*)dcl;
 }
 
+
+// Write using a write function, taking remaining bytes from a base buffer
+// replaces the corresponding method in python
+static
+PyObject* apply_delta(PyObject* self, PyObject* args)
+{
+	PyObject* pybbuf = 0;
+	PyObject* pydbuf = 0;
+	PyObject* pytbuf = 0;
+	if (!PyArg_ParseTuple(args, "OOO", &pybbuf, &pydbuf, &pytbuf)){
+		PyErr_BadArgument();
+		return NULL;
+	}
+	
+	PyObject* objects[] = { pybbuf, pydbuf, pytbuf };
+	assert(sizeof(objects) / sizeof(PyObject*) == 3);
+	
+	uint i;
+	for(i = 0; i < 3; i++){ 
+		if (!PyObject_CheckReadBuffer(objects[i])){
+			PyErr_SetString(PyExc_ValueError, "Argument must be a buffer-compatible object, like a string, or a memory map");
+			return NULL;
+		}
+	}
+	
+	Py_ssize_t lbbuf; Py_ssize_t ldbuf; Py_ssize_t ltbuf;
+	const uchar* bbuf; const uchar* dbuf;
+	uchar* tbuf;
+	PyObject_AsReadBuffer(pybbuf, (const void**)(&bbuf), &lbbuf);
+	PyObject_AsReadBuffer(pydbuf, (const void**)(&dbuf), &ldbuf);
+	
+	if (PyObject_AsWriteBuffer(pytbuf, (void**)(&tbuf), &ltbuf)){
+		PyErr_SetString(PyExc_ValueError, "Argument 3 must be a writable buffer");
+		return NULL;
+	}
+	
+	const uchar* data = dbuf;
+	const uchar* dend = dbuf + ldbuf;
+	
+	while (data < dend)
+	{
+		const char cmd = *data++;
+		
+		if (cmd & 0x80) 
+		{
+			unsigned long cp_off = 0, cp_size = 0;
+			if (cmd & 0x01) cp_off = *data++;
+			if (cmd & 0x02) cp_off |= (*data++ << 8);
+			if (cmd & 0x04) cp_off |= (*data++ << 16);
+			if (cmd & 0x08) cp_off |= ((unsigned) *data++ << 24);
+			if (cmd & 0x10) cp_size = *data++;
+			if (cmd & 0x20) cp_size |= (*data++ << 8);
+			if (cmd & 0x40) cp_size |= (*data++ << 16);
+			if (cp_size == 0) cp_size = 0x10000;
+			
+			memcpy(tbuf, bbuf + cp_off, cp_size); 
+			tbuf += cp_size;
+			
+		} else if (cmd) {
+			memcpy(tbuf, data, cmd);
+			tbuf += cmd;
+			data += cmd;
+		} else {                                                                               
+			PyErr_SetString(PyExc_RuntimeError, "Encountered an unsupported delta cmd: 0");
+			return NULL;
+		}
+	}// END handle command opcodes
+	
+	Py_RETURN_NONE;
+}

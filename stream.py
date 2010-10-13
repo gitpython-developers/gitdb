@@ -22,6 +22,11 @@ from util import (
 		zlib
 	)
 
+try:
+	from _perf import apply_delta as c_apply_delta
+except ImportError:
+	pass
+
 __all__ = ('DecompressMemMapReader', 'FDCompressedSha1Writer', 'DeltaApplyReader')
 
 
@@ -413,7 +418,10 @@ class DeltaApplyReader(LazyMixin):
 			stream_copy(dstream.read, ddata.write, dstream.size, 256*mmap.PAGESIZE)
 			
 			#######################################################################
-			apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf.write)
+			if 'c_apply_delta' in globals():
+				c_apply_delta(bbuf, ddata, tbuf);
+			else:
+				apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf.write)
 			#######################################################################
 			
 			# finally, swap out source and target buffers. The target is now the 
@@ -429,13 +437,6 @@ class DeltaApplyReader(LazyMixin):
 		# is not tbuf, but bbuf !
 		self._mm_target = bbuf
 		self._size = final_target_size
-		
-		# TODO: Once that works, figure out the ordering of the opcodes. If they
-		# are always in-order/sequential, an alternate implementation could 
-		# use stream access only. Of course this would mean we would read 
-		# all deltas in advance, analyse the opcode ranges to determine a final
-		# concatenated opcode list which indicates what to copy from which delta
-		# to which position. This preprocessing would allow true streaming
 		
 	def read(self, count=0):
 		bl = self._size - self._br		# bytes left
