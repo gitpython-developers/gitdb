@@ -22,8 +22,10 @@ from util import (
 		zlib
 	)
 
+has_perf_mod = False
 try:
 	from _perf import apply_delta as c_apply_delta
+	has_perf_mod = True
 except ImportError:
 	pass
 
@@ -330,7 +332,7 @@ class DeltaApplyReader(LazyMixin):
 		self._dstreams = tuple(stream_list[:-1])
 		self._br = 0
 		
-	def _set_cache_too_slow(self, attr):
+	def _set_cache_too_slow_without_c(self, attr):
 		# the direct algorithm is fastest and most direct if there is only one 
 		# delta. Also, the extra overhead might not be worth it for items smaller
 		# than X - definitely the case in python, every function call costs 
@@ -366,6 +368,15 @@ class DeltaApplyReader(LazyMixin):
 		self._mm_target.seek(0)
 		
 	def _set_cache_(self, attr):
+		"""Determine which version to use depending on the configuration of the deltas
+		:note: we are only called if we have the performance module"""
+		# otherwise it depends on the amount of memory to shift around
+		if len(self._dstreams) > 1 and self._bstream.size < 150000:
+			return self._set_cache_too_slow_without_c(attr)
+		else:
+			return self._set_cache_brute_(attr)
+		
+	def _set_cache_brute_(self, attr):
 		"""If we are here, we apply the actual deltas"""
 		
 		buffer_info_list = list()
@@ -437,6 +448,13 @@ class DeltaApplyReader(LazyMixin):
 		# is not tbuf, but bbuf !
 		self._mm_target = bbuf
 		self._size = final_target_size
+		
+	
+	#{ Configuration
+	if not has_perf_mod:
+		_set_cache_ = _set_cache_brute_
+	
+	#} END configuration
 		
 	def read(self, count=0):
 		bl = self._size - self._br		# bytes left
@@ -654,4 +672,7 @@ class NullStream(object):
 	def write(self, data):
 		return len(data)
 
+
 #} END W streams
+
+
