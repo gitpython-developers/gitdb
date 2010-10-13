@@ -159,6 +159,16 @@ void DC_set_data(DeltaChunk* dc, const uchar* data, Py_ssize_t dlen, bool shared
 	
 }
 
+// Make the given data our own. It is assumed to have the size stored in our instance
+// and will be managed by us.
+inline
+void DC_set_data_with_ownership(DeltaChunk* dc, const uchar* data)
+{
+	assert(data);
+	DC_deallocate_data(dc);
+	dc->data = data;
+}
+
 inline
 ull DC_rbound(const DeltaChunk* dc)
 {
@@ -214,7 +224,6 @@ void DC_offset_copy_to(const DeltaChunk* src, DeltaChunk* dest, ull ofs, ull siz
 	if (src->data){
 		DC_set_data(dest, src->data + ofs, size, 0);
 	} else {
-		dest->data = NULL;
 		dest->data_shared = 0;
 	}
 }
@@ -825,6 +834,8 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 				const unsigned long rbound = cp_off + cp_size; 
 				if (rbound < cp_size ||
 					rbound > base_size){
+					// this really shouldn't happen
+					error = 1;
 					assert(0);
 					break;
 				}
@@ -834,16 +845,53 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 				
 			} else if (cmd) {
 				// TODO: Compress nodes by parsing them in advance
-				// NOTE: Compression only necessary for all other deltas, not 
-				// for the first one, as we will share the data. It really depends
-				// What's faster
 				// Compression reduces fragmentation though, which is why we do it
 				// in all cases.
-				DeltaChunk* dc = DCV_append(&dcv); 
-				DC_init(dc, tbw, cmd, 0);
-				DC_set_data(dc, data, cmd, is_shared_data);
-				tbw += cmd;
+				const uchar* add_start = data - 1;
+				const uchar* add_end = dend;
+				ull num_bytes = cmd;
 				data += cmd;
+				ull num_chunks = 1;
+				while (data < dend){
+					fprintf(stderr, "looping\n");
+					const char c = *data;
+					if (c & 0x80){
+						add_end = data;
+						break;
+					} else {
+						num_chunks += 1;
+						data += c + 1;			// advance by 1 to skip add cmd
+						num_bytes += c;
+					}
+				}
+				
+				fprintf(stderr, "add bytes = %i\n", (int)num_bytes);
+				#ifdef DEBUG
+				assert(add_end - add_start > 0);
+				if (num_chunks > 1){
+					fprintf(stderr, "Compression worked, got %i bytes of %i chunks\n", (int)num_bytes, (int)num_chunks);
+				}
+				#endif
+				
+				DeltaChunk* dc = DCV_append(&dcv); 
+				DC_init(dc, tbw, num_bytes, 0);
+				
+				// gather the data, or (possibly) share single blocks
+				if (num_chunks > 1){
+					uchar* dcdata = PyMem_Malloc(num_bytes);
+					while (add_start < add_end){
+						const char bytes = *add_start++;
+						fprintf(stderr, "Copying %i bytes\n", bytes);
+						memcpy((void*)dcdata, (void*)add_start, bytes);
+						dcdata += bytes;
+						add_start += bytes;
+					}
+					DC_set_data_with_ownership(dc, dcdata);
+				} else {
+					DC_set_data(dc, data - cmd, cmd, is_shared_data);
+				}
+				
+				tbw += num_bytes;
 			} else {                                                                               
 				error = 1;
 				PyErr_SetString(PyExc_RuntimeError, "Encountered an unsupported delta cmd: 0");
