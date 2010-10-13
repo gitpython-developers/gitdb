@@ -77,7 +77,10 @@ setup(cmdclass={'build_ext':build_ext_nofail},
       package_data={'gitdb' : ['AUTHORS', 'README'], 
 					  'gitdb.test' : ['fixtures/packs/*', 'fixtures/objects/7b/*']},
       package_dir = {'gitdb':''},
-      ext_modules=[Extension('gitdb._fun', ['_fun.c'])],
+      ext_modules=[
+      				Extension('gitdb._fun', ['_fun.c']),
+      				Extension('gitdb._delta_apply', ['_delta_apply.c'])
+      				],
       license = "BSD License",
       requires=('async (>=0.6.1)',),
       install_requires='async >= 0.6.1',

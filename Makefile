@@ -12,6 +12,9 @@ build::
 	$(SETUP) build
 	$(SETUP) build_ext -i
 
+build_ext::
+	$(SETUP) build_ext -i
+	
 install::
 	$(SETUP) install
 
