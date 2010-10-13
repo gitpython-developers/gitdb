@@ -844,32 +844,32 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 				tbw += cp_size;
 				
 			} else if (cmd) {
-				// TODO: Compress nodes by parsing them in advance
 				// Compression reduces fragmentation though, which is why we do it
 				// in all cases.
+				// It makes the more sense the more consecutive add-chunks we have, 
+				// its more likely in big deltas, for big binary files
 				const uchar* add_start = data - 1;
 				const uchar* add_end = dend;
 				ull num_bytes = cmd;
 				data += cmd;
 				ull num_chunks = 1;
 				while (data < dend){
-					fprintf(stderr, "looping\n");
+				//while (0){
 					const char c = *data;
 					if (c & 0x80){
 						add_end = data;
 						break;
 					} else {
-						num_chunks += 1;
-						data += c + 1;			// advance by 1 to skip add cmd
+						data += 1 + c;			// advance by 1 to skip add cmd
 						num_bytes += c;
+						num_chunks += 1;
 					}
 				}
 				
-				fprintf(stderr, "add bytes = %i\n", (int)num_bytes);
 				#ifdef DEBUG
 				assert(add_end - add_start > 0);
 				if (num_chunks > 1){
-					fprintf(stderr, "Compression worked, got %i bytes of %i chunks\n", (int)num_bytes, (int)num_chunks);
+					fprintf(stderr, "Compression: got %i bytes of %i chunks\n", (int)num_bytes, (int)num_chunks);
 				}
 				#endif
 				
@@ -881,12 +881,11 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 					uchar* dcdata = PyMem_Malloc(num_bytes);
 					while (add_start < add_end){
 						const char bytes = *add_start++;
-						fprintf(stderr, "Copying %i bytes\n", bytes);
 						memcpy((void*)dcdata, (void*)add_start, bytes);
 						dcdata += bytes;
 						add_start += bytes;
 					}
-					DC_set_data_with_ownership(dc, dcdata);
+					DC_set_data_with_ownership(dc, dcdata-num_bytes);
 				} else {
 					DC_set_data(dc, data - cmd, cmd, is_shared_data);
 				}
