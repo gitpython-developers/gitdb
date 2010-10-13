@@ -325,7 +325,7 @@ class DeltaApplyReader(LazyMixin):
 		self._dstreams = tuple(stream_list[:-1])
 		self._br = 0
 		
-	def _set_cache_(self, attr):
+	def _set_cache_too_slow(self, attr):
 		# the direct algorithm is fastest and most direct if there is only one 
 		# delta. Also, the extra overhead might not be worth it for items smaller
 		# than X - definitely the case in python, every function call costs 
@@ -360,7 +360,7 @@ class DeltaApplyReader(LazyMixin):
 		
 		self._mm_target.seek(0)
 		
-	def _set_cache_brute_(self, attr):
+	def _set_cache_(self, attr):
 		"""If we are here, we apply the actual deltas"""
 		
 		buffer_info_list = list()

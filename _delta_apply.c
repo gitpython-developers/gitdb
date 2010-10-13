@@ -450,6 +450,10 @@ void DCV_replace_one_by_many(const DeltaChunkVector* from, DeltaChunkVector* to,
 	
 	// If we are somewhere in the middle, we have to make some space
 	if (DCV_last(to) != at) {
+		// IMPORTANT: This memmove kills the performance in case of large deltas
+		// Causing everything to slow down enormously. Its logical, as the memory
+		// gets shifted each time we insert nodes, for each chunk, for ever smaller
+		// chunks depending on the deltas
 		memmove((void*)(at+from->size), (void*)(at+1), (size_t)((DCV_end(to) - (at+1)) * sizeof(DeltaChunk)));
 	}
 	
