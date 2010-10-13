@@ -34,6 +34,7 @@ from base import (		# Amazing !
 						OStream,
 						OPackInfo,
 						OPackStream,
+						ODeltaStream,
 						ODeltaPackInfo,
 						ODeltaPackStream,
 					)
@@ -584,14 +585,9 @@ class PackEntity(LazyMixin):
 			# To prevent it from applying the deltas when querying the size, 
 			# we extract it from the delta stream ourselves
 			streams = self.collect_streams_at_offset(offset)
-			buf = streams[0].read(512)
-			offset, src_size = msb_size(buf)
-			offset, target_size = msb_size(buf, offset)
-			
-			streams[0].stream.seek(0)				# assure it can be read by the delta reader
 			dstream = DeltaApplyReader.new(streams)
 			
-			return OStream(sha, dstream.type, target_size, dstream) 
+			return ODeltaStream(sha, dstream.type, None, dstream) 
 		else:
 			if type_id not in delta_types:
 				return OInfo(sha, type_id_to_type_map[type_id], uncomp_size)

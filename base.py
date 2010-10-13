@@ -135,6 +135,23 @@ class OStream(OInfo):
 	@property
 	def stream(self):
 		return self[3]
+		
+	#} END stream reader interface
+	
+	
+class ODeltaStream(OStream):
+	"""Uses size info of its stream, delaying reads"""
+	
+	def __new__(cls, sha, type, size, stream, *args, **kwargs):
+		"""Helps with the initialization of subclasses"""
+		return tuple.__new__(cls, (sha, type, size, stream))
+	
+	#{ Stream Reader Interface
+	
+	@property
+	def size(self):
+		return self[3].size
+		
 	#} END stream reader interface
 	
 	
