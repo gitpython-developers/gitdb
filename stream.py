@@ -337,6 +337,7 @@ class DeltaApplyReader(LazyMixin):
 		# Aggregate all deltas into one delta in reverse order. Hence we take 
 		# the last delta, and reverse-merge its ancestor delta, until we receive
 		# the final delta data stream.
+		# print "Handling %i delta streams, sizes: %s" % (len(self._dstreams), [ds.size for ds in self._dstreams])
 		dcl = connect_deltas(self._dstreams)
 		
 		# call len directly, as the (optional) c version doesn't implement the sequence

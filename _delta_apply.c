@@ -398,7 +398,6 @@ int DCV_dbg_check_integrity(const DeltaChunkVector* vec)
 inline
 void DCV_copy_slice_to(const DeltaChunkVector* src, DeltaChunkVector* dest, ull ofs, ull size)
 {
-	//fprintf(stderr, "Copy Slice To: src->size = %i, ofs = %i, size=%i\n", (int)src->size, (int)ofs, (int)size); 
 	assert(DCV_lbound(src) <= ofs);
 	assert((ofs + size) <= DCV_rbound(src));
 	
@@ -443,7 +442,6 @@ void DCV_copy_slice_to(const DeltaChunkVector* src, DeltaChunkVector* dest, ull 
 inline
 void DCV_replace_one_by_many(const DeltaChunkVector* from, DeltaChunkVector* to, DeltaChunk* at)
 {
-	//fprintf(stderr, "Replace one by many: from->size = %i, to->size = %i, to->reserved = %i\n", (int)from->size, (int)to->size, (int)to->reserved_size);
 	assert(from->size > 1);
 	assert(to->size + from->size - 1 <= to->reserved_size);
 	
@@ -452,7 +450,6 @@ void DCV_replace_one_by_many(const DeltaChunkVector* from, DeltaChunkVector* to,
 	
 	// If we are somewhere in the middle, we have to make some space
 	if (DCV_last(to) != at) {
-		//fprintf(stderr, "moving to %i from %i, num chunks = %i\n", (int)((at+from->size)-to->mem), (int)((at+1)-to->mem), (int)(DCV_end(to) - (at+1)));
 		memmove((void*)(at+from->size), (void*)(at+1), (size_t)((DCV_end(to) - (at+1)) * sizeof(DeltaChunk)));
 	}
 	
@@ -725,7 +722,8 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		const ull target_size = msb_size(&data, dend);
 		
 		// estimate number of ops - assume one third adds, half two byte (size+offset) copies
-		const uint approx_num_cmds = (dlen / 3) + (((dlen / 3) * 2) / (2+2+1));
+		// Assume good compression for the adds
+		const uint approx_num_cmds = ((dlen / 3) / 10) + (((dlen / 3) * 2) / (2+2+1));
 		DCV_reserve_memory(&dcv, approx_num_cmds);
 	
 		// parse command stream
@@ -824,6 +822,11 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		if (!is_first_run){
 			DCV_connect_with_base(&tdcv, &dcv, &tmpl);
 		}
+		
+		#ifdef DEBUG
+		fprintf(stderr, "tdcv->size = %i, tdcv->reserved_size = %i\n", (int)tdcv.size, (int)tdcv.reserved_size);
+		fprintf(stderr, "dcv->size = %i, dcv->reserved_size = %i\n", (int)dcv.size, (int)dcv.reserved_size);
+		#endif
 		
 		if (is_first_run){
 			tdcv = dcv;
