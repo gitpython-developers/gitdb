@@ -25,29 +25,18 @@ class TestPackedDBPerformance(TestBigRepoR):
 		
 		# sha lookup: best-case and worst case access
 		pdb_pack_info = pdb._pack_info
-		access_times = list()
-		for rand in range(2):
-			if rand:
-				random.shuffle(sha_list)
-			# END shuffle shas
-			st = time()
-			for sha in sha_list:
-				pdb_pack_info(sha)
-			# END for each sha to look up
-			elapsed = time() - st
-			access_times.append(elapsed)
-			
-			# discard cache
-			del(pdb._entities)
-			pdb.entities()
-			print >> sys.stderr, "PDB: looked up %i sha in %i packs (random=%i) in %f s ( %f shas/s )" % (ns, len(pdb.entities()), rand, elapsed, ns / elapsed)
+		# END shuffle shas
+		st = time()
+		for sha in sha_list:
+			pdb_pack_info(sha)
+		# END for each sha to look up
+		elapsed = time() - st
+		
+		# discard cache
+		del(pdb._entities)
+		pdb.entities()
+		print >> sys.stderr, "PDB: looked up %i sha in %i packs in %f s ( %f shas/s )" % (ns, len(pdb.entities()), elapsed, ns / elapsed)
 		# END for each random mode
-		elapsed_order, elapsed_rand = access_times
-		
-		# well, its never really sequencial regarding the memory patterns, but it 
-		# shows how well the prioriy cache performs
-		print >> sys.stderr, "PDB: sequential access is %f %% faster than random-access" % (100 - ((elapsed_order / elapsed_rand) * 100))
-		
 		
 		# query info and streams only
 		max_items = 10000			# can wait longer when testing memory

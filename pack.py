@@ -24,7 +24,7 @@ from fun import (
 				)
 
 try:
-	from _fun import PackIndexFile_sha_to_index
+	from _perf import PackIndexFile_sha_to_index
 except ImportError:
 	pass
 # END try c module

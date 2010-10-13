@@ -22,6 +22,13 @@ from util import (
 		zlib
 	)
 
+has_perf_mod = False
+try:
+	from _perf import apply_delta as c_apply_delta
+	has_perf_mod = True
+except ImportError:
+	pass
+
 __all__ = ('DecompressMemMapReader', 'FDCompressedSha1Writer', 'DeltaApplyReader')
 
 
@@ -325,7 +332,7 @@ class DeltaApplyReader(LazyMixin):
 		self._dstreams = tuple(stream_list[:-1])
 		self._br = 0
 		
-	def _set_cache_(self, attr):
+	def _set_cache_too_slow_without_c(self, attr):
 		# the direct algorithm is fastest and most direct if there is only one 
 		# delta. Also, the extra overhead might not be worth it for items smaller
 		# than X - definitely the case in python, every function call costs 
@@ -337,9 +344,12 @@ class DeltaApplyReader(LazyMixin):
 		# Aggregate all deltas into one delta in reverse order. Hence we take 
 		# the last delta, and reverse-merge its ancestor delta, until we receive
 		# the final delta data stream.
+		# print "Handling %i delta streams, sizes: %s" % (len(self._dstreams), [ds.size for ds in self._dstreams])
 		dcl = connect_deltas(self._dstreams)
 		
-		if len(dcl) == 0:
+		# call len directly, as the (optional) c version doesn't implement the sequence
+		# protocol
+		if dcl.__len__() == 0:
 			self._size = 0
 			self._mm_target = allocate_memory(0)
 			return
@@ -356,6 +366,15 @@ class DeltaApplyReader(LazyMixin):
 		dcl.apply(bbuf, write)
 		
 		self._mm_target.seek(0)
+		
+	def _set_cache_(self, attr):
+		"""Determine which version to use depending on the configuration of the deltas
+		:note: we are only called if we have the performance module"""
+		# otherwise it depends on the amount of memory to shift around
+		if len(self._dstreams) > 1 and self._bstream.size < 150000:
+			return self._set_cache_too_slow_without_c(attr)
+		else:
+			return self._set_cache_brute_(attr)
 		
 	def _set_cache_brute_(self, attr):
 		"""If we are here, we apply the actual deltas"""
@@ -410,7 +429,10 @@ class DeltaApplyReader(LazyMixin):
 			stream_copy(dstream.read, ddata.write, dstream.size, 256*mmap.PAGESIZE)
 			
 			#######################################################################
-			apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf.write)
+			if 'c_apply_delta' in globals():
+				c_apply_delta(bbuf, ddata, tbuf);
+			else:
+				apply_delta_data(bbuf, src_size, ddata, len(ddata), tbuf.write)
 			#######################################################################
 			
 			# finally, swap out source and target buffers. The target is now the 
@@ -427,12 +449,12 @@ class DeltaApplyReader(LazyMixin):
 		self._mm_target = bbuf
 		self._size = final_target_size
 		
-		# TODO: Once that works, figure out the ordering of the opcodes. If they
-		# are always in-order/sequential, an alternate implementation could 
-		# use stream access only. Of course this would mean we would read 
-		# all deltas in advance, analyse the opcode ranges to determine a final
-		# concatenated opcode list which indicates what to copy from which delta
-		# to which position. This preprocessing would allow true streaming
+	
+	#{ Configuration
+	if not has_perf_mod:
+		_set_cache_ = _set_cache_brute_
+	
+	#} END configuration
 		
 	def read(self, count=0):
 		bl = self._size - self._br		# bytes left
@@ -650,4 +672,7 @@ class NullStream(object):
 	def write(self, data):
 		return len(data)
 
+
 #} END W streams
+
+
