@@ -92,10 +92,10 @@ typedef unsigned char uchar;
 typedef uchar bool;
 
 // Constants
-const ull gDVC_grow_by = 50;
+const ull gDVC_grow_by = 100;
 
 #ifdef DEBUG
-#define DBG_check(vec) asser(DCV_dbg_check_integrity(vec))
+#define DBG_check(vec) assert(DCV_dbg_check_integrity(vec))
 #else
 #define DBG_check(vec)
 #endif
@@ -233,11 +233,17 @@ typedef struct {
 
 // Reserve enough memory to hold the given amount of delta chunks
 // Return 1 on success
+// NOTE: added a minimum allocation to assure reallocation is not done 
+// just for a single additional entry. DCVs change often, and reallocs are expensive
 inline
 int DCV_reserve_memory(DeltaChunkVector* vec, uint num_dc)
 {
 	if (num_dc <= vec->reserved_size){
 		return 1;
+	}
+	
+	if (num_dc - vec->reserved_size){
+		num_dc += gDVC_grow_by;
 	}
 	
 #ifdef DEBUG
@@ -381,25 +387,6 @@ void DCV_reset(DeltaChunkVector* vec)
 	vec->size = 0;
 }
 
-// Append num-chunks to the end of the list, possibly reallocating existing ones
-// Return a pointer to the first of the added items. They are already null initialized
-// If num-chunks == 0, it returns the end pointer of the allocated memory
-static inline
-DeltaChunk* DCV_append_multiple(DeltaChunkVector* vec, uint num_chunks)
-{
-	if (vec->size + num_chunks > vec->reserved_size){
-		DCV_grow_by(vec, (vec->size + num_chunks) - vec->reserved_size);
-	}
-	Py_FatalError("Could not allocate memory for append operation");
-	Py_ssize_t old_size = vec->size;
-	vec->size += num_chunks;
-	
-	for(;old_size < vec->size; ++old_size){
-		DC_init(DCV_get(vec, old_size), 0, 0, 0);
-	}
-	
-	return &vec->mem[old_size];
-}
 
 // Append one chunk to the end of the list, and return a pointer to it
 // It will not have been initialized !
@@ -838,6 +825,7 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 				const unsigned long rbound = cp_off + cp_size; 
 				if (rbound < cp_size ||
 					rbound > base_size){
+					assert(0);
 					break;
 				}
 				
@@ -849,6 +837,8 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 				// NOTE: Compression only necessary for all other deltas, not 
 				// for the first one, as we will share the data. It really depends
 				// What's faster
+				// Compression reduces fragmentation though, which is why we do it
+				// in all cases.
 				DeltaChunk* dc = DCV_append(&dcv); 
 				DC_init(dc, tbw, cmd, 0);
 				DC_set_data(dc, data, cmd, is_shared_data);
@@ -860,7 +850,10 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 				goto loop_end;
 			}
 		}// END handle command opcodes
-		assert(tbw == target_size);
+		if (tbw != target_size){
+			PyErr_SetString(PyExc_RuntimeError, "Failed to parse delta stream");
+			error = 1;
+		}
 
 		if (!is_first_run){
 			DCV_connect_with_base(&tdcv, &dcv, &tmpl);
