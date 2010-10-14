@@ -83,19 +83,17 @@ The benchmarking context was the same as for the brute-force GitDB algorithm. Th
 The biggest performance bottleneck is the slicing of the parsed delta streams, where the program spends most of its time due to hundred thousands of calls.
 
 To get a more usable version of the algorithm, it was implemented in C, such that python must do no more than two calls to get all the work done. The first prepares the TDS, the second applies it, writing it into a target buffer.
-The throughput reaches 15.6 MiB/s, which equals 1267 streams/s, which makes it 14 times faster than the pure python version, and amazingly even 1.4 times faster than the brute-force C implementation.
+The throughput reaches 16.7 MiB/s, which equals 1344 streams/s, which makes it 15 times faster than the pure python version, and amazingly even 1.5 times faster than the brute-force C implementation. As a comparison, cgit is able to stream about 20 MiB when controlling it through a pipe. GitDBs performance may still improve once pack access is reimplemented in C as well.
 
-*TODO*
-All this comes at a relatively high memory consumption, and heavily degrading performance with raising file sizes. A 125 MB file took 8 seconds to unpack for instance. The reason for this is the current implementation's brute-force algorithm to insert ADS slices into the TDS, which triggers an enormous amount of memmove operations of large portions of overlapping memory portions.
+All this comes at a relatively high memory consumption.Additionally, with each new level being merged, not only are more DCs inserted, but the new chunks may get smaller as well. This can reach a point where one chunk only represents an individual byte, so the size of the data structure outweighs the logical chunk size by far.
 
-Additionally, with each new level being merged, not only are more DCs inserted, but the new chunks may get smaller as well. This can reach a point where one chunk only represents an individual byte, so the size of the data structure outweighs the logical chunk size by far.
+A 125 MB file took 3.1 seconds to unpack for instance, which is only 33% slower than the c implementation of the brute-force algorithm. 
 
 
 Future work
 ===========
-* Analyse TDS to determine which sections from base buffer need to be copied. Read these in order of lowest to highest offset from base stream, and copy them into a smaller memory map. Relink source offsets to point to the new location in the new buffer. 
-* recompress TDS into bytestream to minimize the memory footprint when streaming, allocate the stream into a memory map.
+The current implementation of the reverse delta aggregation algorithm is already working well and fast, but leaves room for improvement in the realm of its memory consumption. One way to considerably reduce it would be to index the delta stream to determine bounds, instead of parsing it into a separate data structure 
 
-With that in place, streaming becomes trivial. Memory consumption 
+Another very promising option is that streaming of delta data is indeed possible. Depending on the configuration of the copy-from-base operations, different optimizations could be applied to reduce the amount of memory required for the final processed delta stream. Some configurations may even allow it to stream data from the base buffer, instead of pre-loading it for random access.
 
-
+The ability to stream files at reduced memory costs would only be feasible for big files, and would have to be payed with extra pre-processing time.
