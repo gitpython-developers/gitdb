@@ -456,7 +456,7 @@ uint DCV_copy_slice_to(const DeltaChunkVector* src, DeltaChunk* dest, ull ofs, u
 		DC_offset_copy_to(cdc, dest, relofs, cdc->ts - relofs < size ? cdc->ts - relofs : size);
 		cdc += 1;
 		size -= dest->ts;
-		dest += 1;
+		dest += 1;				// must be here, we are reading the size !
 		num_chunks += 1;
 		
 		if (size == 0){
@@ -472,7 +472,7 @@ uint DCV_copy_slice_to(const DeltaChunkVector* src, DeltaChunk* dest, ull ofs, u
 			DC_copy_to(cdc, dest++);
 			size -= cdc->ts;
 		} else {
-			DC_offset_copy_to(cdc, dest++, 0, size);
+			DC_offset_copy_to(cdc, dest, 0, size);
 			size = 0;
 			break;
 		}
@@ -526,7 +526,6 @@ bool DCV_connect_with_base(DeltaChunkVector* tdcv, const DeltaChunkVector* bdcv)
 		return 0;
 	}
 	
-	fprintf(stderr, "old size = %i\n", (int)tdcv->size);
 	uint* pofs = offset_array;
 	uint num_addchunks = 0;
 	
@@ -574,17 +573,19 @@ bool DCV_connect_with_base(DeltaChunkVector* tdcv, const DeltaChunkVector* bdcv)
 		}
 		
 		// Copy Chunks, and move their target offset into place
+		// As we could override dc when slicing, we get the data here
+		const ull relofs = dc->to - dc->so;
+		
 		DeltaChunk* tdc = dc + ofs;
 		DeltaChunk* tdcend = tdc + DCV_copy_slice_to(bdcv, tdc, dc->so, dc->ts);
-		const ull relofs = dc->to - dc->so;
 		for(;tdc < tdcend; tdc++){
 			tdc->to += relofs;
 		}
 	}
 	
-	fprintf(stderr, "NEW size = %i\n", (int)tdcv->size);
 	DBG_check(tdcv);
 	assert(DCV_size(tdcv) == oldsize);
+	
 	PyMem_Free(offset_array);
 	return 1;
 }
