@@ -521,7 +521,7 @@ bool DCV_connect_with_base(DeltaChunkVector* tdcv, const DeltaChunkVector* bdcv)
 	DBG_check(tdcv);
 	DBG_check(bdcv);
 	
-	uint* offset_array = PyMem_Malloc(tdcv->size * sizeof(uint));
+	uint *const offset_array = PyMem_Malloc(tdcv->size * sizeof(uint));
 	if (!offset_array){
 		return 0;
 	}
@@ -531,7 +531,6 @@ bool DCV_connect_with_base(DeltaChunkVector* tdcv, const DeltaChunkVector* bdcv)
 	
 	DeltaChunk* dc = DCV_first(tdcv);
 	const DeltaChunk* dcend = DCV_end(tdcv);
-	const ull oldsize = DCV_size(tdcv);
 	
 	// OFFSET RUN
 	for (;dc < dcend; dc++, pofs++)
@@ -563,9 +562,10 @@ bool DCV_connect_with_base(DeltaChunkVector* tdcv, const DeltaChunkVector* bdcv)
 		// Data chunks don't need processing
 		const uint ofs = *pofs;
 		if (dc->data){
-			// TODO: peak the preceeding chunks to figure out whether they are 
+			// NOTE: could peek the preceeding chunks to figure out whether they are 
 			// all just moved by ofs. In that case, they can move as a whole!
-			// just copy the chunk according to its offset
+			// tests showed that this is very rare though, even in huge deltas, so its
+			// not worth the extra effort
 			if (ofs){
 				memcpy((void*)(dc + ofs), (void*)dc, sizeof(DeltaChunk));
 			}
@@ -584,7 +584,6 @@ bool DCV_connect_with_base(DeltaChunkVector* tdcv, const DeltaChunkVector* bdcv)
 	}
 	
 	DBG_check(tdcv);
-	assert(DCV_size(tdcv) == oldsize);
 	
 	PyMem_Free(offset_array);
 	return 1;
