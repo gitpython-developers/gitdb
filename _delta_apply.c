@@ -11,7 +11,7 @@ typedef unsigned char uchar;
 typedef uchar bool;
 
 // Constants
-const ull gDVC_grow_by = 100;
+const ull gDCV_grow_by = 100;
 
 #ifdef DEBUG
 #define DBG_check(vec) assert(DCV_dbg_check_integrity(vec))
@@ -170,8 +170,8 @@ int DCV_reserve_memory(DeltaChunkVector* vec, uint num_dc)
 		return 1;
 	}
 	
-	if (num_dc - vec->reserved_size){
-		num_dc += gDVC_grow_by;
+	if (num_dc - vec->reserved_size < 10){
+		num_dc += gDCV_grow_by;
 	}
 	
 #ifdef DEBUG
@@ -256,6 +256,12 @@ ull DCV_rbound(const DeltaChunkVector* vec)
 }
 
 inline
+ull DCV_size(const DeltaChunkVector* vec)
+{
+	return DCV_rbound(vec) - DCV_lbound(vec);
+}
+
+inline
 int DCV_empty(const DeltaChunkVector* vec)
 {
 	return vec->size == 0;
@@ -267,6 +273,14 @@ const DeltaChunk* DCV_end(const DeltaChunkVector* vec)
 {
 	assert(!DCV_empty(vec));
 	return vec->mem + vec->size;
+}
+
+// return first item in vector
+inline
+DeltaChunk* DCV_first(const DeltaChunkVector* vec)
+{
+	assert(!DCV_empty(vec));
+	return vec->mem;
 }
 
 void DCV_destroy(DeltaChunkVector* vec)
@@ -306,7 +320,7 @@ void DCV_reset(DeltaChunkVector* vec)
 	if (vec->size == 0)
 		return;
 	
-	DeltaChunk* dc = vec->mem;
+	DeltaChunk* dc = DCV_first(vec);
 	const DeltaChunk* dcend = DCV_end(vec);
 	for(;dc < dcend; dc++){
 		DC_destroy(dc);
@@ -322,7 +336,7 @@ static inline
 DeltaChunk* DCV_append(DeltaChunkVector* vec)
 {
 	if (vec->size + 1 > vec->reserved_size){
-		DCV_grow_by(vec, gDVC_grow_by);
+		DCV_grow_by(vec, gDCV_grow_by);
 	}
 	
 	DeltaChunk* next = vec->mem + vec->size; 
@@ -364,7 +378,7 @@ int DCV_dbg_check_integrity(const DeltaChunkVector* vec)
 	if(DCV_empty(vec)){
 		return 0;
 	}
-	const DeltaChunk* i = vec->mem;
+	const DeltaChunk* i = DCV_first(vec);
 	const DeltaChunk* end = DCV_end(vec);
 	
 	ull aparent_size = DCV_rbound(vec) - DCV_lbound(vec);
@@ -380,7 +394,7 @@ int DCV_dbg_check_integrity(const DeltaChunkVector* vec)
 	}
 	
 	const DeltaChunk* endm1 = DCV_end(vec) - 1;
-	for(i = vec->mem; i < endm1; i++){
+	for(i = DCV_first(vec); i < endm1; i++){
 		const DeltaChunk* n = i+1;
 		if (DC_rbound(i) != n->to){
 			return 0;
@@ -390,46 +404,82 @@ int DCV_dbg_check_integrity(const DeltaChunkVector* vec)
 	return 1;
 }
 
-// Write a slice as defined by its absolute offset in bytes and its size into the given
-// destination. The individual chunks written will be a deep copy of the source 
-// data chunks
-// TODO: this could trigger copying many smallish add-chunk pieces - maybe some sort
-// of append-only memory pool would improve performance
+// Return the amount of chunks a slice at the given spot would have 
 inline
-void DCV_copy_slice_to(const DeltaChunkVector* src, DeltaChunkVector* dest, ull ofs, ull size)
+uint DCV_count_slice_chunks(const DeltaChunkVector* src, ull ofs, ull size)
+{
+	uint num_dc = 0;
+	DeltaChunk* cdc = DCV_closest_chunk(src, ofs);
+	
+	// partial overlap
+	if (cdc->to != ofs) {
+		const ull relofs = ofs - cdc->to;
+		size -= cdc->ts - relofs < size ? cdc->ts - relofs : size;
+		num_dc += 1;
+		cdc += 1;
+		
+		if (size == 0){
+			return num_dc;
+		}
+	}
+	
+	const DeltaChunk* vecend = DCV_end(src);
+	for( ;(cdc < vecend) && size; ++cdc){
+		num_dc += 1;
+		if (cdc->ts < size) {
+			size -= cdc->ts;
+		} else {
+			size = 0;
+			break;
+		}
+	}
+	
+	return num_dc;
+}
+
+// Write a slice as defined by its absolute offset in bytes and its size into the given
+// destination memory. The individual chunks written will be a deep copy of the source 
+// data chunks
+// Return: number of chunks in the slice
+inline
+uint DCV_copy_slice_to(const DeltaChunkVector* src, DeltaChunk* dest, ull ofs, ull size)
 {
 	assert(DCV_lbound(src) <= ofs);
 	assert((ofs + size) <= DCV_rbound(src));
 	
 	DeltaChunk* cdc = DCV_closest_chunk(src, ofs);
+	uint num_chunks = 0;
 	
 	// partial overlap
 	if (cdc->to != ofs) {
-		DeltaChunk* destc = DCV_append(dest);
 		const ull relofs = ofs - cdc->to;
-		DC_offset_copy_to(cdc, destc, relofs, cdc->ts - relofs < size ? cdc->ts - relofs : size);
+		DC_offset_copy_to(cdc, dest, relofs, cdc->ts - relofs < size ? cdc->ts - relofs : size);
 		cdc += 1;
-		size -= destc->ts;
+		size -= dest->ts;
+		dest += 1;				// must be here, we are reading the size !
+		num_chunks += 1;
 		
 		if (size == 0){
-			return;
+			return num_chunks;
 		}
 	}
 	
 	const DeltaChunk* vecend = DCV_end(src);
 	for( ;(cdc < vecend) && size; ++cdc)
 	{
+		num_chunks += 1;
 		if (cdc->ts < size) {
-			DC_copy_to(cdc, DCV_append(dest));
+			DC_copy_to(cdc, dest++);
 			size -= cdc->ts;
 		} else {
-			DC_offset_copy_to(cdc, DCV_append(dest), 0, size);
+			DC_offset_copy_to(cdc, dest, 0, size);
 			size = 0;
 			break;
 		}
 	}
 	
 	assert(size == 0);
+	return num_chunks;
 }
 
 
@@ -458,64 +508,85 @@ void DCV_replace_one_by_many(const DeltaChunkVector* from, DeltaChunkVector* to,
 	}
 	
 	// Finally copy all the items in
-	memcpy((void*) at, (void*)from->mem, from->size*sizeof(DeltaChunk));
+	memcpy((void*) at, (void*)DCV_first(from), from->size*sizeof(DeltaChunk));
 	
 	// FINALLY: update size
 	to->size += from->size - 1;
 }
 
 // Take slices of bdcv into the corresponding area of the tdcv, which is the topmost
-// delta to apply. tmpl is used as temporary space and must be initialzed and destroyed by the 
-// caller
-void DCV_connect_with_base(DeltaChunkVector* tdcv, const DeltaChunkVector* bdcv, DeltaChunkVector* tmpl)
+// delta to apply.  
+bool DCV_connect_with_base(DeltaChunkVector* tdcv, const DeltaChunkVector* bdcv)
 {
-	Py_ssize_t dci = 0;
-	Py_ssize_t iend = tdcv->size;
-	DeltaChunk* dc; 
-	
 	DBG_check(tdcv);
 	DBG_check(bdcv);
 	
-	for (;dci < iend; dci++)
+	uint *const offset_array = PyMem_Malloc(tdcv->size * sizeof(uint));
+	if (!offset_array){
+		return 0;
+	}
+	
+	uint* pofs = offset_array;
+	uint num_addchunks = 0;
+	
+	DeltaChunk* dc = DCV_first(tdcv);
+	const DeltaChunk* dcend = DCV_end(tdcv);
+	
+	// OFFSET RUN
+	for (;dc < dcend; dc++, pofs++)
 	{
 		// Data chunks don't need processing
-		dc = DCV_get(tdcv, dci);
+		*pofs = num_addchunks;
 		if (dc->data){
 			continue;
 		}
 		
-		// Copy Chunk Handling
-		DCV_copy_slice_to(bdcv, tmpl, dc->so, dc->ts);
-		DBG_check(tmpl);
-		assert(tmpl->size);
-		
-		// move target bounds
-		DeltaChunk* tdc = tmpl->mem;
-		DeltaChunk* tdcend = tmpl->mem + tmpl->size;
-		const ull ofs = dc->to - dc->so;
-		for(;tdc < tdcend; tdc++){
-			tdc->to += ofs;
-		}
-		
-		// insert slice into our list
-		if (tmpl->size == 1){
-			// Its not data, so destroy is not really required, anyhow ... 
-			DC_destroy(dc);
-			*dc = *DCV_get(tmpl, 0);
-		} else {
-			DCV_reserve_memory(tdcv, tdcv->size + tmpl->size - 1 + gDVC_grow_by);
-			dc = DCV_get(tdcv, dci);
-			DCV_replace_one_by_many(tmpl, tdcv, dc);
-			// Compensate for us being replaced
-			dci += tmpl->size-1;
-			iend += tmpl->size-1;
-		}
-		
-		DBG_check(tdcv);
-	
-		// make sure the members will not be deallocated by the list
-		DCV_forget_members(tmpl);
+		// offset the next chunk by the amount of chunks in the slice
+		// - 1, because we replace our own chunk
+		num_addchunks += DCV_count_slice_chunks(bdcv, dc->so, dc->ts) - 1;
 	}
+	
+	// reserve enough memory to hold all the new chunks
+	// reinit pointers, array could have been reallocated
+	DCV_reserve_memory(tdcv, tdcv->size + num_addchunks);
+	dc = DCV_last(tdcv);
+	dcend = DCV_first(tdcv) - 1;
+	
+	// now, that we have our pointers with the old size
+	tdcv->size += num_addchunks;
+	
+	// Insert slices, from the end to the beginning, which allows memcpy
+	// to be used, with a little help of the offset array
+	for (pofs -= 1; dc > dcend; dc--, pofs-- )
+	{
+		// Data chunks don't need processing
+		const uint ofs = *pofs;
+		if (dc->data){
+			// NOTE: could peek the preceeding chunks to figure out whether they are 
+			// all just moved by ofs. In that case, they can move as a whole!
+			// tests showed that this is very rare though, even in huge deltas, so its
+			// not worth the extra effort
+			if (ofs){
+				memcpy((void*)(dc + ofs), (void*)dc, sizeof(DeltaChunk));
+			}
+			continue;
+		}
+		
+		// Copy Chunks, and move their target offset into place
+		// As we could override dc when slicing, we get the data here
+		const ull relofs = dc->to - dc->so;
+		
+		DeltaChunk* tdc = dc + ofs;
+		DeltaChunk* tdcend = tdc + DCV_copy_slice_to(bdcv, tdc, dc->so, dc->ts);
+		for(;tdc < tdcend; tdc++){
+			tdc->to += relofs;
+		}
+	}
+	
+	DBG_check(tdcv);
+	
+	PyMem_Free(offset_array);
+	return 1;
 }
 
 // DELTA CHUNK LIST (PYTHON)
@@ -699,10 +770,8 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 	
 	DeltaChunkVector dcv;
 	DeltaChunkVector tdcv;
-	DeltaChunkVector tmpl;
 	DCV_init(&dcv, 100);			// should be enough to keep the average text file
 	DCV_init(&tdcv, 0);
-	DCV_init(&tmpl, 200);
 	
 	unsigned int dsi = 0;
 	PyObject* ds = 0;
@@ -725,7 +794,6 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		const ull base_size = msb_size(&data, dend);
 		const ull target_size = msb_size(&data, dend);
 		
-		// estimate number of ops - assume one third adds, half two byte (size+offset) copies
 		// Assume good compression for the adds
 		const uint approx_num_cmds = ((dlen / 3) / 10) + (((dlen / 3) * 2) / (2+2+1));
 		DCV_reserve_memory(&dcv, approx_num_cmds);
@@ -824,7 +892,9 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		}
 
 		if (!is_first_run){
-			DCV_connect_with_base(&tdcv, &dcv, &tmpl);
+			if (!DCV_connect_with_base(&tdcv, &dcv)){
+				error = 1;
+			}
 		}
 		
 		#ifdef DEBUG
@@ -859,7 +929,6 @@ loop_end:
 		Py_DECREF(stream_iter);
 	}
 	
-	DCV_destroy(&tmpl);
 	if (dsi > 1){
 		// otherwise dcv equals tcl
 		DCV_destroy(&dcv);
