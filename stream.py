@@ -379,6 +379,9 @@ class DeltaApplyReader(LazyMixin):
 	def _set_cache_brute_(self, attr):
 		"""If we are here, we apply the actual deltas"""
 		
+		# TODO: There should be a special case if there is only one stream
+		# Then the default-git algorithm should perform a tad faster, as the
+		# delta is not peaked into, causing less overhead.
 		buffer_info_list = list()
 		max_target_size = 0
 		for dstream in self._dstreams:
