@@ -14,6 +14,24 @@ typedef uchar bool;
 const ull gDIV_grow_by = 100;
 
 
+// DELTA STREAM ACCESS
+///////////////////////
+inline
+ull msb_size(const uchar** datap, const uchar* top)
+{
+	const uchar *data = *datap;
+	ull cmd, size = 0;
+	uint i = 0;
+	do {
+		cmd = *data++;
+		size |= (cmd & 0x7f) << i;
+		i += 7;
+	} while (cmd & 0x80 && data < top);
+	*datap = data;
+	return size;
+}
+
+
 // DELTA INFO
 /////////////
 typedef struct {
@@ -21,6 +39,65 @@ typedef struct {
 	uint to;			// target offset (cache)
 } DeltaInfo;
 
+
+// TOP LEVEL STREAM INFO
+/////////////////////////////
+typedef struct {
+	const uchar* tds;
+	Py_ssize_t* tdslen;
+	Py_ssize_t target_size;			// size of the target buffer which can hold all data
+	PyObject* parent_object;
+} ToplevelStreamInfo;
+
+
+void TSI_init(ToplevelStreamInfo* info)
+{
+	info->tds = 0;
+	info->tdslen = 0;
+	info->target_size = 0;
+	info->parent_object = 0;
+	
+}
+
+void TSI_destroy(ToplevelStreamInfo* info)
+{
+	if (info->parent_object){
+		Py_DECREF(info->parent_object);
+		info->parent_object = 0;
+	} else if (info->tds){
+		PyMem_Free(info->tds);
+	}
+}
+
+// initialize our set stream to point to the first chunk
+// Fill in the header information, which is the base and target size
+void TSI_init_stream(ToplevelStreamInfo* info)
+{
+	assert(info->tds && info->tdslen)
+	
+	// init stream
+	const uchar* tdsend = info->tds + info->tdslen;
+	msb_size(&info->tds, tdsend);
+	info->target_size = msb_size(&info->tds, tdsend);
+}
+
+// duplicate the data currently owned by the parent object drop its refcount
+// return 1 on success
+bool TSI_copy_stream_from_object(ToplevelStreamInfo* info)
+{
+	assert(info.parent_object);
+	
+	uchar* ptmp = PyMem_Malloc(info.tdslen);
+	if (!ptmp){
+		return 0;
+	}
+	memcpy((void*)ptmp, info.tds, info.tdslen);
+	tds = ptmp;
+	Py_DECREF(info.parent_object);
+	info.parent_object = 0;
+	
+	return 1;
+}
 
 // DELTA CHUNK 
 ////////////////
@@ -452,7 +529,7 @@ bool DIV_connect_with_base(DeltaInfoVector* tdcv, const DeltaInfoVector* bdcv)
 typedef struct {
 	PyObject_HEAD
 	// -----------
-	DeltaInfoVector vec;
+	ToplevelStreamInfo istream;
 	
 } DeltaChunkList;
 
@@ -465,34 +542,20 @@ int DCL_init(DeltaChunkList*self, PyObject *args, PyObject *kwds)
 		return -1;
 	}
 	
-	DIV_init(&self->vec, 0);
+	TSI_init(&self->istream, 0);
 	return 0;
 }
 
 static
 void DCL_dealloc(DeltaChunkList* self)
 {
-	DIV_destroy(&(self->vec));
-}
-
-static
-PyObject* DCL_len(DeltaChunkList* self)
-{
-	return PyLong_FromUnsignedLongLong(DIV_len(&self->vec));
-}
-
-static inline
-ull DCL_rbound(DeltaChunkList* self)
-{
-	if (DIV_empty(&self->vec))
-		return 0;
-	return DIV_rbound(&self->vec);
+	TSI_destroy(&(self->istream));
 }
 
 static
 PyObject* DCL_py_rbound(DeltaChunkList* self)
 {
-	return PyLong_FromUnsignedLongLong(DCL_rbound(self));
+	return PyLong_FromUnsignedLongLong(self->istream->target_size);
 }
 
 // Write using a write function, taking remaining bytes from a base buffer
@@ -535,7 +598,6 @@ PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 
 static PyMethodDef DCL_methods[] = {
     {"apply", (PyCFunction)DCL_apply, METH_VARARGS, "Apply the given iterable of delta streams" },
-    {"__len__", (PyCFunction)DCL_len, METH_NOARGS, NULL},
     {"rbound", (PyCFunction)DCL_py_rbound, METH_NOARGS, NULL},
     {NULL}  /* Sentinel */
 };
@@ -596,21 +658,6 @@ DeltaChunkList* DCL_new_instance(void)
 	return dcl;
 }
 
-inline
-ull msb_size(const uchar** datap, const uchar* top)
-{
-	const uchar *data = *datap;
-	ull cmd, size = 0;
-	uint i = 0;
-	do {
-		cmd = *data++;
-		size |= (cmd & 0x7f) << i;
-		i += 7;
-	} while (cmd & 0x80 && data < top);
-	*datap = data;
-	return size;
-}
-
 static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 {
 	// obtain iterator
@@ -626,22 +673,71 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 	}
 	
 	DeltaInfoVector dcv;
-	DeltaInfoVector tdcv;
+	ToplevelStreamInfo tdsinfo;
+	TSI_init(&tdsinfo);
 	DIV_init(&dcv, 100);			// should be enough to keep the average text file
-	DIV_init(&tdcv, 0);
 	
-	unsigned int dsi = 0;
-	PyObject* ds = 0;
+	
+	// GET TOPLEVEL DELTA STREAM
 	int error = 0;
-	for (ds = PyIter_Next(stream_iter), dsi = 0; ds != NULL; ++dsi, ds = PyIter_Next(stream_iter))
+	PyObject* ds = 0;
+	unsigned int dsi = 0;
+	ds = PyIter_Next(stream_iter);
+	if (!ds){
+		error = 1;
+		goto _error;
+	}
+	
+	dsi += 1;
+	tdsinfo.parent_object = PyObject_CallMethod(ds, "read", 0);
+	if (!PyObject_CheckReadBuffer(tdsinfo.parent_object)){
+		Py_DECREF(ds);
+		error = 1;
+		goto _error;
+	}
+	
+	PyObject_AsReadBuffer(tdsinfo.parent_object, (const void**)&tdsinfo.tds, &tdsinfo.tdslen);
+	if (tdslen > pow(2, 32)){
+		// parent object is deallocated by info structure
+		Py_DECREF(ds);
+		PyErr_SetString(PyExc_RuntimeError("Cannot handle deltas larger than 4GB"));
+		tdsinfo.tdb = 0;
+		
+		error = 1;
+		goto _error;
+	}
+	Py_DECREF(ds);
+	
+	// INTEGRATE ANCESTOR DELTA STREAMS
+	PyObject* db = 0;
+	TSI_init_stream(&tdsinfo, tdb);
+	
+	
+	for (ds = PyIter_Next(stream_iter); ds != NULL; ++dsi, ds = PyIter_Next(stream_iter))
 	{
-		PyObject* db = PyObject_CallMethod(ds, "read", 0);
+		// Its important to initialize this before the next block which can jump 
+		// to code who needs this to exist !
+		PyObject* db = 0;
+		
+		// When processing the first delta, we know we will have to alter the tds
+		// Hence we copy it and deallocate the parent object
+		if (ds == 1) {
+			if (!TSI_copy_stream_from_object(&tdsinfo)){
+				PyErr_SetString(PyExc_RuntimeError, "Could not allocate memory to copy toplevel buffer");
+				// info structure takes care of the parent_object
+				error = 1;
+				goto loop_end;
+			}
+		}
+		
+		db = PyObject_CallMethod(ds, "read", 0);
 		if (!PyObject_CheckReadBuffer(db)){
 			error = 1;
 			PyErr_SetString(PyExc_RuntimeError, "Returned buffer didn't support the buffer protocol");
 			goto loop_end;
 		}
 		
+		// Fill the stream info structure
 		const uchar* data;
 		Py_ssize_t dlen;
 		PyObject_AsReadBuffer(db, (const void**)&data, &dlen);
@@ -778,9 +874,12 @@ loop_end:
 		}
 	}// END for each stream object
 	
-	if (dsi == 0 && ! error){
+	if (dsi == 0){
 		PyErr_SetString(PyExc_ValueError, "No streams provided");
 	}
+	
+	
+_error:
 	
 	if (stream_iter != dstreams){
 		Py_DECREF(stream_iter);
@@ -800,7 +899,7 @@ loop_end:
 		error = 1;
 	} else {
 		// Plain copy, don't deallocate
-		dcl->vec = tdcv;
+		dcl->istream = tdsinfo;
 	}
 	
 	if (error){

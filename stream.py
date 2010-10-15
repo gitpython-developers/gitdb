@@ -349,7 +349,7 @@ class DeltaApplyReader(LazyMixin):
 		
 		# call len directly, as the (optional) c version doesn't implement the sequence
 		# protocol
-		if dcl.__len__() == 0:
+		if dcl.rbound() == 0:
 			self._size = 0
 			self._mm_target = allocate_memory(0)
 			return
@@ -366,15 +366,6 @@ class DeltaApplyReader(LazyMixin):
 		dcl.apply(bbuf, write)
 		
 		self._mm_target.seek(0)
-		
-	def _set_cache_(self, attr):
-		"""Determine which version to use depending on the configuration of the deltas
-		:note: we are only called if we have the performance module"""
-		# otherwise it depends on the amount of memory to shift around
-		if len(self._dstreams) > 1 and self._bstream.size < 150000:
-			return self._set_cache_too_slow_without_c(attr)
-		else:
-			return self._set_cache_brute_(attr)
 		
 	def _set_cache_brute_(self, attr):
 		"""If we are here, we apply the actual deltas"""
@@ -456,6 +447,8 @@ class DeltaApplyReader(LazyMixin):
 	#{ Configuration
 	if not has_perf_mod:
 		_set_cache_ = _set_cache_brute_
+	else:
+		_set_cache_ = _set_cache_too_slow_without_c
 	
 	#} END configuration
 		
