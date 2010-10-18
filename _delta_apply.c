@@ -8,85 +8,165 @@
 typedef unsigned long long ull;
 typedef unsigned int uint;
 typedef unsigned char uchar;
+typedef unsigned short ushort;
 typedef uchar bool;
 
 // Constants
-const ull gDCV_grow_by = 100;
+const ull gDIV_grow_by = 100;
 
+
+
+// DELTA STREAM ACCESS
+///////////////////////
+inline
+ull msb_size(const uchar** datap, const uchar* top)
+{
+	const uchar *data = *datap;
+	ull cmd, size = 0;
+	uint i = 0;
+	do {
+		cmd = *data++;
+		size |= (cmd & 0x7f) << i;
+		i += 7;
+	} while (cmd & 0x80 && data < top);
+	*datap = data;
+	return size;
+}
+
+
+// TOP LEVEL STREAM INFO
+/////////////////////////////
+typedef struct {
+	const uchar			*tds;					// Toplevel delta stream
+	const uchar			*cstart;				// start of the chunks
+	Py_ssize_t			 tdslen;				// size of tds in bytes
+	Py_ssize_t 			 target_size;			// size of the target buffer which can hold all data
+	uint				 num_chunks;			// amount of chunks in the delta stream
+	PyObject			*parent_object;
+} ToplevelStreamInfo;
+
+
+void TSI_init(ToplevelStreamInfo* info)
+{
+	info->tds = NULL;
+	info->cstart = NULL;
+	info->tdslen = 0;
+	info->num_chunks = 0;
+	info->target_size = 0;
+	info->parent_object = 0;
+}
+
+void TSI_destroy(ToplevelStreamInfo* info)
+{
 #ifdef DEBUG
-#define DBG_check(vec) assert(DCV_dbg_check_integrity(vec))
-#else
-#define DBG_check(vec)
+	fprintf(stderr, "TSI_destroy: %p\n", info);
 #endif
+
+	if (info->parent_object){
+		Py_DECREF(info->parent_object);
+		info->parent_object = NULL;
+	} else if (info->tds){
+		PyMem_Free((void*)info->tds);
+	}
+	info->tds = NULL;
+	info->cstart = NULL;
+	info->tdslen = 0;
+	info->num_chunks = 0;
+}
+
+inline
+const uchar* TSI_end(ToplevelStreamInfo* info)
+{
+	return info->tds + info->tdslen;
+}
+
+inline
+const uchar* TSI_first(ToplevelStreamInfo* info)
+{
+	return info->cstart;
+}
+
+// set the stream, and initialize it
+// initialize our set stream to point to the first chunk
+// Fill in the header information, which is the base and target size
+inline
+void TSI_set_stream(ToplevelStreamInfo* info, const uchar* stream)
+{
+	info->tds = stream;
+	info->cstart = stream;
+	
+	assert(info->tds && info->tdslen);
+	
+	// init stream
+	const uchar* tdsend = TSI_end(info);
+	msb_size(&info->cstart, tdsend);							// base size
+	info->target_size = msb_size(&info->cstart, tdsend);
+}
+
+
+
+// duplicate the data currently owned by the parent object drop its refcount
+// return 1 on success
+bool TSI_copy_stream_from_object(ToplevelStreamInfo* info)
+{
+	assert(info->parent_object);
+	
+	uchar* ptmp = PyMem_Malloc(info->tdslen);
+	if (!ptmp){
+		return 0;
+	}
+	uint ofs = (uint)(info->cstart - info->tds);
+	memcpy((void*)ptmp, info->tds, info->tdslen);
+	
+	info->tds = ptmp;
+	info->cstart = ptmp + ofs;
+	
+	Py_DECREF(info->parent_object);
+	info->parent_object = 0;
+	
+	return 1;
+}
+
+// Transfer ownership of the given stream into our instance. The amount of chunks
+// remains the same, and needs to be set by the caller
+void TSI_replace_stream(ToplevelStreamInfo* info, const uchar* stream, uint streamlen)
+{
+	assert(info->parent_object == 0);
+	
+	uint ofs = (uint)(info->cstart - info->tds);
+	if (info->tds){
+		PyMem_Free((void*)info->tds);
+	}
+	info->tds = stream;
+	info->cstart = info->tds + ofs;
+	info->tdslen = streamlen;
+	
+}
 
 // DELTA CHUNK 
 ////////////////
 // Internal Delta Chunk Objects
+// They are just used to keep information parsed from a stream
+// The data pointer is always shared
 typedef struct {
 	ull to;
-	ull ts;
-	ull so;
+	uint ts;
+	uint so;
 	const uchar* data;
-	bool data_shared;
 } DeltaChunk;
 
+// forward declarations
+const uchar* next_delta_info(const uchar*, DeltaChunk*);
+
 inline
-void DC_init(DeltaChunk* dc, ull to, ull ts, ull so)
+void DC_init(DeltaChunk* dc, ull to, ull ts, ull so, const uchar* data)
 {
 	dc->to = to;
 	dc->ts = ts;
 	dc->so = so;
 	dc->data = NULL;
-	dc->data_shared = 0;
 }
 
-inline
-void DC_deallocate_data(DeltaChunk* dc)
-{
-	if (!dc->data_shared && dc->data){
-		PyMem_Free((void*)dc->data);
-	}
-	dc->data = NULL;
-}
-
-inline
-void DC_destroy(DeltaChunk* dc)
-{
-	DC_deallocate_data(dc);
-}
-
-// Store a copy of data in our instance. If shared is 1, the data will be shared, 
-// hence it will only be stored, but the memory will not be touched, or copied.
-inline
-void DC_set_data(DeltaChunk* dc, const uchar* data, Py_ssize_t dlen, bool shared)
-{
-	DC_deallocate_data(dc);
-	
-	if (data == 0){
-		dc->data = NULL;
-		dc->data_shared = 0;
-		return;
-	}
-	
-	dc->data_shared = shared;
-	if (shared){
-		dc->data = data;
-	} else {
-		dc->data = (uchar*)PyMem_Malloc(dlen);
-		memcpy((void*)dc->data, (void*)data, dlen);
-	}
-	
-}
-
-// Make the given data our own. It is assumed to have the size stored in our instance
-// and will be managed by us.
-inline
-void DC_set_data_with_ownership(DeltaChunk* dc, const uchar* data)
-{
-	assert(data);
-	DC_deallocate_data(dc);
-	dc->data = data;
-}
 
 inline
 ull DC_rbound(const DeltaChunk* dc)
@@ -94,7 +174,13 @@ ull DC_rbound(const DeltaChunk* dc)
 	return dc->to + dc->ts;
 }
 
-// Apply 
+inline
+void DC_print(const DeltaChunk* dc, const char* prefix)
+{
+	fprintf(stderr, "%s-dc: to = %i, ts = %i, so = %i, data = %p\n", prefix, (int)dc->to, dc->ts, dc->so, dc->data);
+}
+
+// Apply
 inline
 void DC_apply(const DeltaChunk* dc, const uchar* base, PyObject* writer, PyObject* tmpargs)
 {
@@ -109,69 +195,107 @@ void DC_apply(const DeltaChunk* dc, const uchar* base, PyObject* writer, PyObjec
 		assert(0);
 	}
 	
+	
 	// tuple steals reference, and will take care about the deallocation
 	PyObject_Call(writer, tmpargs, NULL);
 	
 }
 
-// Copy all data from src to dest, the data pointer will be copied too
+// Encode the information in the given delta chunk and write the byte-stream
+// into the given output stream
+// It will be copied into the given bounds, the given size must be the final size
+// and work with the given relative offset - hence the bounds are assumed to be 
+// correct and to fit within the unaltered dc
 inline
-void DC_copy_to(const DeltaChunk* src, DeltaChunk* dest)
+void DC_encode_to(const DeltaChunk* dc, uchar** pout, uint ofs, uint size)
 {
-	dest->to = src->to;
-	dest->ts = src->ts;
-	dest->so = src->so;
-	dest->data_shared = 0;
-	dest->data = NULL;
+	uchar* out = *pout;
+	if (dc->data){
+		*out++ = (uchar)size;
+		memcpy(out, dc->data+ofs, size);
+		out += size;
+	} else {
+		uchar i = 0x80;
+		uchar* op = out++;
+		uint moff = dc->so+ofs;
+		
+		if (moff & 0x000000ff)
+			*out++ = moff >> 0,  i |= 0x01;
+		if (moff & 0x0000ff00)
+			*out++ = moff >> 8,  i |= 0x02;
+		if (moff & 0x00ff0000)
+			*out++ = moff >> 16, i |= 0x04;
+		if (moff & 0xff000000)
+			*out++ = moff >> 24, i |= 0x08;
+
+		if (size & 0x00ff)
+			*out++ = size >> 0, i |= 0x10;
+		if (size & 0xff00)
+			*out++ = size >> 8, i |= 0x20;
+		
+		*op = i;
+	}
 	
-	DC_set_data(dest, src->data, src->ts, 0);
+	*pout = out;
 }
 
-// Copy all data with the given offset and size. The source offset, as well
-// as the data will be truncated accordingly
+// Return: amount of bytes one would need to encode dc
 inline
-void DC_offset_copy_to(const DeltaChunk* src, DeltaChunk* dest, ull ofs, ull size)
+ushort DC_count_encode_bytes(const DeltaChunk* dc)
 {
-	assert(size <= src->ts);
-	assert(src->to + ofs + size <= DC_rbound(src));
-	
-	dest->to = src->to + ofs;
-	dest->ts = size;
-	dest->so = src->so + ofs;
-	dest->data = NULL;
-	
-	if (src->data){
-		DC_set_data(dest, src->data + ofs, size, 0);
+	if (dc->data){
+		return 1 + dc->ts;		// cmd byte + actual data bytes
 	} else {
-		dest->data_shared = 0;
+		ushort c = 1;			// cmd byte
+		uint ts = dc->ts;
+		ull so = dc->so;
+		
+		// offset
+		c += (so & 0x000000FF) > 0;
+		c += (so & 0x0000FF00) > 0;
+		c += (so & 0x00FF0000) > 0;
+		c += (so & 0xFF000000) > 0;
+		
+		// size - max size is 0x10000, its encoded with 0 size bits
+		c += (ts & 0x000000FF) > 0;
+		c += (ts & 0x0000FF00) > 0;
+		
+		return c;
 	}
 }
 
 
-// DELTA CHUNK VECTOR
-/////////////////////
+
+// DELTA INFO
+/////////////
+typedef struct {
+	uint dso;			// delta stream offset, relative to the very start of the stream
+	uint to;			// target offset (cache)
+} DeltaInfo;
+
+
+// DELTA INFO VECTOR
+//////////////////////
 
 typedef struct {
-	DeltaChunk* mem;			// Memory
-	Py_ssize_t size;					// Size in DeltaChunks
-	Py_ssize_t reserved_size;			// Reserve in DeltaChunks
-} DeltaChunkVector;
+	DeltaInfo		*mem;					// Memory for delta infos
+	uint			 di_last_size;			// size of the last element - we can't compute it using the next bound 
+	const uchar		*dstream;				// borrowed ointer to delta stream we index
+	Py_ssize_t 		size;					// Amount of DeltaInfos
+	Py_ssize_t 		reserved_size;			// Reserved amount of DeltaInfos
+} DeltaInfoVector;
 
 
 
 // Reserve enough memory to hold the given amount of delta chunks
 // Return 1 on success
 // NOTE: added a minimum allocation to assure reallocation is not done 
-// just for a single additional entry. DCVs change often, and reallocs are expensive
+// just for a single additional entry. DIVs change often, and reallocs are expensive
 inline
-int DCV_reserve_memory(DeltaChunkVector* vec, uint num_dc)
+int DIV_reserve_memory(DeltaInfoVector* vec, uint num_dc)
 {
 	if (num_dc <= vec->reserved_size){
 		return 1;
-	}
-	
-	if (num_dc - vec->reserved_size < 10){
-		num_dc += gDCV_grow_by;
 	}
 	
 #ifdef DEBUG
@@ -179,9 +303,9 @@ int DCV_reserve_memory(DeltaChunkVector* vec, uint num_dc)
 #endif
 	
 	if (vec->mem == NULL){
-		vec->mem = PyMem_Malloc(num_dc * sizeof(DeltaChunk));
+		vec->mem = PyMem_Malloc(num_dc * sizeof(DeltaInfo));
 	} else {
-		vec->mem = PyMem_Realloc(vec->mem, num_dc * sizeof(DeltaChunk));
+		vec->mem = PyMem_Realloc(vec->mem, num_dc * sizeof(DeltaInfo));
 	}
 	
 	if (vec->mem == NULL){
@@ -194,7 +318,7 @@ int DCV_reserve_memory(DeltaChunkVector* vec, uint num_dc)
 	const char* format = "Allocated %i bytes at %p, to hold up to %i chunks\n";
 	if (!was_null)
 		format = "Re-allocated %i bytes at %p, to hold up to %i chunks\n";
-	fprintf(stderr, format, (int)(vec->reserved_size * sizeof(DeltaChunk)), vec->mem, (int)vec->reserved_size);
+	fprintf(stderr, format, (int)(vec->reserved_size * sizeof(DeltaInfo)), vec->mem, (int)vec->reserved_size);
 #endif
 	
 	return vec->mem != NULL;
@@ -207,28 +331,30 @@ large enough.
 Return 1 on success, 0 on failure
 */
 inline
-int DCV_grow_by(DeltaChunkVector* vec, uint num_dc)
+int DIV_grow_by(DeltaInfoVector* vec, uint num_dc)
 {
-	return DCV_reserve_memory(vec, vec->reserved_size + num_dc);
+	return DIV_reserve_memory(vec, vec->reserved_size + num_dc);
 }
 
-int DCV_init(DeltaChunkVector* vec, ull initial_size)
+int DIV_init(DeltaInfoVector* vec, ull initial_size)
 {
 	vec->mem = NULL;
+	vec->dstream = NULL;
 	vec->size = 0;
 	vec->reserved_size = 0;
+	vec->di_last_size = 0;
 	
-	return DCV_grow_by(vec, initial_size);
+	return DIV_grow_by(vec, initial_size);
 }
 
 inline
-ull DCV_len(const DeltaChunkVector* vec)
+Py_ssize_t DIV_len(const DeltaInfoVector* vec)
 {
 	return vec->size;
 }
 
 inline
-ull DCV_lbound(const DeltaChunkVector* vec)
+uint DIV_lbound(const DeltaInfoVector* vec)
 {
 	assert(vec->size && vec->mem);
 	return vec->mem->to;
@@ -236,7 +362,7 @@ ull DCV_lbound(const DeltaChunkVector* vec)
 
 // Return item at index
 inline
-DeltaChunk* DCV_get(const DeltaChunkVector* vec, Py_ssize_t i)
+DeltaInfo* DIV_get(const DeltaInfoVector* vec, Py_ssize_t i)
 {
 	assert(i < vec->size && vec->mem);
 	return &vec->mem[i];
@@ -244,58 +370,69 @@ DeltaChunk* DCV_get(const DeltaChunkVector* vec, Py_ssize_t i)
 
 // Return last item
 inline
-DeltaChunk* DCV_last(const DeltaChunkVector* vec)
+DeltaInfo* DIV_last(const DeltaInfoVector* vec)
 {
-	return DCV_get(vec, vec->size-1);
+	return DIV_get(vec, vec->size-1);
 }
 
 inline
-ull DCV_rbound(const DeltaChunkVector* vec)
-{
-	return DC_rbound(DCV_last(vec)); 
-}
-
-inline
-ull DCV_size(const DeltaChunkVector* vec)
-{
-	return DCV_rbound(vec) - DCV_lbound(vec);
-}
-
-inline
-int DCV_empty(const DeltaChunkVector* vec)
+int DIV_empty(const DeltaInfoVector* vec)
 {
 	return vec->size == 0;
 }
 
 // Return end pointer of the vector
 inline
-const DeltaChunk* DCV_end(const DeltaChunkVector* vec)
+const DeltaInfo* DIV_end(const DeltaInfoVector* vec)
 {
-	assert(!DCV_empty(vec));
+	assert(!DIV_empty(vec));
 	return vec->mem + vec->size;
 }
 
 // return first item in vector
 inline
-DeltaChunk* DCV_first(const DeltaChunkVector* vec)
+DeltaInfo* DIV_first(const DeltaInfoVector* vec)
 {
-	assert(!DCV_empty(vec));
+	assert(!DIV_empty(vec));
 	return vec->mem;
 }
 
-void DCV_destroy(DeltaChunkVector* vec)
+// return rbound offset in bytes. We use information contained in the 
+// vec to do that
+inline
+uint DIV_info_rbound(const DeltaInfoVector* vec, const DeltaInfo* di)
+{
+	if (DIV_last(vec) == di){
+		return di->to + vec->di_last_size;
+	} else {
+		return (di+1)->to;
+	}
+}
+
+// return size of the given delta info item
+inline
+uint DIV_info_size2(const DeltaInfoVector* vec, const DeltaInfo* di, const DeltaInfo const* veclast)
+{
+	if (veclast == di){
+		return vec->di_last_size;
+	} else {
+		return (di+1)->to - di->to;
+	}
+}
+
+// return size of the given delta info item
+inline
+uint DIV_info_size(const DeltaInfoVector* vec, const DeltaInfo* di)
+{
+	return DIV_info_size2(vec, di, DIV_last(vec));
+}
+
+void DIV_destroy(DeltaInfoVector* vec)
 {
 	if (vec->mem){
 #ifdef DEBUG
-		fprintf(stderr, "Freeing %p\n", (void*)vec->mem);
+	fprintf(stderr, "DIV_destroy: %p\n", (void*)vec->mem);
 #endif
-
-		const DeltaChunk* end = &vec->mem[vec->size];
-		DeltaChunk* i;
-		for(i = vec->mem; i < end; i++){
-			DC_destroy(i);
-		}
-		
 		PyMem_Free(vec->mem);
 		vec->size = 0;
 		vec->reserved_size = 0;
@@ -306,26 +443,18 @@ void DCV_destroy(DeltaChunkVector* vec)
 // Reset this vector so that its existing memory can be filled again.
 // Memory will be kept, but not cleaned up
 inline
-void DCV_forget_members(DeltaChunkVector* vec)
+void DIV_forget_members(DeltaInfoVector* vec)
 {
 	vec->size = 0;
 }
 
-// Reset the vector so that its size will be zero, and its members will 
-// have been deallocated properly.
+// Reset the vector so that its size will be zero
 // It will keep its memory though, and hence can be filled again
 inline
-void DCV_reset(DeltaChunkVector* vec)
+void DIV_reset(DeltaInfoVector* vec)
 {
 	if (vec->size == 0)
 		return;
-	
-	DeltaChunk* dc = DCV_first(vec);
-	const DeltaChunk* dcend = DCV_end(vec);
-	for(;dc < dcend; dc++){
-		DC_destroy(dc);
-	}
-	
 	vec->size = 0;
 }
 
@@ -333,146 +462,144 @@ void DCV_reset(DeltaChunkVector* vec)
 // Append one chunk to the end of the list, and return a pointer to it
 // It will not have been initialized !
 static inline
-DeltaChunk* DCV_append(DeltaChunkVector* vec)
+DeltaInfo* DIV_append(DeltaInfoVector* vec)
 {
 	if (vec->size + 1 > vec->reserved_size){
-		DCV_grow_by(vec, gDCV_grow_by);
+		DIV_grow_by(vec, gDIV_grow_by);
 	}
 	
-	DeltaChunk* next = vec->mem + vec->size; 
+	DeltaInfo* next = vec->mem + vec->size; 
 	vec->size += 1;
 	return next;
 }
 
 // Return delta chunk being closest to the given absolute offset
 inline
-DeltaChunk* DCV_closest_chunk(const DeltaChunkVector* vec, ull ofs)
+DeltaInfo* DIV_closest_chunk(const DeltaInfoVector* vec, ull ofs)
 {
 	assert(vec->mem);
 	
 	ull lo = 0;
 	ull hi = vec->size;
 	ull mid;
-	DeltaChunk* dc;
+	DeltaInfo* di;
 	
 	while (lo < hi)
 	{
 		mid = (lo + hi) / 2;
-		dc = vec->mem + mid;
-		if (dc->to > ofs){
+		di = vec->mem + mid;
+		if (di->to > ofs){
 			hi = mid;
-		} else if ((DC_rbound(dc) > ofs) | (dc->to == ofs)) {
-			return dc;
+		} else if ((DIV_info_rbound(vec, di) > ofs) | (di->to == ofs)) {
+			return di;
 		} else {
 			lo = mid + 1;
 		}
 	}
 	
-	return DCV_last(vec);
+	return DIV_last(vec);
 }
 
-// Assert the given vector has correct datachunks
-// return 1 on success
-int DCV_dbg_check_integrity(const DeltaChunkVector* vec)
-{
-	if(DCV_empty(vec)){
-		return 0;
-	}
-	const DeltaChunk* i = DCV_first(vec);
-	const DeltaChunk* end = DCV_end(vec);
-	
-	ull aparent_size = DCV_rbound(vec) - DCV_lbound(vec);
-	ull acc_size = 0;
-	for(; i < end; i++){
-		acc_size += i->ts;
-	}
-	if (acc_size != aparent_size)
-		return 0;
-	
-	if (vec->size < 2){
-		return 1;
-	}
-	
-	const DeltaChunk* endm1 = DCV_end(vec) - 1;
-	for(i = DCV_first(vec); i < endm1; i++){
-		const DeltaChunk* n = i+1;
-		if (DC_rbound(i) != n->to){
-			return 0;
-		}
-	}
-	
-	return 1;
-}
 
-// Return the amount of chunks a slice at the given spot would have 
+// Return the amount of chunks a slice at the given spot would have, as well as 
+// its size in bytes it would have if the possibly partial chunks would be encoded
+// and added to the spot marked by sdc
 inline
-uint DCV_count_slice_chunks(const DeltaChunkVector* src, ull ofs, ull size)
+uint DIV_count_slice_bytes(const DeltaInfoVector* src, uint ofs, uint size)
 {
-	uint num_dc = 0;
-	DeltaChunk* cdc = DCV_closest_chunk(src, ofs);
+	uint num_bytes = 0;
+	DeltaInfo* cdi = DIV_closest_chunk(src, ofs);
+	
+	DeltaChunk dc;
+	DC_init(&dc, 0, 0, 0, NULL);
 	
 	// partial overlap
-	if (cdc->to != ofs) {
-		const ull relofs = ofs - cdc->to;
-		size -= cdc->ts - relofs < size ? cdc->ts - relofs : size;
-		num_dc += 1;
-		cdc += 1;
+	if (cdi->to != ofs) {
+		const ull relofs = ofs - cdi->to;
+		const uint cdisize = DIV_info_size(src, cdi);
+		const uint max_size = cdisize - relofs < size ? cdisize - relofs : size; 
+		size -= max_size;
+		
+		// get the size in bytes the info would have
+		next_delta_info(src->dstream + cdi->dso, &dc);
+		dc.so += relofs;
+		dc.ts = max_size;
+		num_bytes += DC_count_encode_bytes(&dc);
+		
+		cdi += 1;
 		
 		if (size == 0){
-			return num_dc;
+			return num_bytes;
 		}
 	}
 	
-	const DeltaChunk* vecend = DCV_end(src);
-	for( ;(cdc < vecend) && size; ++cdc){
-		num_dc += 1;
-		if (cdc->ts < size) {
-			size -= cdc->ts;
+	const DeltaInfo const* vecend = DIV_end(src);
+	const uchar* nstream;
+	for( ;cdi < vecend; ++cdi){
+		nstream = next_delta_info(src->dstream + cdi->dso, &dc);
+		
+		if (dc.ts < size) {
+			num_bytes += nstream - (src->dstream + cdi->dso);
+			size -= dc.ts;
 		} else {
+			dc.ts = size;
+			num_bytes += DC_count_encode_bytes(&dc);
 			size = 0;
 			break;
 		}
 	}
 	
-	return num_dc;
+	assert(size == 0);
+	return num_bytes;
 }
 
 // Write a slice as defined by its absolute offset in bytes and its size into the given
-// destination memory. The individual chunks written will be a deep copy of the source 
-// data chunks
+// destination memory. The individual chunks written will be a byte copy of the source 
+// data chunk stream
 // Return: number of chunks in the slice
 inline
-uint DCV_copy_slice_to(const DeltaChunkVector* src, DeltaChunk* dest, ull ofs, ull size)
+uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar** dest, ull tofs, uint size)
 {
-	assert(DCV_lbound(src) <= ofs);
-	assert((ofs + size) <= DCV_rbound(src));
+	assert(DIV_lbound(src) <= tofs);
+	assert((tofs + size) <= DIV_info_rbound(src, DIV_last(src)));
 	
-	DeltaChunk* cdc = DCV_closest_chunk(src, ofs);
+	DeltaChunk dc;
+	DC_init(&dc, 0, 0, 0, NULL);
+	
+	DeltaInfo* cdi = DIV_closest_chunk(src, tofs);
 	uint num_chunks = 0;
 	
 	// partial overlap
-	if (cdc->to != ofs) {
-		const ull relofs = ofs - cdc->to;
-		DC_offset_copy_to(cdc, dest, relofs, cdc->ts - relofs < size ? cdc->ts - relofs : size);
-		cdc += 1;
-		size -= dest->ts;
-		dest += 1;				// must be here, we are reading the size !
+	if (cdi->to != tofs) {
+		const uint relofs = tofs - cdi->to;
+		next_delta_info(src->dstream + cdi->dso, &dc);
+		const uint max_size = dc.ts - relofs < size ? dc.ts - relofs : size; 
+		
+		size -= max_size; 
+		
+		// adjust dc proportions
+		DC_encode_to(&dc, dest, relofs, max_size);
+			
 		num_chunks += 1;
+		cdi += 1;
 		
 		if (size == 0){
 			return num_chunks;
 		}
 	}
 	
-	const DeltaChunk* vecend = DCV_end(src);
-	for( ;(cdc < vecend) && size; ++cdc)
+	const uchar* dstream = src->dstream + cdi->dso;
+	const uchar* nstream = dstream;
+	for( ; nstream; dstream = nstream)
 	{
 		num_chunks += 1;
-		if (cdc->ts < size) {
-			DC_copy_to(cdc, dest++);
-			size -= cdc->ts;
+		nstream = next_delta_info(dstream, &dc);
+		if (dc.ts < size) {
+			memcpy(*dest, dstream, nstream - dstream);
+			*dest += nstream - dstream;
+			size -= dc.ts;
 		} else {
-			DC_offset_copy_to(cdc, dest, 0, size);
+			DC_encode_to(&dc, dest, 0, size);
 			size = 0;
 			break;
 		}
@@ -483,119 +610,93 @@ uint DCV_copy_slice_to(const DeltaChunkVector* src, DeltaChunk* dest, ull ofs, u
 }
 
 
-// Insert all chunks in 'from' to 'to', starting at the delta chunk named 'at' which
-// originates in to
-// 'at' will be replaced by the items to insert ( special purpose )
-// 'at' will be properly destroyed, but all items will just be copied bytewise
-// using memcpy. Hence from must just forget about them !
-// IMPORTANT: to must have an appropriate size already
-inline
-void DCV_replace_one_by_many(const DeltaChunkVector* from, DeltaChunkVector* to, DeltaChunk* at)
+// Take slices of div into the corresponding area of the tsi, which is the topmost
+// delta to apply.
+bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 {
-	assert(from->size > 1);
-	assert(to->size + from->size - 1 <= to->reserved_size);
+	assert(tsi->num_chunks);
 	
-	// -1 because we replace 'at'
-	DC_destroy(at);
 	
-	// If we are somewhere in the middle, we have to make some space
-	if (DCV_last(to) != at) {
-		// IMPORTANT: This memmove kills the performance in case of large deltas
-		// Causing everything to slow down enormously. Its logical, as the memory
-		// gets shifted each time we insert nodes, for each chunk, for ever smaller
-		// chunks depending on the deltas
-		memmove((void*)(at+from->size), (void*)(at+1), (size_t)((DCV_end(to) - (at+1)) * sizeof(DeltaChunk)));
+	uint num_bytes = 0;
+	const uchar* data = TSI_first(tsi);
+	const uchar* dend = TSI_end(tsi);
+	
+	DeltaChunk dc;
+	DC_init(&dc, 0, 0, 0, NULL);
+	
+	
+	// COMPUTE SIZE OF TARGET STREAM
+	/////////////////////////////////
+	for (;data < dend;)
+	{
+		data = next_delta_info(data, &dc);
+		
+		// Data chunks don't need processing
+		if (dc.data){
+			num_bytes += 1 + dc.ts;
+			continue;
+		}
+		
+		num_bytes += DIV_count_slice_bytes(div, dc.so, dc.ts);
 	}
+	assert(DC_rbound(&dc) == tsi->target_size);
 	
-	// Finally copy all the items in
-	memcpy((void*) at, (void*)DCV_first(from), from->size*sizeof(DeltaChunk));
 	
-	// FINALLY: update size
-	to->size += from->size - 1;
-}
-
-// Take slices of bdcv into the corresponding area of the tdcv, which is the topmost
-// delta to apply.  
-bool DCV_connect_with_base(DeltaChunkVector* tdcv, const DeltaChunkVector* bdcv)
-{
-	DBG_check(tdcv);
-	DBG_check(bdcv);
-	
-	uint *const offset_array = PyMem_Malloc(tdcv->size * sizeof(uint));
-	if (!offset_array){
+	// GET NEW DELTA BUFFER
+	////////////////////////
+	uchar *const dstream = PyMem_Malloc(num_bytes);
+	if (!dstream){
 		return 0;
 	}
 	
-	uint* pofs = offset_array;
-	uint num_addchunks = 0;
 	
-	DeltaChunk* dc = DCV_first(tdcv);
-	const DeltaChunk* dcend = DCV_end(tdcv);
+	data = TSI_first(tsi);
+	const uchar *ndata = data;
+	dend = TSI_end(tsi);
 	
-	// OFFSET RUN
-	for (;dc < dcend; dc++, pofs++)
+	uint num_chunks = 0;
+	uchar* ds = dstream;
+	DC_init(&dc, 0, 0, 0, NULL);
+	
+	// pick slices from the delta and put them into the new stream
+	for (; data < dend; data = ndata)
 	{
+		ndata = next_delta_info(data, &dc);
+		
 		// Data chunks don't need processing
-		*pofs = num_addchunks;
-		if (dc->data){
+		if (dc.data){
+			// just copy it over
+			memcpy((void*)ds, (void*)data, ndata - data);
+			ds += ndata - data;
+			num_chunks += 1;
 			continue;
 		}
 		
-		// offset the next chunk by the amount of chunks in the slice
-		// - 1, because we replace our own chunk
-		num_addchunks += DCV_count_slice_chunks(bdcv, dc->so, dc->ts) - 1;
+		// Copy Chunks
+		num_chunks += DIV_copy_slice_to(div, &ds, dc.so, dc.ts);
 	}
+	assert(ds - dstream == num_bytes);
+	assert(num_chunks >= tsi->num_chunks);
+	assert(DC_rbound(&dc) == tsi->target_size);
 	
-	// reserve enough memory to hold all the new chunks
-	// reinit pointers, array could have been reallocated
-	DCV_reserve_memory(tdcv, tdcv->size + num_addchunks);
-	dc = DCV_last(tdcv);
-	dcend = DCV_first(tdcv) - 1;
+	// finally, replace the streams
+	TSI_replace_stream(tsi, dstream, num_bytes);
+	tsi->cstart = dstream;							// we have NO header !
+	assert(tsi->tds == dstream);
+	tsi->num_chunks = num_chunks;
 	
-	// now, that we have our pointers with the old size
-	tdcv->size += num_addchunks;
 	
-	// Insert slices, from the end to the beginning, which allows memcpy
-	// to be used, with a little help of the offset array
-	for (pofs -= 1; dc > dcend; dc--, pofs-- )
-	{
-		// Data chunks don't need processing
-		const uint ofs = *pofs;
-		if (dc->data){
-			// NOTE: could peek the preceeding chunks to figure out whether they are 
-			// all just moved by ofs. In that case, they can move as a whole!
-			// tests showed that this is very rare though, even in huge deltas, so its
-			// not worth the extra effort
-			if (ofs){
-				memcpy((void*)(dc + ofs), (void*)dc, sizeof(DeltaChunk));
-			}
-			continue;
-		}
-		
-		// Copy Chunks, and move their target offset into place
-		// As we could override dc when slicing, we get the data here
-		const ull relofs = dc->to - dc->so;
-		
-		DeltaChunk* tdc = dc + ofs;
-		DeltaChunk* tdcend = tdc + DCV_copy_slice_to(bdcv, tdc, dc->so, dc->ts);
-		for(;tdc < tdcend; tdc++){
-			tdc->to += relofs;
-		}
-	}
-	
-	DBG_check(tdcv);
-	
-	PyMem_Free(offset_array);
 	return 1;
+
 }
 
 // DELTA CHUNK LIST (PYTHON)
 /////////////////////////////
-
+// Internally, it has nothing to do with a ChunkList anymore though
 typedef struct {
 	PyObject_HEAD
 	// -----------
-	DeltaChunkVector vec;
+	ToplevelStreamInfo istream;
 	
 } DeltaChunkList;
 
@@ -608,34 +709,20 @@ int DCL_init(DeltaChunkList*self, PyObject *args, PyObject *kwds)
 		return -1;
 	}
 	
-	DCV_init(&self->vec, 0);
+	TSI_init(&self->istream);
 	return 0;
 }
 
 static
 void DCL_dealloc(DeltaChunkList* self)
 {
-	DCV_destroy(&(self->vec));
-}
-
-static
-PyObject* DCL_len(DeltaChunkList* self)
-{
-	return PyLong_FromUnsignedLongLong(DCV_len(&self->vec));
-}
-
-static inline
-ull DCL_rbound(DeltaChunkList* self)
-{
-	if (DCV_empty(&self->vec))
-		return 0;
-	return DCV_rbound(&self->vec);
+	TSI_destroy(&(self->istream));
 }
 
 static
 PyObject* DCL_py_rbound(DeltaChunkList* self)
 {
-	return PyLong_FromUnsignedLongLong(DCL_rbound(self));
+	return PyLong_FromUnsignedLongLong(self->istream.target_size);
 }
 
 // Write using a write function, taking remaining bytes from a base buffer
@@ -659,17 +746,21 @@ PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 		return NULL;
 	}
 	
-	const DeltaChunk* i = self->vec.mem;
-	const DeltaChunk* end = DCV_end(&self->vec);
-	
-	const uchar* data;
-	Py_ssize_t dlen;
-	PyObject_AsReadBuffer(pybuf, (const void**)&data, &dlen);
+	const uchar* base;
+	Py_ssize_t baselen;
+	PyObject_AsReadBuffer(pybuf, (const void**)&base, &baselen);
 	
 	PyObject* tmpargs = PyTuple_New(1);
 	
-	for(; i < end; i++){
-		DC_apply(i, data, writeproc, tmpargs);
+	const uchar* data = TSI_first(&self->istream);
+	const uchar const* dend = TSI_end(&self->istream);
+	
+	DeltaChunk dc;
+	DC_init(&dc, 0, 0, 0, NULL);
+	
+	while (data < dend){
+		data = next_delta_info(data, &dc);
+		DC_apply(&dc, base, writeproc, tmpargs);
 	}
 	
 	Py_DECREF(tmpargs);
@@ -678,7 +769,6 @@ PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 
 static PyMethodDef DCL_methods[] = {
     {"apply", (PyCFunction)DCL_apply, METH_VARARGS, "Apply the given iterable of delta streams" },
-    {"__len__", (PyCFunction)DCL_len, METH_NOARGS, NULL},
     {"rbound", (PyCFunction)DCL_py_rbound, METH_NOARGS, NULL},
     {NULL}  /* Sentinel */
 };
@@ -734,24 +824,75 @@ DeltaChunkList* DCL_new_instance(void)
 	assert(dcl);
 	
 	DCL_init(dcl, 0, 0);
-	assert(dcl->vec.size == 0);
-	assert(dcl->vec.mem == NULL);
 	return dcl;
 }
 
+// Read the next delta chunk from the given stream and advance it
+// dc will contain the parsed information, its offset must be set by
+// the previous call of next_delta_info, which implies it should remain the 
+// same instance between the calls.
+// Return the altered uchar pointer, reassign it to the input data
 inline
-ull msb_size(const uchar** datap, const uchar* top)
+const uchar* next_delta_info(const uchar* data, DeltaChunk* dc)
 {
-	const uchar *data = *datap;
-	ull cmd, size = 0;
-	uint i = 0;
-	do {
-		cmd = *data++;
-		size |= (cmd & 0x7f) << i;
-		i += 7;
-	} while (cmd & 0x80 && data < top);
-	*datap = data;
-	return size;
+	const char cmd = *data++;
+
+	if (cmd & 0x80) 
+	{
+		uint cp_off = 0, cp_size = 0;
+		if (cmd & 0x01) cp_off = *data++;
+		if (cmd & 0x02) cp_off |= (*data++ << 8);
+		if (cmd & 0x04) cp_off |= (*data++ << 16);
+		if (cmd & 0x08) cp_off |= ((unsigned) *data++ << 24);
+		if (cmd & 0x10) cp_size = *data++;
+		if (cmd & 0x20) cp_size |= (*data++ << 8);
+		if (cmd & 0x40) cp_size |= (*data++ << 16);		// this should never get hit with current deltas ...
+		if (cp_size == 0) cp_size = 0x10000;
+	
+		dc->to += dc->ts;
+		dc->data = NULL;
+		dc->so = cp_off;
+		dc->ts = cp_size;
+		
+	} else if (cmd) {
+		// Just share the data
+		dc->to += dc->ts;
+		dc->data = data;
+		dc->ts = cmd;
+		dc->so = 0;
+		
+		data += cmd;
+	} else {                                                                               
+		PyErr_SetString(PyExc_RuntimeError, "Encountered an unsupported delta cmd: 0");
+		assert(0);
+		return NULL;
+	}
+	
+	return data;
+}
+
+// Return amount of chunks encoded in the given delta stream
+// If read_header is True, then the header msb chunks will be read first.
+// Otherwise, the stream is assumed to be scrubbed one past the header
+uint compute_chunk_count(const uchar* data, const uchar* dend, bool read_header)
+{
+	// read header
+	if (read_header){
+		msb_size(&data, dend);
+		msb_size(&data, dend);
+	}
+	
+	DeltaChunk dc;
+	DC_init(&dc, 0, 0, 0, NULL);
+	uint num_chunks = 0;
+	
+	while (data < dend)
+	{
+		data = next_delta_info(data, &dc);
+		num_chunks += 1;
+	}// END handle command opcodes
+	
+	return num_chunks;
 }
 
 static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
@@ -768,148 +909,134 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		stream_iter = dstreams;
 	}
 	
-	DeltaChunkVector dcv;
-	DeltaChunkVector tdcv;
-	DCV_init(&dcv, 100);			// should be enough to keep the average text file
-	DCV_init(&tdcv, 0);
+	DeltaInfoVector div;
+	ToplevelStreamInfo tdsinfo;
+	TSI_init(&tdsinfo);
+	DIV_init(&div, 0);
 	
-	unsigned int dsi = 0;
-	PyObject* ds = 0;
+	
+	// GET TOPLEVEL DELTA STREAM
 	int error = 0;
-	for (ds = PyIter_Next(stream_iter), dsi = 0; ds != NULL; ++dsi, ds = PyIter_Next(stream_iter))
+	PyObject* ds = 0;
+	unsigned int dsi = 0;			// delta stream index we process
+	ds = PyIter_Next(stream_iter);
+	if (!ds){
+		error = 1;
+		goto _error;
+	}
+	
+	dsi += 1;
+	tdsinfo.parent_object = PyObject_CallMethod(ds, "read", 0);
+	if (!PyObject_CheckReadBuffer(tdsinfo.parent_object)){
+		Py_DECREF(ds);
+		error = 1;
+		goto _error;
+	}
+	
+	PyObject_AsReadBuffer(tdsinfo.parent_object, (const void**)&tdsinfo.tds, &tdsinfo.tdslen);
+	if (tdsinfo.tdslen > pow(2, 32)){
+		// parent object is deallocated by info structure
+		Py_DECREF(ds);
+		PyErr_SetString(PyExc_RuntimeError, "Cannot handle deltas larger than 4GB");
+		tdsinfo.parent_object = 0;
+		
+		error = 1;
+		goto _error;
+	}
+	Py_DECREF(ds);
+	
+	// let it officially know, and initialize its internal state
+	TSI_set_stream(&tdsinfo, tdsinfo.tds);
+	
+		// INTEGRATE ANCESTOR DELTA STREAMS
+	for (ds = PyIter_Next(stream_iter); ds != NULL; ds = PyIter_Next(stream_iter), ++dsi)
 	{
-		PyObject* db = PyObject_CallMethod(ds, "read", 0);
+		// Its important to initialize this before the next block which can jump 
+		// to code who needs this to exist !
+		PyObject* db = 0;
+		
+		// When processing the first delta, we know we will have to alter the tds
+		// Hence we copy it and deallocate the parent object
+		if (dsi == 1) {
+			if (!TSI_copy_stream_from_object(&tdsinfo)){
+				PyErr_SetString(PyExc_RuntimeError, "Could not allocate memory to copy toplevel buffer");
+				// info structure takes care of the parent_object
+				error = 1;
+				goto loop_end;
+			}
+			
+			tdsinfo.num_chunks = compute_chunk_count(tdsinfo.cstart, TSI_end(&tdsinfo), 0);
+		}
+		
+		db = PyObject_CallMethod(ds, "read", 0);
 		if (!PyObject_CheckReadBuffer(db)){
 			error = 1;
 			PyErr_SetString(PyExc_RuntimeError, "Returned buffer didn't support the buffer protocol");
 			goto loop_end;
 		}
 		
+		// Fill the stream info structure
 		const uchar* data;
 		Py_ssize_t dlen;
 		PyObject_AsReadBuffer(db, (const void**)&data, &dlen);
-		const uchar* dend = data + dlen;
+		const uchar const* dstart = data;
+		const uchar const* dend = data + dlen;
+		div.dstream = dstart;
 		
-		// read header
-		const ull base_size = msb_size(&data, dend);
+		if (dlen > pow(2, 32)){
+			error = 1;
+			PyErr_SetString(PyExc_RuntimeError, "Cannot currently handle deltas larger than 4GB");
+			goto loop_end;
+		}
+		
+		// READ HEADER
+		msb_size(&data, dend);
 		const ull target_size = msb_size(&data, dend);
 		
-		// Assume good compression for the adds
-		const uint approx_num_cmds = ((dlen / 3) / 10) + (((dlen / 3) * 2) / (2+2+1));
-		DCV_reserve_memory(&dcv, approx_num_cmds);
+		DIV_reserve_memory(&div, compute_chunk_count(data, dend, 0));
 	
 		// parse command stream
-		ull tbw = 0;							// Amount of target bytes written
-		bool is_shared_data = dsi != 0;
-		bool is_first_run = dsi == 0;
+		DeltaInfo* di = 0;				// temporary pointer
+		DeltaChunk dc;
+		DC_init(&dc, 0, 0, 0, NULL);
 		
 		assert(data < dend);
 		while (data < dend)
 		{
-			const char cmd = *data++;
-			
-			if (cmd & 0x80) 
-			{
-				unsigned long cp_off = 0, cp_size = 0;
-				if (cmd & 0x01) cp_off = *data++;
-				if (cmd & 0x02) cp_off |= (*data++ << 8);
-				if (cmd & 0x04) cp_off |= (*data++ << 16);
-				if (cmd & 0x08) cp_off |= ((unsigned) *data++ << 24);
-				if (cmd & 0x10) cp_size = *data++;
-				if (cmd & 0x20) cp_size |= (*data++ << 8);
-				if (cmd & 0x40) cp_size |= (*data++ << 16);
-				if (cp_size == 0) cp_size = 0x10000;
-				
-				const unsigned long rbound = cp_off + cp_size; 
-				if (rbound < cp_size ||
-					rbound > base_size){
-					// this really shouldn't happen
-					error = 1;
-					assert(0);
-					break;
-				}
-				
-				DC_init(DCV_append(&dcv), tbw, cp_size, cp_off);
-				tbw += cp_size;
-				
-			} else if (cmd) {
-				// Compression reduces fragmentation though, which is why we do it
-				// in all cases.
-				// It makes the more sense the more consecutive add-chunks we have, 
-				// its more likely in big deltas, for big binary files
-				const uchar* add_start = data - 1;
-				const uchar* add_end = dend;
-				ull num_bytes = cmd;
-				data += cmd;
-				ull num_chunks = 1;
-				while (data < dend){
-				//while (0){
-					const char c = *data;
-					if (c & 0x80){
-						add_end = data;
-						break;
-					} else {
-						data += 1 + c;			// advance by 1 to skip add cmd
-						num_bytes += c;
-						num_chunks += 1;
-					}
-				}
-				
-				#ifdef DEBUG
-				assert(add_end - add_start > 0);
-				if (num_chunks > 1){
-					fprintf(stderr, "Compression: got %i bytes of %i chunks\n", (int)num_bytes, (int)num_chunks);
-				}
-				#endif
-				
-				DeltaChunk* dc = DCV_append(&dcv); 
-				DC_init(dc, tbw, num_bytes, 0);
-				
-				// gather the data, or (possibly) share single blocks
-				if (num_chunks > 1){
-					uchar* dcdata = PyMem_Malloc(num_bytes);
-					while (add_start < add_end){
-						const char bytes = *add_start++;
-						memcpy((void*)dcdata, (void*)add_start, bytes);
-						dcdata += bytes;
-						add_start += bytes;
-					}
-					DC_set_data_with_ownership(dc, dcdata-num_bytes);
-				} else {
-					DC_set_data(dc, data - cmd, cmd, is_shared_data);
-				}
-				
-				tbw += num_bytes;
-			} else {                                                                               
+			di = DIV_append(&div);
+			di->dso = data - dstart;
+			if ((data = next_delta_info(data, &dc))){
+				di->to = dc.to;
+			} else { 
 				error = 1;
-				PyErr_SetString(PyExc_RuntimeError, "Encountered an unsupported delta cmd: 0");
 				goto loop_end;
 			}
 		}// END handle command opcodes
-		if (tbw != target_size){
+		
+		// finalize information
+		div.di_last_size = dc.ts;
+		
+		if (DC_rbound(&dc) != target_size){
 			PyErr_SetString(PyExc_RuntimeError, "Failed to parse delta stream");
 			error = 1;
 		}
-
-		if (!is_first_run){
-			if (!DCV_connect_with_base(&tdcv, &dcv)){
-				error = 1;
-			}
-		}
 		
 		#ifdef DEBUG
-		fprintf(stderr, "tdcv->size = %i, tdcv->reserved_size = %i\n", (int)tdcv.size, (int)tdcv.reserved_size);
-		fprintf(stderr, "dcv->size = %i, dcv->reserved_size = %i\n", (int)dcv.size, (int)dcv.reserved_size);
+		fprintf(stderr, "------------ Stream %i --------\n ", (int)dsi);
+		fprintf(stderr, "Before Connect: tdsinfo: num_chunks = %i, bytelen = %i KiB, target_size = %i KiB\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen/1000, (int)tdsinfo.target_size/1000);
+		fprintf(stderr, "div->num_chunks = %i, div->reserved_size = %i, div->bytelen=%i KiB\n", (int)div.size, (int)div.reserved_size, (int)dlen/1000);
 		#endif
 		
-		if (is_first_run){
-			tdcv = dcv;
-			// wipe out dcv without destroying the members, get its own memory
-			DCV_init(&dcv, tdcv.size);
-		} else {
-			// destroy members, but keep memory
-			DCV_reset(&dcv);
+		if (!DIV_connect_with_base(&tdsinfo, &div)){
+			error = 1;
 		}
+	
+		#ifdef DEBUG
+		fprintf(stderr, "after connect: tdsinfo->num_chunks = %i, tdsinfo->bytelen = %i KiB\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen/1000);
+		#endif
+		
+		// destroy members, but keep memory
+		DIV_reset(&div);
 
 loop_end:
 		// perform cleanup
@@ -921,29 +1048,30 @@ loop_end:
 		}
 	}// END for each stream object
 	
-	if (dsi == 0 && ! error){
+	if (dsi == 0){
 		PyErr_SetString(PyExc_ValueError, "No streams provided");
 	}
+	
+	
+_error:
 	
 	if (stream_iter != dstreams){
 		Py_DECREF(stream_iter);
 	}
 	
-	if (dsi > 1){
-		// otherwise dcv equals tcl
-		DCV_destroy(&dcv);
-	}
+	
+	DIV_destroy(&div);
 	
 	// Return the actual python object - its just a container
 	DeltaChunkList* dcl = DCL_new_instance();
 	if (!dcl){
 		PyErr_SetString(PyExc_RuntimeError, "Couldn't allocate list");
-		// Otherwise tdcv would be deallocated by the chunk list
-		DCV_destroy(&tdcv);
+		// Otherwise tdsinfo would be deallocated by the chunk list
+		TSI_destroy(&tdsinfo);
 		error = 1;
 	} else {
-		// Plain copy, don't deallocate
-		dcl->vec = tdcv;
+		// Plain copy, transfer ownership to dcl
+		dcl->istream = tdsinfo;
 	}
 	
 	if (error){
