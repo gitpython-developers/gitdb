@@ -57,7 +57,10 @@ void TSI_init(ToplevelStreamInfo* info)
 
 void TSI_destroy(ToplevelStreamInfo* info)
 {
+#ifdef DEBUG
 	fprintf(stderr, "TSI_destroy: %p\n", info);
+#endif
+
 	if (info->parent_object){
 		Py_DECREF(info->parent_object);
 		info->parent_object = 0;
@@ -129,6 +132,10 @@ bool TSI_resize(ToplevelStreamInfo* info, uint num_bytes)
 	if (num_bytes <= info->tdslen){
 		return 1;
 	}
+	
+#ifdef DEBUG
+	fprintf(stderr, "TSI_resize: to %i bytes\n", num_bytes);
+#endif
 	uint ofs = (uint)(info->cstart - info->tds);
 	info->tds = PyMem_Realloc((void*)info->tds, num_bytes);
 	info->tdslen = num_bytes;
@@ -186,7 +193,6 @@ void DC_apply(const DeltaChunk* dc, const uchar* base, PyObject* writer, PyObjec
 		assert(0);
 	}
 	
-	DC_print(dc, "DC_apply");
 	
 	// tuple steals reference, and will take care about the deallocation
 	PyObject_Call(writer, tmpargs, NULL);
@@ -554,7 +560,6 @@ uint DIV_count_slice_bytes(const DeltaInfoVector* src, uint ofs, uint size)
 inline
 uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar* dest, ull tofs, uint size)
 {
-	fprintf(stderr, "copy slice: ofs = %i, size = %i\n", (int)tofs, size);
 	assert(DIV_lbound(src) <= tofs);
 	assert((tofs + size) <= DIV_info_rbound(src, DIV_last(src)));
 	
@@ -563,10 +568,6 @@ uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar* dest, ull tofs, uint s
 	
 	DeltaInfo* cdi = DIV_closest_chunk(src, tofs);
 	uint num_chunks = 0;
-	
-#ifdef DEBUG
-	const uchar* deststart = dest;
-#endif
 	
 	// partial overlap
 	if (cdi->to != tofs) {
@@ -592,7 +593,6 @@ uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar* dest, ull tofs, uint s
 	const DeltaInfo* vecend = DIV_end(src);
 	for( ;cdi < vecend; ++cdi)
 	{
-		fprintf(stderr, "copy slice: cdi: to = %i, dso = %i\n", (int)cdi->to, (int)cdi->dso);
 		num_chunks += 1;
 		next_delta_info(src->dstream + cdi->dso, &dc);
 		if (dc.ts < size) {
@@ -608,10 +608,6 @@ uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar* dest, ull tofs, uint s
 		}
 	}
 	
-#ifdef DEBUG
-	fprintf(stderr, "copy slice: Wrote %i bytes\n", (int)(dest - deststart));
-#endif
-	
 	assert(size == 0);
 	return num_chunks;
 }
@@ -624,7 +620,7 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 	assert(tsi->num_chunks);
 	
 	typedef struct {
-		uint bofs;			// byte-offset of delta stream
+		int bofs;			// byte-offset of delta stream
 		uint dofs;			// delta stream offset relative to tsi->cstart
 	} OffsetInfo;
 	
@@ -635,7 +631,7 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 	}
 	
 	OffsetInfo* pofs = offset_array;
-	uint num_addbytes = 0;
+	int num_addbytes = 0;
 	uint dofs = 0;
 	
 	const uchar* data = TSI_first(tsi);
@@ -651,11 +647,9 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 	{
 		pofs->bofs = num_addbytes;
 		data = next_delta_info(data, &dc);
+		assert(data);
 		pofs->dofs = dofs;
 		dofs += (uint)(data-prev_data);
-		
-		fprintf(stderr, "pofs->bofs = %i, ->dofs = %i\n", pofs->bofs, pofs->dofs);
-		DC_print(&dc, "count-run");
 		
 		// Data chunks don't need processing
 		if (dc.data){
@@ -667,7 +661,12 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 		num_addbytes += DIV_count_slice_bytes(div, dc.so, dc.ts) - (data - prev_data);
 	}
 	
-	fprintf(stderr, "num_addbytes = %i\n", num_addbytes);
+	/*
+	uint i = 0;
+	for (; i < tsi->num_chunks; i++){
+		fprintf(stderr, "%i: bofs: %i, dofs: %i\n", i, offset_array[i].bofs, offset_array[i].dofs); 
+	}
+	*/
 	assert(DC_rbound(&dc) == tsi->target_size);
 	
 	
@@ -695,6 +694,7 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 			// not worth the extra effort
 			if (cpofs->bofs){
 				memcpy((void*)(ds + cpofs->bofs), (void*)ds, nds - ds);
+				// memmove((void*)(ds + cpofs->bofs), (void*)ds, nds - ds);
 			}
 			continue;
 		}
@@ -706,7 +706,6 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 		num_addchunks -= 1;
 	}
 	
-	fprintf(stderr, "num_addchunks = %i\n", num_addchunks);
 	tsi->num_chunks += num_addchunks;
 	
 	PyMem_Free(offset_array);
