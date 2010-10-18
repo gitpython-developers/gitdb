@@ -620,7 +620,7 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 	assert(tsi->num_chunks);
 	
 	typedef struct {
-		int bofs;			// byte-offset of delta stream
+		uint bofs;			// byte-offset of delta stream
 		uint dofs;			// delta stream offset relative to tsi->cstart
 	} OffsetInfo;
 	
@@ -631,7 +631,8 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 	}
 	
 	OffsetInfo* pofs = offset_array;
-	int num_addbytes = 0;
+	uint num_addbytes = 0;
+	int bytes = 0;
 	uint dofs = 0;
 	
 	const uchar* data = TSI_first(tsi);
@@ -658,15 +659,16 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 		
 		// offset the next chunk by the amount of chunks in the slice
 		// - N, because we replace our own chunk's bytes
-		num_addbytes += DIV_count_slice_bytes(div, dc.so, dc.ts) - (data - prev_data);
+		bytes = DIV_count_slice_bytes(div, dc.so, dc.ts) - (data - prev_data);
+		// if we shrink in size, compensate this by moving the start virtually
+		// 
+		if (bytes < 0){
+			fprintf(stderr, "hit negative bytes: %i\n", bytes);
+			tsi->cstart += abs(bytes);
+		}
+		num_addbytes += abs(bytes);
 	}
 	
-	/*
-	uint i = 0;
-	for (; i < tsi->num_chunks; i++){
-		fprintf(stderr, "%i: bofs: %i, dofs: %i\n", i, offset_array[i].bofs, offset_array[i].dofs); 
-	}
-	*/
 	assert(DC_rbound(&dc) == tsi->target_size);
 	
 	
@@ -701,8 +703,8 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 		
 		// Copy Chunks - target offset is determined by their location and size
 		// hence it doesn't need specific adjustment
-		// -1 chunks because we overwrite our own chunk ( by not copying it ) 
 		num_addchunks += DIV_copy_slice_to(div, ds + cpofs->bofs, dc.so, dc.ts);
+		// -1 chunks because we overwrite our own chunk ( by not copying it )
 		num_addchunks -= 1;
 	}
 	
