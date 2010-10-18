@@ -165,7 +165,6 @@ ull DC_rbound(const DeltaChunk* dc)
 }
 
 // Apply
-// TODO: remove, just left it for reference
 inline
 void DC_apply(const DeltaChunk* dc, const uchar* base, PyObject* writer, PyObject* tmpargs)
 {
@@ -252,7 +251,7 @@ ushort DC_count_encode_bytes(const DeltaChunk* dc)
 // DELTA INFO
 /////////////
 typedef struct {
-	uint dso;			// delta stream offset
+	uint dso;			// delta stream offset, relative to the very start of the stream
 	uint to;			// target offset (cache)
 } DeltaInfo;
 
@@ -279,10 +278,6 @@ int DIV_reserve_memory(DeltaInfoVector* vec, uint num_dc)
 {
 	if (num_dc <= vec->reserved_size){
 		return 1;
-	}
-	
-	if (num_dc - vec->reserved_size < 10){
-		num_dc += gDIV_grow_by;
 	}
 	
 #ifdef DEBUG
@@ -529,6 +524,8 @@ uint DIV_count_slice_bytes(const DeltaInfoVector* src, uint ofs, uint size)
 		next_delta_info(src->dstream + cdi->dso, &dc);
 		
 		if (dc.ts < size) {
+			// TODO: could just count size of the delta chunk in the stream instead
+			// of reencoding
 			num_bytes += DC_count_encode_bytes(&dc);
 			size -= dc.ts;
 		} else {
@@ -731,7 +728,7 @@ PyObject* DCL_py_rbound(DeltaChunkList* self)
 static
 PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 {
-	/*
+	
 	PyObject* pybuf = 0;
 	PyObject* writeproc = 0;
 	if (!PyArg_ParseTuple(args, "OO", &pybuf, &writeproc)){
@@ -749,23 +746,24 @@ PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 		return NULL;
 	}
 	
-	const DeltaChunk* i = self->vec.mem;
-	const DeltaChunk* end = DIV_end(&self->vec);
-	
-	const uchar* data;
-	Py_ssize_t dlen;
-	PyObject_AsReadBuffer(pybuf, (const void**)&data, &dlen);
+	const uchar* base;
+	Py_ssize_t baselen;
+	PyObject_AsReadBuffer(pybuf, (const void**)&base, &baselen);
 	
 	PyObject* tmpargs = PyTuple_New(1);
 	
-	for(; i < end; i++){
-		DC_apply(i, data, writeproc, tmpargs);
+	const uchar* data = TSI_first(&self->istream);
+	const uchar const* dend = TSI_end(&self->istream);
+	
+	DeltaChunk dc;
+	DC_init(&dc, 0, 0, 0, NULL);
+	
+	while (data < dend){
+		data = next_delta_info(data, &dc);
+		DC_apply(&dc, base, writeproc, tmpargs);
 	}
 	
 	Py_DECREF(tmpargs);
-	*/
-	// TODO
-	assert(0);
 	Py_RETURN_NONE;
 }
 
@@ -911,7 +909,7 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 	DeltaInfoVector div;
 	ToplevelStreamInfo tdsinfo;
 	TSI_init(&tdsinfo);
-	DIV_init(&div, 100);			// should be enough to keep the average text file
+	DIV_init(&div, 0);
 	
 	
 	// GET TOPLEVEL DELTA STREAM
@@ -1020,13 +1018,17 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 			error = 1;
 		}
 		
+		#ifdef DEBUG
+		fprintf(stderr, "Before Connect: tdsinfo->num_chunks = %i, tdsinfo->bytelen = %i\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen);
+		#endif
+		
 		if (!DIV_connect_with_base(&tdsinfo, &div)){
 			error = 1;
 		}
 	
 		#ifdef DEBUG
-		fprintf(stderr, "tdsinfo->len = %i\n", (int)tdsinfo.tdslen);
-		fprintf(stderr, "div->size = %i, div->reserved_size = %i\n", (int)div.size, (int)div.reserved_size);
+		fprintf(stderr, "after connect: tdsinfo->num_chunks = %i, tdsinfo->bytelen = %i\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen);
+		fprintf(stderr, "div->num_chunks = %i, div->reserved_size = %i, div->bytelen=%i\n", (int)div.size, (int)div.reserved_size, (int)dlen);
 		#endif
 		
 		// destroy members, but keep memory
