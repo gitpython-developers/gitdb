@@ -58,10 +58,10 @@ GitDB's reverse delta aggregation algorithm
 ===========================================
 The idea of this algorithm is to merge all delta streams into one, which can then be applied in just one go.
 
-In the current implementation, delta streams are parsed into DeltaChunks (->**DC**), which are kept in vectors. Each DC represents one copy-from-base operation, or one or multiple consecutive add-bytes operations. DeltaChunks know about their target offset in the target buffer, and their size. Their target offsets are consecutive, i.e. one chunk ends where the next one begins, regarding their logical extend in the target buffer.
+In the current implementation, delta streams are parsed into DeltaChunks (->**DC**). Each DC represents one copy-from-base operation, or one or multiple consecutive add-bytes operations. DeltaChunks know about their target offset in the target buffer, and their size. Their target offsets are consecutive, i.e. one chunk ends where the next one begins, regarding their logical extend in the target buffer.
 Add-bytes DCs additional store their data to apply, copy-from-base DCs store the offset into the base buffer from which to copy bytes.
 
-During processing, one starts with the latest (i.e. topmost) delta stream  (->**TDS**), and iterates through its ancestor delta streams (->ADS) to merge them into the growing toplevel delta stream.
+During processing, one starts with the latest (i.e. topmost) delta stream  (->**TDS**), and iterates through its ancestor delta streams (->ADS) to merge them into the growing toplevel delta stream..
 
 The merging works by following a set of rules:
  * Merge into the top-level delta from the youngest ancestor delta to the oldest one
@@ -72,10 +72,9 @@ The merging works by following a set of rules:
   
  * Finish the merge once all ADS have been handled, or once the TDS only consists of add-byte DCs. The remaining copy-from-base DCs will copy from the original base buffer accordingly.
  
-Applying the TDS is as straightforward as applying any other DS. The base buffer is required to be kept in memory. In the current implementation, a full-size target buffer is allocated to hold the result of applying the chunk information.
+Applying the TDS is as straightforward as applying any other DS. The base buffer is required to be kept in memory. In the current implementation, a full-size target buffer is allocated to hold the result of applying the chunk information. Here it is already possible to stream the result, which is feasible only if the memory of the base buffer + the memory of the TDS are smaller than a full size target buffer. Streaming will always make sense if the peak resulting from having the base, target and TDS buffers in memory together is unaffordable.
 
-The memory consumption during the TDS processing are the uncompressed delta-bytes, the parsed DS, as well as the TDS. Afterwards one requires an allocated base buffer, the target buffer, as well as the TDS.
-It is clearly visible that the current implementation does not at all reduce memory consumption, but the opposite is true as the TDS can be large for large files.
+The memory consumption during the TDS processing is only the condensed delta-bytes, for each ADS an additional index is required which costs 8 byte per DC.  When applying the TDS, one requires an allocated base buffer too.The target buffer can be allocated, but may be a writer as well.
 
 Performance Results
 -------------------
@@ -83,17 +82,16 @@ The benchmarking context was the same as for the brute-force GitDB algorithm. Th
 The biggest performance bottleneck is the slicing of the parsed delta streams, where the program spends most of its time due to hundred thousands of calls.
 
 To get a more usable version of the algorithm, it was implemented in C, such that python must do no more than two calls to get all the work done. The first prepares the TDS, the second applies it, writing it into a target buffer.
-The throughput reaches 16.7 MiB/s, which equals 1344 streams/s, which makes it 15 times faster than the pure python version, and amazingly even 1.5 times faster than the brute-force C implementation. As a comparison, cgit is able to stream about 20 MiB when controlling it through a pipe. GitDBs performance may still improve once pack access is reimplemented in C as well.
+The throughput reaches 15.2 MiB/s, which equals 1221 streams/s, which makes it nearly 14 times faster than the pure python version, and amazingly even 1.35 times faster than the brute-force C implementation. As a comparison, cgit is able to stream about 20 MiB when controlling it through a pipe. GitDBs performance may still improve once pack access is reimplemented in C as well.
 
-All this comes at a relatively high memory consumption.Additionally, with each new level being merged, not only are more DCs inserted, but the new chunks may get smaller as well. This can reach a point where one chunk only represents an individual byte, so the size of the data structure outweighs the logical chunk size by far.
-
-A 125 MB file took 3.1 seconds to unpack for instance, which is only 33% slower than the c implementation of the brute-force algorithm. 
+A 125 MB file took 2.5 seconds to unpack for instance, which is only 20% slower than the c implementation of the brute-force algorithm.
 
 
 Future work
 ===========
-The current implementation of the reverse delta aggregation algorithm is already working well and fast, but leaves room for improvement in the realm of its memory consumption. One way to considerably reduce it would be to index the delta stream to determine bounds, instead of parsing it into a separate data structure 
 
 Another very promising option is that streaming of delta data is indeed possible. Depending on the configuration of the copy-from-base operations, different optimizations could be applied to reduce the amount of memory required for the final processed delta stream. Some configurations may even allow it to stream data from the base buffer, instead of pre-loading it for random access.
 
 The ability to stream files at reduced memory costs would only be feasible for big files, and would have to be payed with extra pre-processing time.
+
+A very first and simple implementation could avoid memory peaks by streaming the TDS in conjunction with a base buffer, instead of writing everything into a fully allocated target buffer.
