@@ -15,6 +15,7 @@ typedef uchar bool;
 const ull gDIV_grow_by = 100;
 
 
+
 // DELTA STREAM ACCESS
 ///////////////////////
 inline
@@ -63,10 +64,14 @@ void TSI_destroy(ToplevelStreamInfo* info)
 
 	if (info->parent_object){
 		Py_DECREF(info->parent_object);
-		info->parent_object = 0;
+		info->parent_object = NULL;
 	} else if (info->tds){
 		PyMem_Free((void*)info->tds);
 	}
+	info->tds = NULL;
+	info->cstart = NULL;
+	info->tdslen = 0;
+	info->num_chunks = 0;
 }
 
 inline
@@ -122,26 +127,21 @@ bool TSI_copy_stream_from_object(ToplevelStreamInfo* info)
 	return 1;
 }
 
-// make sure we have the given amount of memory available. This will change 
-// our official length in bytes right away, its up to the caller 
-// to do something useful with the freed space
-// Return true on success
-bool TSI_resize(ToplevelStreamInfo* info, uint num_bytes)
+// Transfer ownership of the given stream into our instance. The amount of chunks
+// remains the same, and needs to be set by the caller
+void TSI_replace_stream(ToplevelStreamInfo* info, const uchar* stream, uint streamlen)
 {
-	assert(info->tds);
-	if (num_bytes <= info->tdslen){
-		return 1;
-	}
+	assert(info->parent_object == 0);
+	fprintf(stderr, "TSI_replace_stream\n");
 	
-#ifdef DEBUG
-	fprintf(stderr, "TSI_resize: to %i bytes\n", num_bytes);
-#endif
 	uint ofs = (uint)(info->cstart - info->tds);
-	info->tds = PyMem_Realloc((void*)info->tds, num_bytes);
-	info->tdslen = num_bytes;
+	if (info->tds){
+		PyMem_Free((void*)info->tds);
+	}
+	info->tds = stream;
 	info->cstart = info->tds + ofs;
+	info->tdslen = streamlen;
 	
-	return info->tds != NULL;
 }
 
 // DELTA CHUNK 
@@ -155,6 +155,9 @@ typedef struct {
 	uint so;
 	const uchar* data;
 } DeltaChunk;
+
+// forward declarations
+const uchar* next_delta_info(const uchar*, DeltaChunk*);
 
 inline
 void DC_init(DeltaChunk* dc, ull to, ull ts, ull so, const uchar* data)
@@ -208,6 +211,8 @@ inline
 void DC_encode_to(const DeltaChunk* dc, uchar** pout, uint ofs, uint size)
 {
 	uchar* out = *pout;
+	DC_print(dc, "DC_encode_to");
+	fprintf(stderr, "DC_encode_to: ofs = %i, size = %i\n" , ofs, size); 
 	if (dc->data){
 		*out++ = (uchar)size;
 		memcpy(out, dc->data+ofs, size);
@@ -233,6 +238,18 @@ void DC_encode_to(const DeltaChunk* dc, uchar** pout, uint ofs, uint size)
 		
 		*op = i;
 	}
+	
+#ifdef DEBUG
+	DeltaChunk mdc;
+	DC_init(&mdc, 0, 0, 0, NULL);
+	next_delta_info(*pout, &mdc);
+	assert(mdc.ts == size);
+	if (mdc.data)
+		assert(mdc.data);
+	else
+		assert(mdc.so == dc->so+ofs);
+#endif
+	
 	*pout = out;
 }
 
@@ -497,8 +514,6 @@ DeltaInfo* DIV_closest_chunk(const DeltaInfoVector* vec, ull ofs)
 	return DIV_last(vec);
 }
 
-// forward declaration
-const uchar* next_delta_info(const uchar*, DeltaChunk*);
 
 // Return the amount of chunks a slice at the given spot would have, as well as 
 // its size in bytes it would have if the possibly partial chunks would be encoded
@@ -558,10 +573,11 @@ uint DIV_count_slice_bytes(const DeltaInfoVector* src, uint ofs, uint size)
 // data chunk stream
 // Return: number of chunks in the slice
 inline
-uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar* dest, ull tofs, uint size)
+uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar** dest, ull tofs, uint size)
 {
 	assert(DIV_lbound(src) <= tofs);
 	assert((tofs + size) <= DIV_info_rbound(src, DIV_last(src)));
+	fprintf(stderr, "copy_slice: ofs = %i, size = %i\n", (int)tofs, size);
 	
 	DeltaChunk dc;
 	DC_init(&dc, 0, 0, 0, NULL);
@@ -573,14 +589,12 @@ uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar* dest, ull tofs, uint s
 	if (cdi->to != tofs) {
 		const uint relofs = tofs - cdi->to;
 		next_delta_info(src->dstream + cdi->dso, &dc);
-		const uint cdisize = dc.ts;
-		const uint max_size = cdisize - relofs < size ? cdisize - relofs : size; 
+		const uint max_size = dc.ts - relofs < size ? dc.ts - relofs : size; 
 		
 		size -= max_size; 
 		
 		// adjust dc proportions
-		
-		DC_encode_to(&dc, &dest, relofs, max_size);
+		DC_encode_to(&dc, dest, relofs, max_size);
 			
 		num_chunks += 1;
 		cdi += 1;
@@ -599,10 +613,10 @@ uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar* dest, ull tofs, uint s
 			// Full copy would be possible, but the final length of the dstream
 			// needs to be used as well to know how many bytes to copy
 			// TODO: make a DIV_ function for this
-			DC_encode_to(&dc, &dest, 0, dc.ts);
+			DC_encode_to(&dc, dest, 0, dc.ts);
 			size -= dc.ts;
 		} else {
-			DC_encode_to(&dc, &dest, 0, size);
+			DC_encode_to(&dc, dest, 0, size);
 			size = 0;
 			break;
 		}
@@ -619,98 +633,90 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 {
 	assert(tsi->num_chunks);
 	
-	typedef struct {
-		uint bofs;			// byte-offset of delta stream
-		uint dofs;			// delta stream offset relative to tsi->cstart
-	} OffsetInfo;
 	
-	
-	OffsetInfo *const offset_array = PyMem_Malloc(tsi->num_chunks * sizeof(OffsetInfo));
-	if (!offset_array){
-		return 0;
-	}
-	
-	OffsetInfo* pofs = offset_array;
-	uint num_addbytes = 0;
-	int bytes = 0;
-	uint dofs = 0;
-	
+	uint num_bytes = 0;
 	const uchar* data = TSI_first(tsi);
-	const uchar* prev_data = data;
-	const uchar const* dend = TSI_end(tsi);
+	const uchar* dend = TSI_end(tsi);
 	
 	DeltaChunk dc;
 	DC_init(&dc, 0, 0, 0, NULL);
 	
 	
-	// OFFSET RUN
-	for (;data < dend; pofs++, prev_data = data)
+	// COMPUTE SIZE OF TARGET STREAM
+	/////////////////////////////////
+	for (;data < dend;)
 	{
-		pofs->bofs = num_addbytes;
 		data = next_delta_info(data, &dc);
-		assert(data);
-		pofs->dofs = dofs;
-		dofs += (uint)(data-prev_data);
+		DC_print(&dc, "count");
 		
 		// Data chunks don't need processing
 		if (dc.data){
+			num_bytes += 1 + dc.ts;
 			continue;
 		}
 		
-		// offset the next chunk by the amount of chunks in the slice
-		// - N, because we replace our own chunk's bytes
-		bytes = DIV_count_slice_bytes(div, dc.so, dc.ts) - (data - prev_data);
-		// if we shrink in size, compensate this by moving the start virtually
-		// 
-		if (bytes < 0){
-			fprintf(stderr, "hit negative bytes: %i\n", bytes);
-			tsi->cstart += abs(bytes);
-		}
-		num_addbytes += abs(bytes);
+		num_bytes += DIV_count_slice_bytes(div, dc.so, dc.ts);
 	}
-	
 	assert(DC_rbound(&dc) == tsi->target_size);
 	
 	
-	// reserve enough memory to hold all the new chunks
-	TSI_resize(tsi, tsi->tdslen + num_addbytes);
-	const OffsetInfo const* pofs_start = offset_array - 1;
-	const OffsetInfo* cpofs;
-	uchar* ds;											// pointer into the delta stream
-	const uchar* nds;									// next pointer, used for size retrieving the size
-	uint num_addchunks = 0;								// total amount of chunks added
+	// GET NEW DELTA BUFFER
+	////////////////////////
+	uchar *const dstream = PyMem_Malloc(num_bytes);
+	if (!dstream){
+		return 0;
+	}
+	
+	
+	data = TSI_first(tsi);
+	const uchar *ndata = data;
+	dend = TSI_end(tsi);
+	
+	uint num_chunks = 0;
+	uchar* ds = dstream;
 	DC_init(&dc, 0, 0, 0, NULL);
 	
-	// Insert slices, from the end to the beginning, which allows memcpy
-	// to be used, with a little help of the offset array
-	for (cpofs = pofs - 1; cpofs > pofs_start; cpofs--)
+	// pick slices from the delta and put them into the new stream
+	for (; data < dend; data = ndata)
 	{
-		ds = (uchar*)(tsi->cstart + cpofs->dofs);
-		nds = next_delta_info(ds, &dc);
+		ndata = next_delta_info(data, &dc);
+		
+		DC_print(&dc, "slice");
 		
 		// Data chunks don't need processing
 		if (dc.data){
-			// NOTE: could peek the preceeding chunks to figure out whether they are 
-			// all just moved by ofs. In that case, they can move as a whole!
-			// tests showed that this is very rare though, even in huge deltas, so its
-			// not worth the extra effort
-			if (cpofs->bofs){
-				memcpy((void*)(ds + cpofs->bofs), (void*)ds, nds - ds);
-				// memmove((void*)(ds + cpofs->bofs), (void*)ds, nds - ds);
-			}
+			// just copy it over
+			memcpy((void*)ds, (void*)data, ndata - data);
+			ds += ndata - data;
+			num_chunks += 1;
 			continue;
 		}
 		
-		// Copy Chunks - target offset is determined by their location and size
-		// hence it doesn't need specific adjustment
-		num_addchunks += DIV_copy_slice_to(div, ds + cpofs->bofs, dc.so, dc.ts);
-		// -1 chunks because we overwrite our own chunk ( by not copying it )
-		num_addchunks -= 1;
+		// Copy Chunks
+		num_chunks += DIV_copy_slice_to(div, &ds, dc.so, dc.ts);
 	}
+	assert(ds - dstream == num_bytes);
+	assert(num_chunks >= tsi->num_chunks);
+	assert(DC_rbound(&dc) == tsi->target_size);
 	
-	tsi->num_chunks += num_addchunks;
+	// finally, replace the streams
+	TSI_replace_stream(tsi, dstream, num_bytes);
+	tsi->cstart = dstream;							// we have NO header !
+	assert(tsi->tds == dstream);
+	tsi->num_chunks = num_chunks;
 	
-	PyMem_Free(offset_array);
+#ifdef DEBUG
+	data = TSI_first(tsi);
+	dend = TSI_end(tsi);
+	
+	DC_init(&dc, 0, 0, 0, NULL);
+	
+	while (data < dend){
+		data = next_delta_info(data, &dc);
+		DC_print(&dc, "debug");
+	}
+#endif 
+	
 	return 1;
 
 }
@@ -754,6 +760,7 @@ PyObject* DCL_py_rbound(DeltaChunkList* self)
 static
 PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 {
+	fprintf(stderr, "DCL_apply\n");
 	
 	PyObject* pybuf = 0;
 	PyObject* writeproc = 0;
@@ -890,6 +897,7 @@ const uchar* next_delta_info(const uchar* data, DeltaChunk* dc)
 		data += cmd;
 	} else {                                                                               
 		PyErr_SetString(PyExc_RuntimeError, "Encountered an unsupported delta cmd: 0");
+		assert(0);
 		return NULL;
 	}
 	
@@ -1048,7 +1056,7 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		
 		#ifdef DEBUG
 		fprintf(stderr, "------------ Stream %i --------\n ", (int)dsi);
-		fprintf(stderr, "Before Connect: tdsinfo->num_chunks = %i, tdsinfo->bytelen = %i\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen);
+		fprintf(stderr, "Before Connect: tdsinfo: num_chunks = %i, bytelen = %i, target_size = %i\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen, (int)tdsinfo.target_size);
 		fprintf(stderr, "div->num_chunks = %i, div->reserved_size = %i, div->bytelen=%i\n", (int)div.size, (int)div.reserved_size, (int)dlen);
 		#endif
 		
