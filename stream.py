@@ -445,7 +445,7 @@ class DeltaApplyReader(LazyMixin):
 		
 	
 	#{ Configuration
-	if not has_perf_mod:
+	if has_perf_mod:
 		_set_cache_ = _set_cache_brute_
 	else:
 		_set_cache_ = _set_cache_too_slow_without_c

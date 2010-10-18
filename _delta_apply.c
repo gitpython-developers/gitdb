@@ -534,13 +534,12 @@ uint DIV_count_slice_bytes(const DeltaInfoVector* src, uint ofs, uint size)
 	}
 	
 	const DeltaInfo const* vecend = DIV_end(src);
+	const uchar* nstream;
 	for( ;cdi < vecend; ++cdi){
-		next_delta_info(src->dstream + cdi->dso, &dc);
+		nstream = next_delta_info(src->dstream + cdi->dso, &dc);
 		
 		if (dc.ts < size) {
-			// TODO: could just count size of the delta chunk in the stream instead
-			// of reencoding
-			num_bytes += DC_count_encode_bytes(&dc);
+			num_bytes += nstream - (src->dstream + cdi->dso);
 			size -= dc.ts;
 		} else {
 			dc.ts = size;
@@ -589,16 +588,15 @@ uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar** dest, ull tofs, uint 
 		}
 	}
 	
-	const DeltaInfo* vecend = DIV_end(src);
-	for( ;cdi < vecend; ++cdi)
+	const uchar* dstream = src->dstream + cdi->dso;
+	const uchar* nstream = dstream;
+	for( ; nstream; dstream = nstream)
 	{
 		num_chunks += 1;
-		next_delta_info(src->dstream + cdi->dso, &dc);
+		nstream = next_delta_info(dstream, &dc);
 		if (dc.ts < size) {
-			// Full copy would be possible, but the final length of the dstream
-			// needs to be used as well to know how many bytes to copy
-			// TODO: make a DIV_ function for this
-			DC_encode_to(&dc, dest, 0, dc.ts);
+			memcpy(*dest, dstream, nstream - dstream);
+			*dest += nstream - dstream;
 			size -= dc.ts;
 		} else {
 			DC_encode_to(&dc, dest, 0, size);
