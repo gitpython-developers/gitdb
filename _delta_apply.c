@@ -132,7 +132,6 @@ bool TSI_copy_stream_from_object(ToplevelStreamInfo* info)
 void TSI_replace_stream(ToplevelStreamInfo* info, const uchar* stream, uint streamlen)
 {
 	assert(info->parent_object == 0);
-	fprintf(stderr, "TSI_replace_stream\n");
 	
 	uint ofs = (uint)(info->cstart - info->tds);
 	if (info->tds){
@@ -211,8 +210,6 @@ inline
 void DC_encode_to(const DeltaChunk* dc, uchar** pout, uint ofs, uint size)
 {
 	uchar* out = *pout;
-	DC_print(dc, "DC_encode_to");
-	fprintf(stderr, "DC_encode_to: ofs = %i, size = %i\n" , ofs, size); 
 	if (dc->data){
 		*out++ = (uchar)size;
 		memcpy(out, dc->data+ofs, size);
@@ -238,17 +235,6 @@ void DC_encode_to(const DeltaChunk* dc, uchar** pout, uint ofs, uint size)
 		
 		*op = i;
 	}
-	
-#ifdef DEBUG
-	DeltaChunk mdc;
-	DC_init(&mdc, 0, 0, 0, NULL);
-	next_delta_info(*pout, &mdc);
-	assert(mdc.ts == size);
-	if (mdc.data)
-		assert(mdc.data);
-	else
-		assert(mdc.so == dc->so+ofs);
-#endif
 	
 	*pout = out;
 }
@@ -577,7 +563,6 @@ uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar** dest, ull tofs, uint 
 {
 	assert(DIV_lbound(src) <= tofs);
 	assert((tofs + size) <= DIV_info_rbound(src, DIV_last(src)));
-	fprintf(stderr, "copy_slice: ofs = %i, size = %i\n", (int)tofs, size);
 	
 	DeltaChunk dc;
 	DC_init(&dc, 0, 0, 0, NULL);
@@ -647,7 +632,6 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 	for (;data < dend;)
 	{
 		data = next_delta_info(data, &dc);
-		DC_print(&dc, "count");
 		
 		// Data chunks don't need processing
 		if (dc.data){
@@ -681,8 +665,6 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 	{
 		ndata = next_delta_info(data, &dc);
 		
-		DC_print(&dc, "slice");
-		
 		// Data chunks don't need processing
 		if (dc.data){
 			// just copy it over
@@ -705,17 +687,6 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 	assert(tsi->tds == dstream);
 	tsi->num_chunks = num_chunks;
 	
-#ifdef DEBUG
-	data = TSI_first(tsi);
-	dend = TSI_end(tsi);
-	
-	DC_init(&dc, 0, 0, 0, NULL);
-	
-	while (data < dend){
-		data = next_delta_info(data, &dc);
-		DC_print(&dc, "debug");
-	}
-#endif 
 	
 	return 1;
 
@@ -760,8 +731,6 @@ PyObject* DCL_py_rbound(DeltaChunkList* self)
 static
 PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 {
-	fprintf(stderr, "DCL_apply\n");
-	
 	PyObject* pybuf = 0;
 	PyObject* writeproc = 0;
 	if (!PyArg_ParseTuple(args, "OO", &pybuf, &writeproc)){
@@ -1056,8 +1025,8 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		
 		#ifdef DEBUG
 		fprintf(stderr, "------------ Stream %i --------\n ", (int)dsi);
-		fprintf(stderr, "Before Connect: tdsinfo: num_chunks = %i, bytelen = %i, target_size = %i\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen, (int)tdsinfo.target_size);
-		fprintf(stderr, "div->num_chunks = %i, div->reserved_size = %i, div->bytelen=%i\n", (int)div.size, (int)div.reserved_size, (int)dlen);
+		fprintf(stderr, "Before Connect: tdsinfo: num_chunks = %i, bytelen = %i KiB, target_size = %i KiB\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen/1000, (int)tdsinfo.target_size/1000);
+		fprintf(stderr, "div->num_chunks = %i, div->reserved_size = %i, div->bytelen=%i KiB\n", (int)div.size, (int)div.reserved_size, (int)dlen/1000);
 		#endif
 		
 		if (!DIV_connect_with_base(&tdsinfo, &div)){
@@ -1065,7 +1034,7 @@ static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		}
 	
 		#ifdef DEBUG
-		fprintf(stderr, "after connect: tdsinfo->num_chunks = %i, tdsinfo->bytelen = %i\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen);
+		fprintf(stderr, "after connect: tdsinfo->num_chunks = %i, tdsinfo->bytelen = %i KiB\n", (int)tdsinfo.num_chunks, (int)tdsinfo.tdslen/1000);
 		#endif
 		
 		// destroy members, but keep memory
