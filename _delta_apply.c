@@ -693,7 +693,7 @@ bool DIV_connect_with_base(ToplevelStreamInfo* tsi, DeltaInfoVector* div)
 			// all just moved by ofs. In that case, they can move as a whole!
 			// tests showed that this is very rare though, even in huge deltas, so its
 			// not worth the extra effort
-			if (pofs->bofs){
+			if (cpofs->bofs){
 				memcpy((void*)(ds + cpofs->bofs), (void*)ds, nds - ds);
 			}
 			continue;
