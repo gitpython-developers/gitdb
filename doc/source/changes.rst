@@ -1,6 +1,12 @@
 #########
 Changelog
 #########
+
+*****
+0.5.2
+*****
+* Improved performance of the c implementation, which now uses reverse-delta-aggregation to make a memory bound operation CPU bound.
+
 *****
 0.5.1
 *****
