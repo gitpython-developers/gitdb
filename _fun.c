@@ -1,5 +1,5 @@
 #include <Python.h>
-#include "_delta_apply.c"
+#include "_delta_apply.h"
 
 static PyObject *PackIndexFile_sha_to_index(PyObject *self, PyObject *args)
 {

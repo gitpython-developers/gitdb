@@ -23,6 +23,7 @@ class build_ext_nofail(build_ext):
 		except Exception:
 			print "Ignored failure when building extensions, pure python modules will be used instead"
 		# END ignore errors
+		
 
 def get_data_files(self):
 	"""Can you feel the pain ? So, in python2.5 and python2.4 coming with maya, 
@@ -77,7 +78,7 @@ setup(cmdclass={'build_ext':build_ext_nofail},
       package_data={'gitdb' : ['AUTHORS', 'README'], 
 					  'gitdb.test' : ['fixtures/packs/*', 'fixtures/objects/7b/*']},
       package_dir = {'gitdb':''},
-      ext_modules=[Extension('gitdb._perf', ['_fun.c', '_delta_apply.c'])],
+      ext_modules=[Extension('gitdb._perf', ['_fun.c', '_delta_apply.c'], include_dirs=['.'])],
       license = "BSD License",
       requires=('async (>=0.6.1)',),
       install_requires='async >= 0.6.1',

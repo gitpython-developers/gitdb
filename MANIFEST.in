@@ -5,6 +5,8 @@ include AUTHORS
 include README
 
 include _fun.c
+include _delta_apply.c
+include _delta_apply.h
 
 graft test
 
