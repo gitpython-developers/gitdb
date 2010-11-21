@@ -80,6 +80,7 @@ setup(cmdclass={'build_ext':build_ext_nofail},
       package_dir = {'gitdb':''},
       ext_modules=[Extension('gitdb._perf', ['_fun.c', '_delta_apply.c'], include_dirs=['.'])],
       license = "BSD License",
+      zip_safe=False,
       requires=('async (>=0.6.1)',),
       install_requires='async >= 0.6.1',
       long_description = """GitDB is a pure-Python git object database"""
