@@ -44,8 +44,7 @@ chunk_size = 1000*mmap.PAGESIZE
 
 __all__ = ('is_loose_object', 'loose_object_header_info', 'msb_size', 'pack_object_header_info', 
 			'write_object', 'loose_object_header', 'stream_copy', 'apply_delta_data', 
-			'is_equal_canonical_sha', 'reverse_connect_deltas',
-			'connect_deltas', 'DeltaChunkList')
+			'is_equal_canonical_sha', 'connect_deltas', 'DeltaChunkList')
 
 
 #{ Structures
@@ -492,8 +491,10 @@ def stream_copy(read, write, size, chunk_size):
 	return dbw
 	
 def connect_deltas(dstreams):
-	"""Read the condensed delta chunk information from dstream and merge its information
-	into a list of existing delta chunks
+	"""
+	Read the condensed delta chunk information from dstream and merge its information
+		into a list of existing delta chunks
+	
 	:param dstreams: iterable of delta stream objects, the delta to be applied last
 		comes first, then all its ancestors in order
 	:return: DeltaChunkList, containing all operations to apply"""

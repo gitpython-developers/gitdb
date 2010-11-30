@@ -4,11 +4,11 @@ include CHANGES
 include AUTHORS
 include README
 
-include _fun.c
-include _delta_apply.c
-include _delta_apply.h
+include gitdb/_fun.c
+include gitdb/_delta_apply.c
+include gitdb/_delta_apply.h
 
-graft test
+prune gitdb/test
 
 global-exclude .git*
 global-exclude *.pyc
