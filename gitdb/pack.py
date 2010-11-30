@@ -651,7 +651,7 @@ class PackEntity(LazyMixin):
 		
 		:param use_crc: if True, the index' crc for the sha is used to determine
 		:param sha: 20 byte sha1 of the object whose stream to verify
-		whether the compressed stream of the object is valid. If it is 
+			whether the compressed stream of the object is valid. If it is 
 			a delta, this only verifies that the delta's data is valid, not the 
 			data of the actual undeltified object, as it depends on more than 
 			just this stream.

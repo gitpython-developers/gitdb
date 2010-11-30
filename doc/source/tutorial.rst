@@ -37,7 +37,7 @@ Both have two sets of methods, one of which allows interacting with single objec
 Acquiring information about an object from a database is easy if you have a SHA1 to refer to the object::
     
     
-    ldb = LooseObjectDB(fixture_path("../../.git/objects"))
+    ldb = LooseObjectDB(fixture_path("../../../.git/objects"))
     
     for sha1 in ldb.sha_iter():
         oinfo = ldb.info(sha1)
