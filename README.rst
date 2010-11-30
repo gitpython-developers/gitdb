@@ -15,8 +15,7 @@ SOURCE
 ======
 The source is available in a git repository at gitorious and github:
 
-git://gitorious.org/git-python/gitdb.git
-git://github.com/Byron/gitdb.git
+git://github.com/gitpython-developers/gitdb.git
 
 Once the clone is complete, please be sure to initialize the submodules using
 
@@ -33,7 +32,7 @@ http://groups.google.com/group/git-python
 
 ISSUE TRACKER
 =============
-http://byronimo.lighthouseapp.com/projects/51787-gitpython
+https://github.com/gitpython-developers/gitdb/issues
 
 LICENSE
 =======
