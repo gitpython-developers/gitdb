@@ -15,8 +15,7 @@ class TestPackDB(TestDBBase):
 		pdb = PackedDB(path)
 		
 		# on demand, we init our pack cache
-		num_packs = 2
-		assert len(pdb.entities()) == num_packs
+		num_packs = len(pdb.entities())
 		assert pdb._st_mtime != 0
 		
 		# test pack directory changed: 

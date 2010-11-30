@@ -7,7 +7,7 @@ from gitdb.util import hex_to_bin, bin_to_hex
 class TestGitDB(TestDBBase):
 	
 	def test_reading(self):
-		gdb = GitDB(fixture_path('../../.git/objects'))
+		gdb = GitDB(fixture_path('../../../.git/objects'))
 		
 		# we have packs and loose objects, alternates doesn't necessarily exist
 		assert 1 < len(gdb.databases()) < 4

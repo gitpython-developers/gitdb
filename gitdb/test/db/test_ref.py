@@ -34,7 +34,7 @@ class TestReferenceDB(TestDBBase):
 		
 		# setup alternate file
 		# add two, one is invalid
-		own_repo_path = fixture_path('../../.git/objects')		# use own repo
+		own_repo_path = fixture_path('../../../.git/objects')		# use own repo
 		self.make_alt_file(alt_path, [own_repo_path, "invalid/path"])
 		rdb.update_cache()
 		assert len(rdb.databases()) == 1

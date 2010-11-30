@@ -11,7 +11,7 @@ from async import IteratorReader
 class TestExamples(TestBase):
 	
 	def test_base(self):
-		ldb = LooseObjectDB(fixture_path("../../.git/objects"))
+		ldb = LooseObjectDB(fixture_path("../../../.git/objects"))
 		
 		for sha1 in ldb.sha_iter():
 			oinfo = ldb.info(sha1)
