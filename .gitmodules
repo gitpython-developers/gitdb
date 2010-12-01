@@ -1,3 +1,4 @@
 [submodule "async"]
 	path = gitdb/ext/async
 	url = git://github.com/gitpython-developers/async.git
+	branch = master
