@@ -234,7 +234,7 @@ class TestPack(TestBase):
 		count = 0
 		for info in entity.info_iter():
 			count += 1
-			for use_crc in reversed(range(2)):
+			for use_crc in range(2):
 				assert entity.is_valid_stream(info.binsha, use_crc)
 			# END for each crc mode
 		#END for each info

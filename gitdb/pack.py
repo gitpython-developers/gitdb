@@ -127,15 +127,20 @@ def pack_object_at(data, offset, as_stream):
 		# END handle info
 	# END handle stream
 
-def write_stream_to_pack(read, write, zstream, want_crc=False):
+def write_stream_to_pack(read, write, zstream, base_crc=None):
 	"""Copy a stream as read from read function, zip it, and write the result.
 	Count the number of written bytes and return it
-	:param want_crc: if True, the crc will be generated over the compressed data.
-	:return: tuple(no bytes read, no bytes written, crc32) crc might be 0 if want_crc
+	:param base_crc: if not None, the crc will be the base for all compressed data
+		we consecutively write and generate a crc32 from. If None, no crc will be generated
+	:return: tuple(no bytes read, no bytes written, crc32) crc might be 0 if base_crc
 		was false"""
 	br = 0		# bytes read
 	bw = 0		# bytes written
+	want_crc = base_crc is not None
 	crc = 0
+	if want_crc:
+		crc = base_crc
+	#END initialize crc
 	
 	while True:
 		chunk = read(chunk_size)
@@ -651,6 +656,9 @@ class PackEntity(LazyMixin):
 		
 	def _set_cache_(self, attr):
 		# currently this can only be _offset_map
+		# TODO: make this a simple sorted offset array which can be bisected
+		# to find the respective entry, from which we can take a +1 easily
+		# This might be slower, but should also be much lighter in memory !
 		offsets_sorted = sorted(self._index.offsets())
 		last_offset = len(self._pack.data()) - self._pack.footer_size
 		assert offsets_sorted, "Cannot handle empty indices"
@@ -926,15 +934,21 @@ class PackEntity(LazyMixin):
 		actual_count = 0
 		for obj in objs:
 			actual_count += 1
+			crc = 0
 			
 			# object header
 			hdr = create_pack_object_header(obj.type_id, obj.size)
+			if index_write:
+				crc = crc32(hdr)
+			else:
+				crc = None
+			#END handle crc
 			pwrite(hdr)
 			
 			# data stream
 			zstream = zlib.compressobj(zlib_compression)
 			ostream = obj.stream
-			br, bw, crc = write_stream_to_pack(ostream.read, pwrite, zstream, want_crc = index_write)
+			br, bw, crc = write_stream_to_pack(ostream.read, pwrite, zstream, base_crc = crc)
 			assert(br == obj.size)
 			if wants_index:
 				index.append(obj.binsha, crc, ofs)
