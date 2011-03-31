@@ -1,4 +1,4 @@
-#include "_delta_apply.h"
+#include <_delta_apply.h>
 #include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
@@ -463,7 +463,7 @@ void DIV_reset(DeltaInfoVector* vec)
 
 // Append one chunk to the end of the list, and return a pointer to it
 // It will not have been initialized !
-static inline
+inline
 DeltaInfo* DIV_append(DeltaInfoVector* vec)
 {
 	if (vec->size + 1 > vec->reserved_size){
@@ -703,7 +703,7 @@ typedef struct {
 } DeltaChunkList;
 
 
-static 
+ 
 int DCL_init(DeltaChunkList*self, PyObject *args, PyObject *kwds)
 {
 	if(args && PySequence_Size(args) > 0){
@@ -715,20 +715,20 @@ int DCL_init(DeltaChunkList*self, PyObject *args, PyObject *kwds)
 	return 0;
 }
 
-static
+
 void DCL_dealloc(DeltaChunkList* self)
 {
 	TSI_destroy(&(self->istream));
 }
 
-static
+
 PyObject* DCL_py_rbound(DeltaChunkList* self)
 {
 	return PyLong_FromUnsignedLongLong(self->istream.target_size);
 }
 
 // Write using a write function, taking remaining bytes from a base buffer
-static
+
 PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 {
 	PyObject* pybuf = 0;
@@ -769,13 +769,13 @@ PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 	Py_RETURN_NONE;
 }
 
-static PyMethodDef DCL_methods[] = {
+PyMethodDef DCL_methods[] = {
     {"apply", (PyCFunction)DCL_apply, METH_VARARGS, "Apply the given iterable of delta streams" },
     {"rbound", (PyCFunction)DCL_py_rbound, METH_NOARGS, NULL},
     {NULL}  /* Sentinel */
 };
 
-static PyTypeObject DeltaChunkListType = {
+PyTypeObject DeltaChunkListType = {
 	PyObject_HEAD_INIT(NULL)
 	0,						   /*ob_size*/
 	"DeltaChunkList",			/*tp_name*/
@@ -897,7 +897,7 @@ uint compute_chunk_count(const uchar* data, const uchar* dend, bool read_header)
 	return num_chunks;
 }
 
-static PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
+PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 {
 	// obtain iterator
 	PyObject* stream_iter = 0;
@@ -1088,7 +1088,6 @@ _error:
 
 // Write using a write function, taking remaining bytes from a base buffer
 // replaces the corresponding method in python
-static
 PyObject* apply_delta(PyObject* self, PyObject* args)
 {
 	PyObject* pybbuf = 0;
