@@ -33,7 +33,9 @@ try:
 except ImportError:
 	pass
 
-__all__ = ('DecompressMemMapReader', 'FDCompressedSha1Writer', 'DeltaApplyReader')
+__all__ = (	'DecompressMemMapReader', 'FDCompressedSha1Writer', 'DeltaApplyReader', 
+			'Sha1Writer', 'FlexibleSha1Writer', 'ZippedStoreShaWriter', 'FDCompressedSha1Writer',
+			'FDStream', 'NullStream')
 
 
 #{ RO Streams
@@ -555,6 +557,20 @@ class Sha1Writer(object):
 		return self.sha1.digest()
 	
 	#} END interface 
+
+
+class FlexibleSha1Writer(Sha1Writer):
+	"""Writer producing a sha1 while passing on the written bytes to the given 
+	write function"""
+	__slots__ = 'writer'
+	
+	def __init__(self, writer):
+		Sha1Writer.__init__(self)
+		self.writer = writer
+	
+	def write(self, data):
+		Sha1Writer.write(self, data)
+		self.writer(data)
 
 
 class ZippedStoreShaWriter(Sha1Writer):

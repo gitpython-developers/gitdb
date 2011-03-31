@@ -5,16 +5,19 @@
 """Contains PackIndexFile and PackFile implementations"""
 from gitdb.exc import (
 						BadObject,
-						UnsupportedOperation
+						UnsupportedOperation,
+						ParseError
 						)
 from util import (
 					zlib,
 					LazyMixin,
 					unpack_from,
+					bin_to_hex,
 					file_contents_ro_filepath,
 					)
 
 from fun import (
+					create_pack_object_header,
 					pack_object_header_info,
 					is_equal_canonical_sha,
 					type_id_to_type_map,
@@ -47,6 +50,7 @@ from stream import (
 						DeltaApplyReader,
 						Sha1Writer,
 						NullStream,
+						FlexibleSha1Writer
 					)
 
 from struct import (
@@ -54,7 +58,10 @@ from struct import (
 						unpack,
 					)
 
+from binascii import crc32
+
 from itertools import izip
+import tempfile
 import array
 import os
 import sys
@@ -98,8 +105,7 @@ def pack_object_at(data, offset, as_stream):
 	# REF DELTA
 	elif type_id == REF_DELTA:
 		total_rela_offset = data_rela_offset+20
-		ref_sha = data[data_rela_offset:total_rela_offset]
-		delta_info = ref_sha
+		delta_info = data[data_rela_offset:total_rela_offset]
 	# BASE OBJECT
 	else:
 		# assume its a base object
@@ -120,10 +126,120 @@ def pack_object_at(data, offset, as_stream):
 			return abs_data_offset, ODeltaPackInfo(offset, type_id, uncomp_size, delta_info)
 		# END handle info
 	# END handle stream
+
+def write_stream_to_pack(read, write, zstream, base_crc=None):
+	"""Copy a stream as read from read function, zip it, and write the result.
+	Count the number of written bytes and return it
+	:param base_crc: if not None, the crc will be the base for all compressed data
+		we consecutively write and generate a crc32 from. If None, no crc will be generated
+	:return: tuple(no bytes read, no bytes written, crc32) crc might be 0 if base_crc
+		was false"""
+	br = 0		# bytes read
+	bw = 0		# bytes written
+	want_crc = base_crc is not None
+	crc = 0
+	if want_crc:
+		crc = base_crc
+	#END initialize crc
+	
+	while True:
+		chunk = read(chunk_size)
+		br += len(chunk)
+		compressed = zstream.compress(chunk)
+		bw += len(compressed)
+		write(compressed)			# cannot assume return value
 		
+		if want_crc:
+			crc = crc32(compressed, crc)
+		#END handle crc
+		
+		if len(chunk) != chunk_size:
+			break
+	#END copy loop
+	
+	compressed = zstream.flush()
+	bw += len(compressed)
+	write(compressed)
+	if want_crc:
+		crc = crc32(compressed, crc)
+	#END handle crc
+	
+	return (br, bw, crc)
+
+
 #} END utilities
 
 
+class IndexWriter(object):
+	"""Utility to cache index information, allowing to write all information later
+	in one go to the given stream
+	:note: currently only writes v2 indices"""
+	__slots__ = '_objs'
+	
+	def __init__(self):
+		self._objs = list()
+		
+	def append(self, binsha, crc, offset):
+		"""Append one piece of object information"""
+		self._objs.append((binsha, crc, offset))
+		
+	def write(self, pack_sha, write):
+		"""Write the index file using the given write method
+		:param pack_sha: binary sha over the whole pack that we index
+		:return: sha1 binary sha over all index file contents"""
+		# sort for sha1 hash
+		self._objs.sort(key=lambda o: o[0])
+		
+		sha_writer = FlexibleSha1Writer(write)
+		sha_write = sha_writer.write
+		sha_write(PackIndexFile.index_v2_signature)
+		sha_write(pack(">L", PackIndexFile.index_version_default))
+		
+		# fanout
+		tmplist = list((0,)*256)								# fanout or list with 64 bit offsets
+		for t in self._objs:
+			tmplist[ord(t[0][0])] += 1
+		#END prepare fanout
+		for i in xrange(255):
+			v = tmplist[i]
+			sha_write(pack('>L', v))
+			tmplist[i+1] += v
+		#END write each fanout entry
+		sha_write(pack('>L', tmplist[255]))
+		
+		# sha1 ordered
+		# save calls, that is push them into c
+		sha_write(''.join(t[0] for t in self._objs))
+		
+		# crc32
+		for t in self._objs:
+			sha_write(pack('>L', t[1]&0xffffffff))
+		#END for each crc
+		
+		tmplist = list()
+		# offset 32
+		for t in self._objs:
+			ofs = t[2]
+			if ofs > 0x7fffffff:
+				tmplist.append(ofs)
+				ofs = 0x80000000 + len(tmplist)-1
+			#END hande 64 bit offsets
+			sha_write(pack('>L', ofs&0xffffffff))
+		#END for each offset
+		
+		# offset 64
+		for ofs in tmplist:
+			sha_write(pack(">Q", ofs))
+		#END for each offset
+		
+		# trailer
+		assert(len(pack_sha) == 20)
+		sha_write(pack_sha)
+		sha = sha_writer.sha(as_hex=False)
+		write(sha)
+		return sha
+		
+	
 
 class PackIndexFile(LazyMixin):
 	"""A pack index provides offsets into the corresponding pack, allowing to find
@@ -136,6 +252,8 @@ class PackIndexFile(LazyMixin):
 
 	# used in v2 indices
 	_sha_list_offset = 8 + 1024
+	index_v2_signature = '\377tOc'
+	index_version_default = 2
 
 	def __init__(self, indexpath):
 		super(PackIndexFile, self).__init__()
@@ -156,7 +274,7 @@ class PackIndexFile(LazyMixin):
 			# to access the fanout table or related properties
 			
 			# CHECK VERSION
-			self._version = (self._data[:4] == '\377tOc' and 2) or 1
+			self._version = (self._data[:4] == self.index_v2_signature and 2) or 1
 			if self._version == 2:
 				version_id = unpack_from(">L", self._data, 4)[0] 
 				assert version_id == self._version, "Unsupported index version: %i" % version_id
@@ -384,6 +502,8 @@ class PackFile(LazyMixin):
 		case"""
 	
 	__slots__ = ('_packpath', '_data', '_size', '_version')
+	pack_signature = 0x5041434b		# 'PACK'
+	pack_version_default = 2
 	
 	# offset into our data at which the first object starts
 	first_object_offset = 3*4		# header bytes
@@ -397,14 +517,18 @@ class PackFile(LazyMixin):
 			self._data = file_contents_ro_filepath(self._packpath)
 			
 			# read the header information
-			type_id, self._version, self._size = unpack_from(">4sLL", self._data, 0)
+			type_id, self._version, self._size = unpack_from(">LLL", self._data, 0)
 			
 			# TODO: figure out whether we should better keep the lock, or maybe
 			# add a .keep file instead ?
 		else: # must be '_size' or '_version'
 			# read header info - we do that just with a file stream
-			type_id, self._version, self._size = unpack(">4sLL", open(self._packpath).read(12))
+			type_id, self._version, self._size = unpack(">LLL", open(self._packpath).read(12))
 		# END handle header
+		
+		if type_id != self.pack_signature:
+			raise ParseError("Invalid pack signature: %i" % type_id)
+		#END assert type id
 		
 	def _iter_objects(self, start_offset, as_stream=True):
 		"""Handle the actual iteration of objects within this pack"""
@@ -532,6 +656,9 @@ class PackEntity(LazyMixin):
 		
 	def _set_cache_(self, attr):
 		# currently this can only be _offset_map
+		# TODO: make this a simple sorted offset array which can be bisected
+		# to find the respective entry, from which we can take a +1 easily
+		# This might be slower, but should also be much lighter in memory !
 		offsets_sorted = sorted(self._index.offsets())
 		last_offset = len(self._pack.data()) - self._pack.footer_size
 		assert offsets_sorted, "Cannot handle empty indices"
@@ -561,11 +688,10 @@ class PackEntity(LazyMixin):
 	
 	def _iter_objects(self, as_stream):
 		"""Iterate over all objects in our index and yield their OInfo or OStream instences"""
-		indexfile = self._index
+		_sha = self._index.sha
 		_object = self._object
-		for index in xrange(indexfile.size()):
-			sha = indexfile.sha(index)
-			yield _object(sha, as_stream, index)
+		for index in xrange(self._index.size()):
+			yield _object(_sha(index), as_stream, index)
 		# END for each index
 	
 	def _object(self, sha, as_stream, index=-1):
@@ -653,7 +779,9 @@ class PackEntity(LazyMixin):
 		"""
 		Verify that the stream at the given sha is valid.
 		
-		:param use_crc: if True, the index' crc for the sha is used to determine
+		:param use_crc: if True, the index' crc is run over the compressed stream of 
+			the object, which is much faster than checking the sha1. It is also
+			more prone to unnoticed corruption or manipulation.
 		:param sha: 20 byte sha1 of the object whose stream to verify
 			whether the compressed stream of the object is valid. If it is 
 			a delta, this only verifies that the delta's data is valid, not the 
@@ -759,6 +887,119 @@ class PackEntity(LazyMixin):
 		:raise BadObject:"""
 		return self.collect_streams_at_offset(self._index.offset(self._sha_to_index(sha)))
 		
+		
+	@classmethod
+	def write_pack(cls, object_iter, pack_write, index_write=None, 
+					object_count = None, zlib_compression = zlib.Z_BEST_SPEED):
+		"""
+		Create a new pack by putting all objects obtained by the object_iterator
+		into a pack which is written using the pack_write method.
+		The respective index is produced as well if index_write is not Non.
+		
+		:param object_iter: iterator yielding odb output objects
+		:param pack_write: function to receive strings to write into the pack stream
+		:param indx_write: if not None, the function writes the index file corresponding
+			to the pack.
+		:param object_count: if you can provide the amount of objects in your iteration, 
+			this would be the place to put it. Otherwise we have to pre-iterate and store 
+			all items into a list to get the number, which uses more memory than necessary.
+		:param zlib_compression: the zlib compression level to use
+		:return: tuple(pack_sha, index_binsha) binary sha over all the contents of the pack
+			and over all contents of the index. If index_write was None, index_binsha will be None
+		:note: The destination of the write functions is up to the user. It could
+			be a socket, or a file for instance
+		:note: writes only undeltified objects"""
+		objs = object_iter
+		if not object_count:
+			if not isinstance(object_iter, (tuple, list)):
+				objs = list(object_iter)
+			#END handle list type
+			object_count = len(objs)
+		#END handle object
+		
+		pack_writer = FlexibleSha1Writer(pack_write)
+		pwrite = pack_writer.write
+		ofs = 0											# current offset into the pack file
+		index = None
+		wants_index = index_write is not None
+		
+		# write header
+		pwrite(pack('>LLL', PackFile.pack_signature, PackFile.pack_version_default, object_count))
+		ofs += 12
+		
+		if wants_index:
+			index = IndexWriter()
+		#END handle index header
+		
+		actual_count = 0
+		for obj in objs:
+			actual_count += 1
+			crc = 0
+			
+			# object header
+			hdr = create_pack_object_header(obj.type_id, obj.size)
+			if index_write:
+				crc = crc32(hdr)
+			else:
+				crc = None
+			#END handle crc
+			pwrite(hdr)
+			
+			# data stream
+			zstream = zlib.compressobj(zlib_compression)
+			ostream = obj.stream
+			br, bw, crc = write_stream_to_pack(ostream.read, pwrite, zstream, base_crc = crc)
+			assert(br == obj.size)
+			if wants_index:
+				index.append(obj.binsha, crc, ofs)
+			#END handle index
+			
+			ofs += len(hdr) + bw
+			if actual_count == object_count:
+				break
+			#END abort once we are done
+		#END for each object
+		
+		if actual_count != object_count:
+			raise ValueError("Expected to write %i objects into pack, but received only %i from iterators" % (object_count, actual_count))
+		#END count assertion
+		
+		# write footer
+		pack_sha = pack_writer.sha(as_hex = False)
+		assert len(pack_sha) == 20
+		pack_write(pack_sha)
+		ofs += len(pack_sha)							# just for completeness ;)
+		
+		index_sha = None
+		if wants_index:
+			index_sha = index.write(pack_sha, index_write)
+		#END handle index
+		
+		return pack_sha, index_sha
+	
+	@classmethod
+	def create(cls, object_iter, base_dir, object_count = None, zlib_compression = zlib.Z_BEST_SPEED):
+		"""Create a new on-disk entity comprised of a properly named pack file and a properly named
+		and corresponding index file. The pack contains all OStream objects contained in object iter.
+		:param base_dir: directory which is to contain the files
+		:return: PackEntity instance initialized with the new pack
+		:note: for more information on the other parameters see the write_pack method"""
+		pack_fd, pack_path = tempfile.mkstemp('', 'pack', base_dir)
+		index_fd, index_path = tempfile.mkstemp('', 'index', base_dir)
+		pack_write = lambda d: os.write(pack_fd, d)
+		index_write = lambda d: os.write(index_fd, d)
+		
+		pack_binsha, index_binsha = cls.write_pack(object_iter, pack_write, index_write, object_count, zlib_compression)
+		os.close(pack_fd)
+		os.close(index_fd)
+		
+		fmt = "pack-%s.%s"
+		new_pack_path = os.path.join(base_dir, fmt % (bin_to_hex(pack_binsha), 'pack'))
+		new_index_path = os.path.join(base_dir, fmt % (bin_to_hex(pack_binsha), 'idx'))
+		os.rename(pack_path, new_pack_path)
+		os.rename(index_path, new_index_path)
+		
+		return cls(new_pack_path)
 		
 		
 	#} END interface
