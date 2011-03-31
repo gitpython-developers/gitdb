@@ -48,7 +48,7 @@ chunk_size = 1000*mmap.PAGESIZE
 
 __all__ = ('is_loose_object', 'loose_object_header_info', 'msb_size', 'pack_object_header_info', 
 			'write_object', 'loose_object_header', 'stream_copy', 'apply_delta_data', 
-			'is_equal_canonical_sha', 'connect_deltas', 'DeltaChunkList')
+			'is_equal_canonical_sha', 'connect_deltas', 'DeltaChunkList', 'create_pack_object_header')
 
 
 #{ Structures
@@ -412,6 +412,24 @@ def pack_object_header_info(data):
 		s += 7
 	# END character loop
 	return (type_id, size, i)
+
+def create_pack_object_header(obj_type, obj_size):
+	""":return: string defining the pack header comprised of the object type
+	and its incompressed size in bytes
+	:parmam obj_type: pack type_id of the object
+	:param obj_size: uncompressed size in bytes of the following object stream"""
+	c = 0		# 1 byte
+	hdr = str()	# output string
+
+	c = (obj_type << 4) | (obj_size & 0xf)
+	obj_size >>= 4
+	while obj_size:
+		hdr += chr(c | 0x80)
+		c = obj_size & 0x7f
+		obj_size >>= 7
+	#END until size is consumed
+	hdr += chr(c)
+	return hdr
 	
 def msb_size(data, offset=0):
 	"""

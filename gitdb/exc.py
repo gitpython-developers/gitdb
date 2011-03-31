@@ -17,6 +17,9 @@ class BadObject(ODBError):
 	
 	def __str__(self):
 		return "BadObject: %s" % to_hex_sha(self.args[0])
+		
+class ParseError(ODBError):
+	"""Thrown if the parsing of a file failed due to an invalid format"""
 
 class AmbiguousObjectName(ODBError):
 	"""Thrown if a possibly shortened name does not uniquely represent a single object

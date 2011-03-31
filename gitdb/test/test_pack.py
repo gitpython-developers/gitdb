@@ -140,7 +140,7 @@ class TestPack(TestBase):
 		
 	@with_rw_directory
 	def test_pack_entity(self, rw_dir):
-		pack_iterators = list();
+		pack_objs = list()
 		for packinfo, indexinfo in (	(self.packfile_v2_1, self.packindexfile_v1), 
 										(self.packfile_v2_2, self.packindexfile_v2),
 										(self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):
@@ -149,7 +149,7 @@ class TestPack(TestBase):
 			entity = PackEntity(packfile)
 			assert entity.pack().path() == packfile
 			assert entity.index().path() == indexfile
-			pack_iterators.append(entity.stream_iter())
+			pack_objs.extend(entity.stream_iter())
 			
 			count = 0
 			for info, stream in izip(entity.info_iter(), entity.stream_iter()):
@@ -182,24 +182,49 @@ class TestPack(TestBase):
 			assert count == size
 			
 		# END for each entity
-		 
+		
 		# pack writing - write all packs into one
 		# index path can be None
 		pack_path = tempfile.mktemp('', "pack", rw_dir)
 		index_path = tempfile.mktemp('', 'index', rw_dir)
-		for pp, ip in ((pack_path, )*2, (index_path, None)):
-			pfile = open(pp, 'wb')
-			ifile = None
-			if ip:
-				ifile = open(ip, 'wb')
+		iteration = 0
+		for ppath, ipath, num_obj in zip((pack_path, )*2, (index_path, None), (len(pack_objs), None)):
+			pfile = open(ppath, 'wb')
+			iwrite = None
+			if ipath:
+				ifile = open(ipath, 'wb')
+				iwrite = ifile.write
 			#END handle ip
 			
-			PackEntity.create(chain(*pack_iterators), pfile, ifile)
-			assert os.path.getsize(pp) > 100
-			if ip is not None:
-				assert os.path.getsize(ip) > 100
+			# make sure we rewind the streams ... we work on the same objects over and over again
+			if iteration > 0: 
+				for obj in pack_objs:
+					obj.stream.seek(0)
+			#END rewind streams
+			iteration += 1
+			
+			binsha = PackEntity.write_pack(pack_objs, pfile.write, iwrite, object_count=num_obj)
+			pfile.close()
+			assert os.path.getsize(ppath) > 100
+			
+			# verify pack
+			pf = PackFile(ppath)
+			assert pf.size() == len(pack_objs)
+			assert pf.version() == PackFile.pack_version_default
+			assert pf.checksum() == binsha
+			
+			# verify index
+			if ipath is not None:
+				assert os.path.getsize(ipath) > 100
+				
 			#END verify files exist
-		#END for each packpath, indexpath pair 
+			
+			if ifile:
+				ifile.close()
+			#END handle index
+		#END for each packpath, indexpath pair
+		
+		# 
 		 
 		
 	def test_pack_64(self):
