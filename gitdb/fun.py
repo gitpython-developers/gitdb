@@ -411,15 +411,7 @@ def pack_object_header_info(data):
 		size += (c & 0x7f) << s
 		s += 7
 	# END character loop
-	
-	try:
-		return (type_id, size, i)
-	except KeyError:
-		# invalid object type - we could try to be smart now and decode part 
-		# of the stream to get the info, problem is that we had trouble finding 
-		# the exact start of the content stream
-		raise BadObjectType(type_id)
-	# END handle exceptions
+	return (type_id, size, i)
 	
 def msb_size(data, offset=0):
 	"""

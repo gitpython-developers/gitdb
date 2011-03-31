@@ -25,8 +25,12 @@ from gitdb.base import (
 from gitdb.fun import delta_types
 from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
-from itertools import izip
+from itertools import izip, chain
+from nose import SkipTest
+
 import os
+import sys
+import tempfile
 
 
 #{ Utilities
@@ -134,7 +138,9 @@ class TestPack(TestBase):
 			self._assert_pack_file(pack, version, size)
 		# END for each pack to test
 		
-	def test_pack_entity(self):
+	@with_rw_directory
+	def test_pack_entity(self, rw_dir):
+		pack_iterators = list();
 		for packinfo, indexinfo in (	(self.packfile_v2_1, self.packindexfile_v1), 
 										(self.packfile_v2_2, self.packindexfile_v2),
 										(self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):
@@ -143,6 +149,7 @@ class TestPack(TestBase):
 			entity = PackEntity(packfile)
 			assert entity.pack().path() == packfile
 			assert entity.index().path() == indexfile
+			pack_iterators.append(entity.stream_iter())
 			
 			count = 0
 			for info, stream in izip(entity.info_iter(), entity.stream_iter()):
@@ -174,9 +181,28 @@ class TestPack(TestBase):
 			# END for each info, stream tuple
 			assert count == size
 			
-		 # END for each entity
+		# END for each entity
+		 
+		# pack writing - write all packs into one
+		# index path can be None
+		pack_path = tempfile.mktemp('', "pack", rw_dir)
+		index_path = tempfile.mktemp('', 'index', rw_dir)
+		for pp, ip in ((pack_path, )*2, (index_path, None)):
+			pfile = open(pp, 'wb')
+			ifile = None
+			if ip:
+				ifile = open(ip, 'wb')
+			#END handle ip
+			
+			PackEntity.create(chain(*pack_iterators), pfile, ifile)
+			assert os.path.getsize(pp) > 100
+			if ip is not None:
+				assert os.path.getsize(ip) > 100
+			#END verify files exist
+		#END for each packpath, indexpath pair 
+		 
 		
 	def test_pack_64(self):
 		# TODO: hex-edit a pack helping us to verify that we can handle 64 byte offsets
 		# of course without really needing such a huge pack 
-		pass
+		raise SkipTest()

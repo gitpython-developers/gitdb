@@ -98,8 +98,7 @@ def pack_object_at(data, offset, as_stream):
 	# REF DELTA
 	elif type_id == REF_DELTA:
 		total_rela_offset = data_rela_offset+20
-		ref_sha = data[data_rela_offset:total_rela_offset]
-		delta_info = ref_sha
+		delta_info = data[data_rela_offset:total_rela_offset]
 	# BASE OBJECT
 	else:
 		# assume its a base object
@@ -561,11 +560,10 @@ class PackEntity(LazyMixin):
 	
 	def _iter_objects(self, as_stream):
 		"""Iterate over all objects in our index and yield their OInfo or OStream instences"""
-		indexfile = self._index
+		_sha = self._index.sha
 		_object = self._object
-		for index in xrange(indexfile.size()):
-			sha = indexfile.sha(index)
-			yield _object(sha, as_stream, index)
+		for index in xrange(self._index.size()):
+			yield _object(_sha(index), as_stream, index)
 		# END for each index
 	
 	def _object(self, sha, as_stream, index=-1):
@@ -758,6 +756,21 @@ class PackEntity(LazyMixin):
 			a possibly unresolved base object.
 		:raise BadObject:"""
 		return self.collect_streams_at_offset(self._index.offset(self._sha_to_index(sha)))
+		
+		
+	@classmethod
+	def create(cls, object_iter, pack_write, index_write=None):
+		"""
+		Create a new pack by putting all objects obtained by the object_iterator
+		into a pack which is written using the pack_write method.
+		The respective index is produced as well if index_write is not Non.
+		
+		:param object_iter: iterator yielding odb output objects
+		:param pack_write: function to receive strings to write into the pack stream
+		:param indx_write: if not None, the function writes the index file corresponding
+			to the pack.
+		:note: The destination of the write functions is up to the user. It could
+			be a socket, or a file for instance"""
 		
 		
 		
