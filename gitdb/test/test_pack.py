@@ -188,6 +188,10 @@ class TestPack(TestBase):
 		pack_path = tempfile.mktemp('', "pack", rw_dir)
 		index_path = tempfile.mktemp('', 'index', rw_dir)
 		iteration = 0
+		def rewind_streams():
+			for obj in pack_objs: 
+				obj.stream.seek(0)
+		#END utility
 		for ppath, ipath, num_obj in zip((pack_path, )*2, (index_path, None), (len(pack_objs), None)):
 			pfile = open(ppath, 'wb')
 			iwrite = None
@@ -198,12 +202,11 @@ class TestPack(TestBase):
 			
 			# make sure we rewind the streams ... we work on the same objects over and over again
 			if iteration > 0: 
-				for obj in pack_objs:
-					obj.stream.seek(0)
+				rewind_streams()
 			#END rewind streams
 			iteration += 1
 			
-			binsha = PackEntity.write_pack(pack_objs, pfile.write, iwrite, object_count=num_obj)
+			pack_sha, index_sha = PackEntity.write_pack(pack_objs, pfile.write, iwrite, object_count=num_obj)
 			pfile.close()
 			assert os.path.getsize(ppath) > 100
 			
@@ -211,20 +214,31 @@ class TestPack(TestBase):
 			pf = PackFile(ppath)
 			assert pf.size() == len(pack_objs)
 			assert pf.version() == PackFile.pack_version_default
-			assert pf.checksum() == binsha
+			assert pf.checksum() == pack_sha
 			
 			# verify index
 			if ipath is not None:
-				assert os.path.getsize(ipath) > 100
-				
-			#END verify files exist
-			
-			if ifile:
 				ifile.close()
-			#END handle index
+				assert os.path.getsize(ipath) > 100
+				idx = PackIndexFile(ipath)
+				assert idx.version() == PackIndexFile.index_version_default
+				assert idx.packfile_checksum() == pack_sha
+				assert idx.indexfile_checksum() == index_sha
+				assert idx.size() == len(pack_objs)
+			#END verify files exist
 		#END for each packpath, indexpath pair
 		
-		# 
+		# verify the packs throughly
+		rewind_streams()
+		entity = PackEntity.create(pack_objs, rw_dir)
+		count = 0
+		for info in entity.info_iter():
+			count += 1
+			for use_crc in reversed(range(2)):
+				assert entity.is_valid_stream(info.binsha, use_crc)
+			# END for each crc mode
+		#END for each info
+		assert count == len(pack_objs)
 		 
 		
 	def test_pack_64(self):

@@ -42,19 +42,22 @@ def with_rw_directory(func):
 	def wrapper(self):
 		path = tempfile.mktemp(prefix=func.__name__)
 		os.mkdir(path)
+		keep = False
 		try:
 			try:
 				return func(self, path)
 			except Exception:
 				print >> sys.stderr, "Test %s.%s failed, output is at %r" % (type(self).__name__, func.__name__, path)
+				keep = True
 				raise
 		finally:
 			# Need to collect here to be sure all handles have been closed. It appears
 			# a windows-only issue. In fact things should be deleted, as well as 
 			# memory maps closed, once objects go out of scope. For some reason
 			# though this is not the case here unless we collect explicitly.
-			gc.collect()
-			shutil.rmtree(path)
+			if not keep:
+				gc.collect()
+				shutil.rmtree(path)
 		# END handle exception
 	# END wrapper
 	

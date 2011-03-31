@@ -12,6 +12,7 @@ from util import (
 					zlib,
 					LazyMixin,
 					unpack_from,
+					bin_to_hex,
 					file_contents_ro_filepath,
 					)
 
@@ -60,6 +61,7 @@ from struct import (
 from binascii import crc32
 
 from itertools import izip
+import tempfile
 import array
 import os
 import sys
@@ -176,9 +178,10 @@ class IndexWriter(object):
 		"""Append one piece of object information"""
 		self._objs.append((binsha, crc, offset))
 		
-	def write(self, pack_binsha, write):
+	def write(self, pack_sha, write):
 		"""Write the index file using the given write method
-		:param pack_binsha: sha over the whole pack that we index"""
+		:param pack_sha: binary sha over the whole pack that we index
+		:return: sha1 binary sha over all index file contents"""
 		# sort for sha1 hash
 		self._objs.sort(key=lambda o: o[0])
 		
@@ -192,11 +195,10 @@ class IndexWriter(object):
 		for t in self._objs:
 			tmplist[ord(t[0][0])] += 1
 		#END prepare fanout
-		
 		for i in xrange(255):
 			v = tmplist[i]
 			sha_write(pack('>L', v))
-			tmplist[i+1] = v
+			tmplist[i+1] += v
 		#END write each fanout entry
 		sha_write(pack('>L', tmplist[255]))
 		
@@ -226,9 +228,11 @@ class IndexWriter(object):
 		#END for each offset
 		
 		# trailer
-		assert(len(pack_binsha) == 20)
-		sha_write(pack_binsha)
-		write(sha_writer.sha(as_hex=False))
+		assert(len(pack_sha) == 20)
+		sha_write(pack_sha)
+		sha = sha_writer.sha(as_hex=False)
+		write(sha)
+		return sha
 		
 	
 
@@ -767,7 +771,9 @@ class PackEntity(LazyMixin):
 		"""
 		Verify that the stream at the given sha is valid.
 		
-		:param use_crc: if True, the index' crc for the sha is used to determine
+		:param use_crc: if True, the index' crc is run over the compressed stream of 
+			the object, which is much faster than checking the sha1. It is also
+			more prone to unnoticed corruption or manipulation.
 		:param sha: 20 byte sha1 of the object whose stream to verify
 			whether the compressed stream of the object is valid. If it is 
 			a delta, this only verifies that the delta's data is valid, not the 
@@ -890,7 +896,8 @@ class PackEntity(LazyMixin):
 			this would be the place to put it. Otherwise we have to pre-iterate and store 
 			all items into a list to get the number, which uses more memory than necessary.
 		:param zlib_compression: the zlib compression level to use
-		:return: binary sha over all the contents of the pack
+		:return: tuple(pack_sha, index_binsha) binary sha over all the contents of the pack
+			and over all contents of the index. If index_write was None, index_binsha will be None
 		:note: The destination of the write functions is up to the user. It could
 			be a socket, or a file for instance
 		:note: writes only undeltified objects"""
@@ -944,16 +951,41 @@ class PackEntity(LazyMixin):
 		#END count assertion
 		
 		# write footer
-		binsha = pack_writer.sha(as_hex = False)
-		assert len(binsha) == 20
-		pack_write(binsha)
-		ofs += len(binsha)							# just for completeness ;)
+		pack_sha = pack_writer.sha(as_hex = False)
+		assert len(pack_sha) == 20
+		pack_write(pack_sha)
+		ofs += len(pack_sha)							# just for completeness ;)
 		
+		index_sha = None
 		if wants_index:
-			index.write(binsha, index_write)
+			index_sha = index.write(pack_sha, index_write)
 		#END handle index
 		
-		return binsha
+		return pack_sha, index_sha
+	
+	@classmethod
+	def create(cls, object_iter, base_dir, object_count = None, zlib_compression = zlib.Z_BEST_SPEED):
+		"""Create a new on-disk entity comprised of a properly named pack file and a properly named
+		and corresponding index file. The pack contains all OStream objects contained in object iter.
+		:param base_dir: directory which is to contain the files
+		:return: PackEntity instance initialized with the new pack
+		:note: for more information on the other parameters see the write_pack method"""
+		pack_fd, pack_path = tempfile.mkstemp('', 'pack', base_dir)
+		index_fd, index_path = tempfile.mkstemp('', 'index', base_dir)
+		pack_write = lambda d: os.write(pack_fd, d)
+		index_write = lambda d: os.write(index_fd, d)
+		
+		pack_binsha, index_binsha = cls.write_pack(object_iter, pack_write, index_write, object_count, zlib_compression)
+		os.close(pack_fd)
+		os.close(index_fd)
+		
+		fmt = "pack-%s.%s"
+		new_pack_path = os.path.join(base_dir, fmt % (bin_to_hex(pack_binsha), 'pack'))
+		new_index_path = os.path.join(base_dir, fmt % (bin_to_hex(pack_binsha), 'idx'))
+		os.rename(pack_path, new_pack_path)
+		os.rename(index_path, new_index_path)
+		
+		return cls(new_pack_path)
 		
 		
 	#} END interface
