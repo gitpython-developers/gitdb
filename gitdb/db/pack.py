@@ -30,6 +30,9 @@ __all__ = ('PackedDB', )
 class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 	"""A database operating on a set of object packs"""
 	
+	# the type to use when instantiating a pack entity
+	PackEntityCls = PackEntity
+	
 	# sort the priority list every N queries
 	# Higher values are better, performance tests don't show this has 
 	# any effect, but it should have one
@@ -156,7 +159,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 		for pack_file in (pack_files - our_pack_files):
 			# init the hit-counter/priority with the size, a good measure for hit-
 			# probability. Its implemented so that only 12 bytes will be read
-			entity = PackEntity(pack_file)
+			entity = self.PackEntityCls(pack_file)
 			self._entities.append([entity.pack().size(), entity, entity.index().sha_to_index])
 		# END for each new packfile
 		

@@ -22,7 +22,8 @@ from async import (
 from itertools import chain
 
 
-__all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB')
+__all__ = (	'ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB', 
+			'TransportDBMixin', 'RefSpec', 'FetchInfo', 'PushInfo')
 
 
 class ObjectDBR(object):
@@ -321,5 +322,133 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 		return candidate
 		
 	#} END interface
+	
+
+class RefSpec(object):
+	"""A refspec is a simple container which provides information about the way
+	something should be fetched or pushed. It requires to use symbols to describe
+	the actual objects which is done using reference names (or respective instances
+	which resolve to actual reference names)."""
+	__slots__ = ('source', 'destination', 'force')
+	
+	def __init__(self, source, destination, force=False):
+		"""initalize the instance with the required values
+		:param source: reference name or instance. If None, the Destination 
+			is supposed to be deleted."""
+		self.source = source
+		self.destination = destination
+		self.force = force
+		if self.destination is None:
+			raise ValueError("Destination must be set")
 		
+	def __str__(self):
+		""":return: a git-style refspec"""
+		s = str(self.source)
+		if self.source is None:
+			s = ''
+		#END handle source
+		d = str(self.destination)
+		p = ''
+		if self.force:
+			p = '+'
+		#END handle force
+		res = "%s%s:%s" % (p, s, d)
+		
+	def delete_destination(self):
+		return self.source is None
+		
+		
+class PushInfo(object):
+	"""A type presenting information about the result of a push operation for exactly
+	one refspec
+
+	flags				# bitflags providing more information about the result
+	local_ref			# Reference pointing to the local reference that was pushed
+						# It is None if the ref was deleted.
+	remote_ref_string 	# path to the remote reference located on the remote side
+	remote_ref 			# Remote Reference on the local side corresponding to 
+						# the remote_ref_string. It can be a TagReference as well.
+	old_commit 			# commit at which the remote_ref was standing before we pushed
+						# it to local_ref.commit. Will be None if an error was indicated
+	summary				# summary line providing human readable english text about the push
+	"""
+	__slots__ = tuple()
+	
+	NEW_TAG, NEW_HEAD, NO_MATCH, REJECTED, REMOTE_REJECTED, REMOTE_FAILURE, DELETED, \
+	FORCED_UPDATE, FAST_FORWARD, UP_TO_DATE, ERROR = [ 1 << x for x in range(11) ]
+		
+		
+class FetchInfo(object):
+	"""A type presenting information about the fetch operation on exactly one refspec
+	
+	The following members are defined:
+	ref				# name of the reference to the changed 
+					# remote head or FETCH_HEAD. Implementations can provide
+					# actual class instance which convert to a respective string
+	flags			# additional flags to be & with enumeration members, 
+					# i.e. info.flags & info.REJECTED 
+					# is 0 if ref is FETCH_HEAD
+	note				# additional notes given by the fetch-pack implementation intended for the user
+	old_commit		# if info.flags & info.FORCED_UPDATE|info.FAST_FORWARD, 
+					# field is set to the previous location of ref as hexsha or None
+					# Implementors may use their own type too, but it should decay into a
+					# string of its hexadecimal sha representation"""
+	__slots__ = tuple()
+	
+	NEW_TAG, NEW_HEAD, HEAD_UPTODATE, TAG_UPDATE, REJECTED, FORCED_UPDATE, \
+	FAST_FORWARD, ERROR = [ 1 << x for x in range(8) ]
+
+
+class TransportDBMixin(object):
+	"""A database which allows to transport objects from and to different locations
+	which are specified by urls (location) and refspecs (what to transport, 
+	see http://www.kernel.org/pub/software/scm/git/docs/git-fetch.html).
+	
+	At the beginning of a transport operation, it will be determined which objects
+	have to be sent (either by this or by the other side).
+	
+	Afterwards a pack with the required objects is sent (or received). If there is 
+	nothing to send, the pack will be empty.
+	
+	The communication itself if implemented using a protocol instance which deals
+	with the actual formatting of the lines sent."""
+	# The following variables need to be set by the derived class
+	#{Configuration
+	protocol = None
+	#}end configuraiton
+	
+	#{ Interface
+	
+	def fetch(self, url, refspecs, progress=None):
+		"""Fetch the objects defined by the given refspec from the given url.
+		:param url: url identifying the source of the objects. It may also be 
+			a symbol from which the respective url can be resolved, like the
+			name of the remote. The implementation should allow objects as input
+			as well, these are assumed to resovle to a meaningful string though.
+		:param refspecs: iterable of reference specifiers or RefSpec instance, 
+			identifying the references to be fetch from the remote.
+		:param progress: callable which receives progress messages for user consumption
+		:return: List of binary object shas matching the respective remote ref which 
+			was previously fetched, in the order of the input refspecs.
+		:note: even if the operation fails, one of the returned FetchInfo instances
+			may still contain errors or failures in only part of the refspecs.
+		:raise: if any issue occours during the transport or if the url is not 
+			supported by the protocol.
+		"""
+		raise NotImplementedError()
+		
+	def push(self, url, refspecs, progress=None):
+		"""Transport the objects identified by the given refspec to the remote
+		at the given url.
+		:param url: Decribes the location which is to receive the objects
+			see fetch() for more details
+		:param refspecs: iterable of refspecs strings or RefSpec instances
+			to identify the objects to push
+		:param progress: see fetch() 
+		:todo: what to return ?
+		:raise: if any issue arises during transport or if the url cannot be handled"""
+		raise NotImplementedError()
+		
+	#}end interface
+	
 
