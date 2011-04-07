@@ -5,6 +5,7 @@
 """Utilities used in ODB testing"""
 from gitdb import (
 	OStream, 
+	GitDB
 	)
 from gitdb.stream import ( 
 							Sha1Writer, 
@@ -25,14 +26,6 @@ import shutil
 import os
 import gc
 
-
-#{ Bases
-
-class TestBase(unittest.TestCase):
-	"""Base class for all tests"""
-	
-
-#} END bases
 
 #{ Decorators
 
@@ -65,9 +58,30 @@ def with_rw_directory(func):
 	return wrapper
 
 
+def with_rw_repo(func):
+	"""Create a copy of our repository and put it into a writable location. It will 
+	be removed if the test doesn't result in an error.
+	As we can currently only copy the fully working tree, tests must not rely on 
+	being on a certain branch or on anything really except for the default tags
+	that should exist
+	Wrapped function obtains a git repository """
+	def wrapper(self, path):
+		src_dir = os.path.dirname(os.path.dirname(__file__))
+		assert(os.path.isdir(path))
+		os.rmdir(path)		# created by wrapper
+		shutil.copytree(src_dir, path)
+		return func(self, GitDB(os.path.join(path, '.git')))
+	#END wrapper
+	wrapper.__name__ = func.__name__
+	return with_rw_directory(wrapper)
+	
+
+
 def with_packs_rw(func):
 	"""Function that provides a path into which the packs for testing should be 
-	copied. Will pass on the path to the actual function afterwards"""
+	copied. Will pass on the path to the actual function afterwards
+	
+	:note: needs with_rw_directory wrapped around it"""
 	def wrapper(self, path):
 		src_pack_glob = fixture_path('packs/*')
 		copy_files_globbed(src_pack_glob, path, hard_link_ok=True)
@@ -75,11 +89,26 @@ def with_packs_rw(func):
 	# END wrapper
 	
 	wrapper.__name__ = func.__name__
-	return wrapper
+	return with_rw_directory(wrapper)
 
 #} END decorators
 
 #{ Routines
+
+def repo_dir():
+	""":return: path to our own repository, being our own .git directory.
+	:note: doesn't work in bare repositories"""
+	base = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.git')
+	assert os.path.isdir(base)
+	return base
+	
+
+def maketemp(*args):
+	"""Wrapper around default tempfile.mktemp to fix an osx issue"""
+	tdir = tempfile.mktemp(*args)
+	if sys.platform == 'darwin':
+		tdir = '/private' + tdir
+	return tdir
 
 def fixture_path(relapath=''):
 	""":return: absolute path into the fixture directory
@@ -159,4 +188,12 @@ class DeriveTest(OStream):
 		assert self.myarg
 
 #} END stream utilitiess
+
+#{ Bases
+
+class TestBase(unittest.TestCase):
+	"""Base class for all tests"""
+	rorepo = GitDB(repo_dir())
+
+#} END bases
 

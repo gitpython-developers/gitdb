@@ -419,7 +419,7 @@ class TransportDBMixin(object):
 	
 	#{ Interface
 	
-	def fetch(self, url, refspecs, progress=None):
+	def fetch(self, url, refspecs, progress=None, **kwargs):
 		"""Fetch the objects defined by the given refspec from the given url.
 		:param url: url identifying the source of the objects. It may also be 
 			a symbol from which the respective url can be resolved, like the
@@ -428,7 +428,9 @@ class TransportDBMixin(object):
 		:param refspecs: iterable of reference specifiers or RefSpec instance, 
 			identifying the references to be fetch from the remote.
 		:param progress: callable which receives progress messages for user consumption
-		:return: List of binary object shas matching the respective remote ref which 
+		:param kwargs: may be used for additional parameters that the actual implementation could 
+			find useful.
+		:return: List of FetchInfo compatible instances which provide information about what 
 			was previously fetched, in the order of the input refspecs.
 		:note: even if the operation fails, one of the returned FetchInfo instances
 			may still contain errors or failures in only part of the refspecs.
@@ -437,7 +439,7 @@ class TransportDBMixin(object):
 		"""
 		raise NotImplementedError()
 		
-	def push(self, url, refspecs, progress=None):
+	def push(self, url, refspecs, progress=None, **kwargs):
 		"""Transport the objects identified by the given refspec to the remote
 		at the given url.
 		:param url: Decribes the location which is to receive the objects
@@ -445,6 +447,8 @@ class TransportDBMixin(object):
 		:param refspecs: iterable of refspecs strings or RefSpec instances
 			to identify the objects to push
 		:param progress: see fetch() 
+		:param kwargs: additional arguments which may be provided by the caller
+			as they may be useful to the actual implementation
 		:todo: what to return ?
 		:raise: if any issue arises during transport or if the url cannot be handled"""
 		raise NotImplementedError()
