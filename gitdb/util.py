@@ -110,6 +110,21 @@ class _RandomAccessStringIO(object):
 
 #{ Routines
 
+def stream_copy(source, destination, chunk_size=512*1024):
+	"""Copy all data from the source stream into the destination stream in chunks
+	of size chunk_size
+	
+	:return: amount of bytes written"""
+	br = 0
+	while True:
+		chunk = source.read(chunk_size)
+		destination.write(chunk)
+		br += len(chunk)
+		if len(chunk) < chunk_size:
+			break
+	# END reading output stream
+	return br
+	
 def make_sha(source=''):
     """A python2.4 workaround for the sha/hashlib module fiasco 
     :note: From the dulwich project """
@@ -650,5 +665,51 @@ class Iterable(object):
 		:return:  iterator yielding Items"""
 		raise NotImplementedError("To be implemented by Subclass")
 		
+
+class IterableList(list):
+	"""
+	List of iterable objects allowing to query an object by id or by named index::
+	 
+	 heads = repo.heads
+	 heads.master
+	 heads['master']
+	 heads[0]
+	 
+	It requires an id_attribute name to be set which will be queried from its 
+	contained items to have a means for comparison.
+	
+	A prefix can be specified which is to be used in case the id returned by the 
+	items always contains a prefix that does not matter to the user, so it 
+	can be left out."""
+	__slots__ = ('_id_attr', '_prefix')
+	
+	def __new__(cls, id_attr, prefix=''):
+		return super(IterableList,cls).__new__(cls)
 		
+	def __init__(self, id_attr, prefix=''):
+		self._id_attr = id_attr
+		self._prefix = prefix
+		if not isinstance(id_attr, basestring):
+			raise ValueError("First parameter must be a string identifying the name-property. Extend the list after initialization")
+		# END help debugging !
+		
+	def __getattr__(self, attr):
+		attr = self._prefix + attr
+		for item in self:
+			if getattr(item, self._id_attr) == attr:
+				return item
+		# END for each item
+		return list.__getattribute__(self, attr)
+		
+	def __getitem__(self, index):
+		if isinstance(index, int):
+			return list.__getitem__(self,index)
+		
+		try:
+			return getattr(self, index)
+		except AttributeError:
+			raise IndexError( "No item found with id %r" % (self._prefix + index) )
+			
+
+
 #} END utilities

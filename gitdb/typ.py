@@ -19,4 +19,9 @@ class ObjectType(object):
 	tree = str_tree_type
 	tag = str_tag_type
 
+	commit_id = 1
+	tree_id = 2
+	blob_id = 3
+	tag_id = 4
+
 #} END string types
