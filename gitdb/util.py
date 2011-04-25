@@ -7,6 +7,7 @@ import os
 import mmap
 import sys
 import errno
+import re
 
 from cStringIO import StringIO
 

@@ -8,8 +8,8 @@ from gitdb.test.lib import *
 from gitdb.ref import *
 import gitdb.ref as ref
 
-from git.util import Actor
-from git.objects.tag import TagObject
+from gitdb.util import Actor
+from gitdb.object.tag import TagObject
 
 from itertools import chain
 import os
