@@ -80,11 +80,11 @@ class SymbolicReference(object):
 	
 	@property
 	def abspath(self):
-		return join_path_native(self.odb.git_dir, self.path)
+		return join_path_native(self.odb.root_path(), self.path)
 		
 	@classmethod
 	def _get_packed_refs_path(cls, odb):
-		return join(odb.git_dir, 'packed-refs')
+		return join(odb.root_path(), 'packed-refs')
 		
 	@classmethod
 	def _iter_packed_refs(cls, odb):
@@ -137,7 +137,7 @@ class SymbolicReference(object):
 		point to, or None"""
 		tokens = None
 		try:
-			fp = open(join(odb.git_dir, ref_path), 'r')
+			fp = open(join(odb.root_path(), ref_path), 'r')
 			value = fp.read().rstrip()
 			fp.close()
 			tokens = value.split(" ")
@@ -159,7 +159,7 @@ class SymbolicReference(object):
 			return (None, tokens[1])
 			
 		# its a commit
-		if re_hexsha_only.match(tokens[0]):
+		if cls.re_hexsha_only.match(tokens[0]):
 			return (tokens[0], None)
 			
 		raise ValueError("Failed to parse reference information from %r" % ref_path)
@@ -177,7 +177,7 @@ class SymbolicReference(object):
 			The object our ref currently refers to."""
 		# have to be dynamic here as we may be a tag which can point to anything
 		# Our path will be resolved to the hexsha which will be used accordingly
-		return self.ObjectCls.new_from_sha(self._get_object_sha())
+		return self.ObjectCls.new_from_sha(self.odb, self._get_object_sha())
 	
 	def set_object(self, object_id, logmsg = None):
 		"""Set the object we point to, possibly dereference our symbolic reference first.
@@ -341,7 +341,7 @@ class SymbolicReference(object):
 			a valid object or reference."""
 		try:
 			self.object
-		except (OSError, ValueError):
+		except (OSError, ValueError, BadObject):
 			return False
 		else:
 			return True
@@ -414,7 +414,7 @@ class SymbolicReference(object):
 			or just "myreference", hence 'refs/' is implied.
 			Alternatively the symbolic reference to be deleted"""
 		full_ref_path = cls.to_full_path(path)
-		abs_path = join(odb.git_dir, full_ref_path)
+		abs_path = join(odb.root_path(), full_ref_path)
 		if exists(abs_path):
 			os.remove(abs_path)
 		else:
@@ -467,7 +467,7 @@ class SymbolicReference(object):
 		corresponding object and a detached symbolic reference will be created
 		instead"""
 		full_ref_path = cls.to_full_path(path)
-		abs_ref_path = join(odb.git_dir, full_ref_path)
+		abs_ref_path = join(odb.root_path(), full_ref_path)
 		
 		# figure out target data
 		target = reference
@@ -539,8 +539,8 @@ class SymbolicReference(object):
 		if self.path == new_path:
 			return self
 		
-		new_abs_path = join(self.odb.git_dir, new_path)
-		cur_abs_path = join(self.odb.git_dir, self.path)
+		new_abs_path = join(self.odb.root_path(), new_path)
+		cur_abs_path = join(self.odb.root_path(), self.path)
 		if isfile(new_abs_path):
 			if not force:
 				# if they point to the same file, its not an error
@@ -570,7 +570,7 @@ class SymbolicReference(object):
 		
 		# walk loose refs
 		# Currently we do not follow links 
-		for root, dirs, files in os.walk(join_path_native(odb.git_dir, common_path)):
+		for root, dirs, files in os.walk(join_path_native(odb.root_path(), common_path)):
 			if 'refs/' not in root: # skip non-refs subfolders
 				refs_id = [ i for i,d in enumerate(dirs) if d == 'refs' ]
 				if refs_id:
@@ -579,7 +579,7 @@ class SymbolicReference(object):
 			
 			for f in files:
 				abs_path = to_native_path_linux(join_path(root, f))
-				rela_paths.add(abs_path.replace(to_native_path_linux(odb.git_dir) + '/', ""))
+				rela_paths.add(abs_path.replace(to_native_path_linux(odb.root_path()) + '/', ""))
 			# END for each file in root directory
 		# END for each directory to walk
 		
@@ -611,8 +611,8 @@ class SymbolicReference(object):
 			refs suitable for the actual class are returned.
 
 		:return:
-			git.SymbolicReference[], each of them is guaranteed to be a symbolic
-			ref which is not detached.
+			git.SymbolicReference[], each of them is guaranteed to be a *only* a symbolic
+			ref, or a derived class which is not detached
 			
 			List is lexigraphically sorted
 			The returned objects represent actual subclasses, such as Head or TagReference"""

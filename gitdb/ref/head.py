@@ -14,16 +14,16 @@ class HEAD(SymbolicReference):
 	_ORIG_HEAD_NAME = 'ORIG_HEAD'
 	__slots__ = tuple()
 	
-	def __init__(self, repo, path=_HEAD_NAME):
+	def __init__(self, odb, path=_HEAD_NAME):
 		if path != self._HEAD_NAME:
 			raise ValueError("HEAD instance must point to %r, got %r" % (self._HEAD_NAME, path))
-		super(HEAD, self).__init__(repo, path)
+		super(HEAD, self).__init__(odb, path)
 	
 	def orig_head(self):
 		"""
 		:return: SymbolicReference pointing at the ORIG_HEAD, which is maintained 
 			to contain the previous value of HEAD"""
-		return SymbolicReference(self.repo, self._ORIG_HEAD_NAME)
+		return SymbolicReference(self.odb, self._ORIG_HEAD_NAME)
 		
 
 class Head(Reference):
@@ -69,9 +69,9 @@ class Head(Reference):
 			not a tracking branch"""
 		reader = self.config_reader()
 		if reader.has_option(self.k_config_remote) and reader.has_option(self.k_config_remote_ref):
-			ref = Head(self.repo, Head.to_full_path(reader.get_value(self.k_config_remote_ref)))
+			ref = Head(self.odb, Head.to_full_path(reader.get_value(self.k_config_remote_ref)))
 			remote_refpath = self.RemoteReferenceCls.to_full_path(join_path(reader.get_value(self.k_config_remote), ref.name))
-			return self.RemoteReferenceCls(self.repo, remote_refpath)
+			return self.RemoteReferenceCls(self.odb, remote_refpath)
 		# END handle have tracking branch
 		
 		# we are not a tracking branch
@@ -82,9 +82,9 @@ class Head(Reference):
 	
 	def _config_parser(self, read_only):
 		if read_only:
-			parser = self.repo.config_reader()
+			parser = self.odb.config_reader()
 		else:
-			parser = self.repo.config_writer()
+			parser = self.odb.config_writer()
 		# END handle parser instance
 		
 		return SectionConstraint(parser, 'branch "%s"' % self.name)

@@ -13,6 +13,7 @@ from gitdb.object.tag import TagObject
 
 from itertools import chain
 import os
+from nose import SkipTest
 
 class TestRefs(TestBase):
 
@@ -28,7 +29,7 @@ class TestRefs(TestBase):
 	
 	def test_tag_base(self):
 		tag_object_refs = list()
-		for tag in self.rorepo.tags:
+		for tag in TagReference.list_items(self.rorepo):
 			assert "refs/tags" in tag.path
 			assert tag.name
 			assert isinstance( tag.commit, Commit )
@@ -55,9 +56,9 @@ class TestRefs(TestBase):
 		# tag refs can point to tag objects or to commits
 		s = set()
 		ref_count = 0
-		for ref in chain(self.rorepo.tags, self.rorepo.heads):
+		for ref in chain(TagReference.list_items(self.rorepo), Head.list_items(self.rorepo)):
 			ref_count += 1
-			assert isinstance(ref, ref.Reference)
+			assert isinstance(ref, Reference)
 			assert str(ref) == ref.name
 			assert repr(ref)
 			assert ref == ref
@@ -69,7 +70,7 @@ class TestRefs(TestBase):
 		
 	@with_rw_repo
 	def test_heads(self, rw_repo):
-		for head in rw_repo.heads:
+		for head in Head.iter_items(rw_repo):
 			assert head.name
 			assert head.path
 			assert "refs/heads" in head.path
@@ -97,7 +98,7 @@ class TestRefs(TestBase):
 		# END for each head
 		
 		# verify REFLOG gets altered
-		head = rw_repo.head
+		head = HEAD(rw_repo)
 		cur_head = head.ref
 		cur_commit = cur_head.commit
 		pcommit = cur_head.commit.parents[0].parents[0]
@@ -140,22 +141,24 @@ class TestRefs(TestBase):
 		
 	def test_refs(self):
 		types_found = set()
-		for ref in self.rorepo.refs:
+		for ref in Reference.list_items(self.rorepo):
 			types_found.add(type(ref))
 		assert len(types_found) >= 3 
 		
 	def test_is_valid(self):
 		assert Reference(self.rorepo, 'refs/doesnt/exist').is_valid() == False
-		assert self.rorepo.head.is_valid()
-		assert self.rorepo.head.reference.is_valid()
+		assert HEAD(self.rorepo).is_valid()
+		assert HEAD(self.rorepo).reference.is_valid()
 		assert SymbolicReference(self.rorepo, 'hellothere').is_valid() == False
 		
 	def test_orig_head(self):
-		assert type(self.rorepo.head.orig_head()) == SymbolicReference
+		assert type(HEAD(self.rorepo).orig_head()) == SymbolicReference
 		
 	#@with_rw_repo('0.1.6')
 	# todo reenable
-	def _disabled_test_head_reset(self, rw_repo):
+	#def test_head_reset(self, rw_repo):
+	def test_head_reset(self):
+		raise SkipTest()
 		cur_head = rw_repo.head
 		old_head_commit = cur_head.commit
 		new_head_commit = cur_head.ref.commit.parents[0]
@@ -416,7 +419,7 @@ class TestRefs(TestBase):
 		symbol_ref_path = "refs/symbol_ref"
 		symref = SymbolicReference(rw_repo, symbol_ref_path)
 		assert symref.path == symbol_ref_path
-		symbol_ref_abspath = os.path.join(rw_repo.git_dir, symref.path)
+		symbol_ref_abspath = os.path.join(rw_repo.root_path(), symref.path)
 		
 		# set it
 		symref.reference = new_head
@@ -473,7 +476,7 @@ class TestRefs(TestBase):
 		rw_repo.head.reference = Head.create(rw_repo, "master")
 		
 		# At least the head should still exist
-		assert os.path.isfile(os.path.join(rw_repo.git_dir, 'HEAD'))
+		assert os.path.isfile(os.path.join(rw_repo.root_path(), 'HEAD'))
 		refs = list(SymbolicReference.iter_items(rw_repo))
 		assert len(refs) == 1
 		
@@ -519,5 +522,5 @@ class TestRefs(TestBase):
 		assert SymbolicReference.dereference_recursive(self.rorepo, 'HEAD')
 		
 	def test_reflog(self):
-		assert isinstance(self.rorepo.heads.master.log(), RefLog)
+		assert isinstance(Head.list_items(self.rorepo).master.log(), RefLog)
 		

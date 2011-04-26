@@ -66,11 +66,13 @@ def with_rw_repo(func):
 	that should exist
 	Wrapped function obtains a git repository """
 	def wrapper(self, path):
-		src_dir = os.path.dirname(os.path.dirname(__file__))
+		src_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 		assert(os.path.isdir(path))
-		os.rmdir(path)		# created by wrapper
+		os.rmdir(path)		# created by wrapper, but must not exist for copy operation
 		shutil.copytree(src_dir, path)
-		return func(self, GitDB(os.path.join(path, '.git')))
+		target_gitdir = os.path.join(path, '.git')
+		assert os.path.isdir(target_gitdir)
+		return func(self, GitDB(target_gitdir))
 	#END wrapper
 	wrapper.__name__ = func.__name__
 	return with_rw_directory(wrapper)

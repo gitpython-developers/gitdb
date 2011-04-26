@@ -7,6 +7,7 @@ from util import get_object_type_by_name
 from gitdb.util import (
 							hex_to_bin,
 							bin_to_hex,
+							dirname,
 							basename, 
 							LazyMixin, 
 							join_path_native, 
@@ -65,7 +66,7 @@ class Object(LazyMixin):
 			# the NULL binsha is always the root commit
 			return get_object_type_by_name('commit')(odb, sha1)
 		#END handle special case
-		oinfo = odb.odb.info(sha1)
+		oinfo = odb.info(sha1)
 		inst = get_object_type_by_name(oinfo.type)(odb, oinfo.binsha)
 		inst.size = oinfo.size
 		return inst 
@@ -73,7 +74,7 @@ class Object(LazyMixin):
 	def _set_cache_(self, attr):
 		"""Retrieve object information"""
 		if attr	 == "size":
-			oinfo = self.odb.odb.info(self.binsha)
+			oinfo = self.odb.info(self.binsha)
 			self.size = oinfo.size
 			# assert oinfo.type == self.type, _assertion_msg_format % (self.binsha, oinfo.type, self.type)
 		else:
@@ -108,13 +109,13 @@ class Object(LazyMixin):
 	def data_stream(self):
 		""" :return:  File Object compatible stream to the uncompressed raw data of the object
 		:note: returned streams must be read in order"""
-		return self.odb.odb.stream(self.binsha)
+		return self.odb.stream(self.binsha)
 
 	def stream_data(self, ostream):
 		"""Writes our data directly to the given output stream
 		:param ostream: File object compatible stream object.
 		:return: self"""
-		istream = self.odb.odb.stream(self.binsha)
+		istream = self.odb.stream(self.binsha)
 		stream_copy(istream, ostream)
 		return self
 		
@@ -129,7 +130,7 @@ class IndexObject(Object):
 	
 	def __init__(self, odb, binsha, mode=None, path=None):
 		"""Initialize a newly instanced IndexObject
-		:param odb: is the Repo we are located in
+		:param odb: is the object database we are located in
 		:param binsha: 20 byte sha1
 		:param mode: is the stat compatible file mode as int, use the stat module
 			to evaluate the infomration
@@ -172,5 +173,6 @@ class IndexObject(Object):
 			.path field which is a path relative to the git repository ).
 			
 			The returned path will be native to the system and contains '\' on windows. """
-		return join_path_native(self.odb.working_tree_dir, self.path)
+		assert False, "Only works if repository is not bare - provide this check in an interface"
+		return join_path_native(dirname(self.odb.root_path()), self.path)
 		
