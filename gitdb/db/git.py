@@ -96,28 +96,27 @@ class RefGitDB(GitDB):
 	"""Git like database with support for object lookup as well as reference resolution.
 	Our rootpath is set to the actual .git directory (bare on unbare).
 	
-	The root_path will be the git objects directory. Use git_dir() to obtain the actual top-level 
+	The root_path will be the git objects directory. Use git_path() to obtain the actual top-level 
 	git directory."""
 	#directories
-	objs_dir = 'objects'
-	__slots__  = "_git_dir"	# slots has no effect here, its just to keep track of used attrs
+	
 	
 	def __init__(self, root_path):
 		"""Initialize ourselves on the .git directory, or the .git/objects directory."""
 		root_path = normpath(root_path)	# truncate trailing /
-		self._git_dir = root_path
+		self._git_path = root_path
 		if root_path.endswith(self.objs_dir):
-			self._git_dir = dirname(root_path)
+			self._git_path = dirname(root_path)
 		else:
 			root_path = join(root_path, self.objs_dir)
 		#END handle directory
-		assert self._git_dir.endswith('.git'), "require initialization on a git directory, got %s" % self._git_dir
+		assert self._git_path.endswith('.git'), "require initialization on a git directory, got %s" % self._git_path
 		super(RefGitDB, self).__init__(root_path)
 	
 	
 	#{ Interface
-	def git_dir(self):
+	def git_path(self):
 		""":return: main git directory containing objects and references"""
-		return self._git_dir
+		return self._git_path
 	
 	#} END interface

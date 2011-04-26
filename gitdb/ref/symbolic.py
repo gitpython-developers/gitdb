@@ -81,11 +81,11 @@ class SymbolicReference(object):
 	
 	@property
 	def abspath(self):
-		return join_path_native(self.odb.git_dir(), self.path)
+		return join_path_native(self.odb.git_path(), self.path)
 		
 	@classmethod
 	def _get_packed_refs_path(cls, odb):
-		return join(odb.git_dir(), 'packed-refs')
+		return join(odb.git_path(), 'packed-refs')
 		
 	@classmethod
 	def _iter_packed_refs(cls, odb):
@@ -138,7 +138,7 @@ class SymbolicReference(object):
 		point to, or None"""
 		tokens = None
 		try:
-			fp = open(join(odb.git_dir(), ref_path), 'r')
+			fp = open(join(odb.git_path(), ref_path), 'r')
 			value = fp.read().rstrip()
 			fp.close()
 			tokens = value.split(" ")
@@ -415,7 +415,7 @@ class SymbolicReference(object):
 			or just "myreference", hence 'refs/' is implied.
 			Alternatively the symbolic reference to be deleted"""
 		full_ref_path = cls.to_full_path(path)
-		abs_path = join(odb.git_dir(), full_ref_path)
+		abs_path = join(odb.git_path(), full_ref_path)
 		if exists(abs_path):
 			os.remove(abs_path)
 		else:
@@ -468,7 +468,7 @@ class SymbolicReference(object):
 		corresponding object and a detached symbolic reference will be created
 		instead"""
 		full_ref_path = cls.to_full_path(path)
-		abs_ref_path = join(odb.git_dir(), full_ref_path)
+		abs_ref_path = join(odb.git_path(), full_ref_path)
 		
 		# figure out target data
 		target = reference
@@ -540,8 +540,8 @@ class SymbolicReference(object):
 		if self.path == new_path:
 			return self
 		
-		new_abs_path = join(self.odb.git_dir(), new_path)
-		cur_abs_path = join(self.odb.git_dir(), self.path)
+		new_abs_path = join(self.odb.git_path(), new_path)
+		cur_abs_path = join(self.odb.git_path(), self.path)
 		if isfile(new_abs_path):
 			if not force:
 				# if they point to the same file, its not an error
@@ -571,7 +571,7 @@ class SymbolicReference(object):
 		
 		# walk loose refs
 		# Currently we do not follow links 
-		for root, dirs, files in os.walk(join_path_native(odb.git_dir(), common_path)):
+		for root, dirs, files in os.walk(join_path_native(odb.git_path(), common_path)):
 			if 'refs/' not in root: # skip non-refs subfolders
 				refs_id = [ i for i,d in enumerate(dirs) if d == 'refs' ]
 				if refs_id:
@@ -580,7 +580,7 @@ class SymbolicReference(object):
 			
 			for f in files:
 				abs_path = to_native_path_linux(join_path(root, f))
-				rela_paths.add(abs_path.replace(to_native_path_linux(odb.git_dir()) + '/', ""))
+				rela_paths.add(abs_path.replace(to_native_path_linux(odb.git_path()) + '/', ""))
 			# END for each file in root directory
 		# END for each directory to walk
 		

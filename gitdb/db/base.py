@@ -5,11 +5,14 @@
 """Contains implementations of database retrieveing objects"""
 from gitdb.util import (
 		pool,
-		join, 
+		join,
+		normpath,
+		dirname,
 		LazyMixin, 
 		hex_to_bin
 	)
 
+from gitdb.config import GitConfigParser
 from gitdb.exc import (
 						BadObject, 
 						AmbiguousObjectName
@@ -20,10 +23,13 @@ from async import (
 	)
 
 from itertools import chain
+import sys
+import os
 
 
 __all__ = (	'ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB', 
-			'TransportDBMixin', 'RefSpec', 'FetchInfo', 'PushInfo')
+			'TransportDBMixin', 'RefParseMixin', 'ConfigurationMixin', 'RepositoryPathsMixin',  
+			'RefSpec', 'FetchInfo', 'PushInfo')
 
 
 class ObjectDBR(object):
@@ -469,3 +475,128 @@ class RefParseMixin(object):
 		in the rev-parse documentation http://www.kernel.org/pub/software/scm/git/docs/git-rev-parse.html"""
 		raise NotImplementedError()
 		
+		
+class RepositoryPathsMixin(object):
+	"""Represents basic functionality of a full git repository. This involves an 
+	optional working tree, a git directory with references and an object directory.
+	
+	This type collects the respective paths and verifies the provided base path 
+	truly is a git repository.
+	
+	If the underlying type provides the config_reader() method, we can properly determine 
+	whether this is a bare repository as well."""
+	# slots has no effect here, its just to keep track of used attrs
+	__slots__  = ("_git_path", '_bare')
+	
+	#{ Configuration 
+	objs_dir = 'objects'
+	#} END configuration
+	
+	#{ Interface
+	
+	def is_bare(self):
+		""":return: True if this is a bare repository
+		:note: this value is cached upon initialization"""
+		return self._bare
+		
+	def git_path(self):
+		""":return: path to directory containing this actual git repository (which 
+		in turn provides access to objects and references"""
+		return self._git_path
+		
+	def working_tree_path(self):
+		""":return: path to directory containing the working tree checkout of our 
+		git repository.
+		:raise AssertionError: If this is a bare repository"""
+		if self.is_bare():
+			raise AssertionError("Repository at %s is bare and does not have a working tree directory" % self.git_path())
+		#END assertion
+		return dirname(self.git_path())
+		
+	def working_dir(self):
+		""":return: working directory of the git process or related tools, being 
+		either the working_tree_path if available or the git_path"""
+		if self.is_bare():
+			return self.git_path()
+		else:
+			return self.working_tree_dir()
+		#END handle bare state
+		
+	#} END interface
+		
+		
+class ConfigurationMixin(object):
+	"""Interface providing configuration handler instances, which provide locked access
+	to a single git-style configuration file (ini like format, using tabs as improve readablity).
+	
+	Configuration readers can be initialized with multiple files at once, whose information is concatenated
+	when reading. Lower-level files overwrite values from higher level files, i.e. a repository configuration file 
+	overwrites information coming from a system configuration file
+	
+	:note: for this mixin to work, a git_path() compatible type is required"""
+	config_level = ("system", "global", "repository")
+	
+	#{ Configuration
+	system_config_file_name = "gitconfig"
+	repo_config_file_name = "config"
+	#} END 
+	
+	def _path_at_level(self, level ):
+		# we do not support an absolute path of the gitconfig on windows , 
+		# use the global config instead
+		if sys.platform == "win32" and level == "system":
+			level = "global"
+		#END handle windows
+			
+		if level == "system":
+			return "/etc/%s" % self.system_config_file_name
+		elif level == "global":
+			return normpath(os.path.expanduser("~/.%s" % self.system_config_file_name))
+		elif level == "repository":
+			return join(self.git_path(), self.repo_config_file_name)
+		#END handle level
+		
+		raise ValueError("Invalid configuration level: %r" % level)
+		
+	#{ Interface
+	
+	def config_reader(self, config_level=None):
+		"""
+		:return:
+			GitConfigParser allowing to read the full git configuration, but not to write it
+			
+			The configuration will include values from the system, user and repository 
+			configuration files.
+			
+		:param config_level:
+			For possible values, see config_writer method
+			If None, all applicable levels will be used. Specify a level in case 
+			you know which exact file you whish to read to prevent reading multiple files for 
+			instance
+		:note: On windows, system configuration cannot currently be read as the path is 
+			unknown, instead the global path will be used."""
+		files = None
+		if config_level is None:
+			files = [ self._path_at_level(f) for f in self.config_level ]
+		else:
+			files = [ self._path_at_level(config_level) ]
+		#END handle level
+		return GitConfigParser(files, read_only=True)
+		
+	def config_writer(self, config_level="repository"):
+		"""
+		:return:
+			GitConfigParser allowing to write values of the specified configuration file level.
+			Config writers should be retrieved, used to change the configuration ,and written 
+			right away as they will lock the configuration file in question and prevent other's
+			to write it.
+			
+		:param config_level:
+			One of the following values
+			system = sytem wide configuration file
+			global = user level configuration file
+			repository = configuration file for this repostory only"""
+		return GitConfigParser(self._path_at_level(config_level), read_only=False)
+	
+	#} END interface
+	
