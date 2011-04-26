@@ -5,7 +5,7 @@
 """Utilities used in ODB testing"""
 from gitdb import (
 	OStream, 
-	GitDB
+	RefGitDB
 	)
 from gitdb.stream import ( 
 							Sha1Writer, 
@@ -72,7 +72,7 @@ def with_rw_repo(func):
 		shutil.copytree(src_dir, path)
 		target_gitdir = os.path.join(path, '.git')
 		assert os.path.isdir(target_gitdir)
-		return func(self, GitDB(target_gitdir))
+		return func(self, RefGitDB(target_gitdir))
 	#END wrapper
 	wrapper.__name__ = func.__name__
 	return with_rw_directory(wrapper)
@@ -195,7 +195,7 @@ class DeriveTest(OStream):
 
 class TestBase(unittest.TestCase):
 	"""Base class for all tests"""
-	rorepo = GitDB(repo_dir())
+	rorepo = RefGitDB(repo_dir())
 
 #} END bases
 

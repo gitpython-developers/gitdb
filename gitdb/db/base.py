@@ -411,7 +411,10 @@ class TransportDBMixin(object):
 	nothing to send, the pack will be empty.
 	
 	The communication itself if implemented using a protocol instance which deals
-	with the actual formatting of the lines sent."""
+	with the actual formatting of the lines sent.
+	
+	As refspecs involve symbolic names for references to be handled, we require
+	RefParse functionality. How this is done is up to the actual implementation."""
 	# The following variables need to be set by the derived class
 	#{Configuration
 	protocol = None
@@ -456,3 +459,13 @@ class TransportDBMixin(object):
 	#}end interface
 	
 
+class RefParseMixin(object):
+	"""Interface allowing to resolve symbolic names or partial hexadecimal shas into
+	actual binary shas. The actual feature set depends on the implementation though, 
+	but should follow git-rev-parse."""
+	
+	def resolve(self, name):
+		"""Resolve the given name into a binary sha. Valid names are as defined 
+		in the rev-parse documentation http://www.kernel.org/pub/software/scm/git/docs/git-rev-parse.html"""
+		raise NotImplementedError()
+		

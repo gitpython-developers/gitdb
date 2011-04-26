@@ -42,6 +42,7 @@ class SymbolicReference(object):
 	#{ Configuration
 	# Object class to be used when instantiating objects
 	ObjectCls = Object
+	CommitCls = Commit
 	
 	# all of the following are set by the package initializer
 	HEADCls = None
@@ -80,11 +81,11 @@ class SymbolicReference(object):
 	
 	@property
 	def abspath(self):
-		return join_path_native(self.odb.root_path(), self.path)
+		return join_path_native(self.odb.git_dir(), self.path)
 		
 	@classmethod
 	def _get_packed_refs_path(cls, odb):
-		return join(odb.root_path(), 'packed-refs')
+		return join(odb.git_dir(), 'packed-refs')
 		
 	@classmethod
 	def _iter_packed_refs(cls, odb):
@@ -137,7 +138,7 @@ class SymbolicReference(object):
 		point to, or None"""
 		tokens = None
 		try:
-			fp = open(join(odb.root_path(), ref_path), 'r')
+			fp = open(join(odb.git_dir(), ref_path), 'r')
 			value = fp.read().rstrip()
 			fp.close()
 			tokens = value.split(" ")
@@ -216,7 +217,7 @@ class SymbolicReference(object):
 			obj = obj.object
 		#END dereference tag
 		
-		if obj.type != Commit.type:
+		if obj.type != self.CommitCls.type:
 			raise TypeError("Symbolic Reference pointed to object %r, commit was required" % obj)
 		#END handle type
 		return obj
@@ -229,13 +230,13 @@ class SymbolicReference(object):
 		:return: self"""
 		# check the type - assume the best if it is a base-string
 		is_invalid_type = False
-		if isinstance(commit, Object):
-			is_invalid_type = commit.type != Commit.type
+		if isinstance(commit, self.ObjectCls):
+			is_invalid_type = commit.type != self.CommitCls.type
 		elif isinstance(commit, SymbolicReference):
-			is_invalid_type = commit.object.type != Commit.type
+			is_invalid_type = commit.object.type != self.CommitCls.type
 		else:
 			try:
-				is_invalid_type = self.odb.rev_parse(commit).type != Commit.type
+				is_invalid_type = self.odb.rev_parse(commit).type != self.CommitCls.type
 			except BadObject:
 				raise ValueError("Invalid object: %s" % commit)
 			#END handle exception
@@ -286,7 +287,7 @@ class SymbolicReference(object):
 		obj = None
 		if isinstance(ref, SymbolicReference):
 			write_value = "ref: %s" % ref.path
-		elif isinstance(ref, Object):
+		elif isinstance(ref, self.ObjectCls):
 			obj = ref
 			write_value = ref.hexsha
 		elif isinstance(ref, basestring):
@@ -414,7 +415,7 @@ class SymbolicReference(object):
 			or just "myreference", hence 'refs/' is implied.
 			Alternatively the symbolic reference to be deleted"""
 		full_ref_path = cls.to_full_path(path)
-		abs_path = join(odb.root_path(), full_ref_path)
+		abs_path = join(odb.git_dir(), full_ref_path)
 		if exists(abs_path):
 			os.remove(abs_path)
 		else:
@@ -467,7 +468,7 @@ class SymbolicReference(object):
 		corresponding object and a detached symbolic reference will be created
 		instead"""
 		full_ref_path = cls.to_full_path(path)
-		abs_ref_path = join(odb.root_path(), full_ref_path)
+		abs_ref_path = join(odb.git_dir(), full_ref_path)
 		
 		# figure out target data
 		target = reference
@@ -539,8 +540,8 @@ class SymbolicReference(object):
 		if self.path == new_path:
 			return self
 		
-		new_abs_path = join(self.odb.root_path(), new_path)
-		cur_abs_path = join(self.odb.root_path(), self.path)
+		new_abs_path = join(self.odb.git_dir(), new_path)
+		cur_abs_path = join(self.odb.git_dir(), self.path)
 		if isfile(new_abs_path):
 			if not force:
 				# if they point to the same file, its not an error
@@ -570,7 +571,7 @@ class SymbolicReference(object):
 		
 		# walk loose refs
 		# Currently we do not follow links 
-		for root, dirs, files in os.walk(join_path_native(odb.root_path(), common_path)):
+		for root, dirs, files in os.walk(join_path_native(odb.git_dir(), common_path)):
 			if 'refs/' not in root: # skip non-refs subfolders
 				refs_id = [ i for i,d in enumerate(dirs) if d == 'refs' ]
 				if refs_id:
@@ -579,7 +580,7 @@ class SymbolicReference(object):
 			
 			for f in files:
 				abs_path = to_native_path_linux(join_path(root, f))
-				rela_paths.add(abs_path.replace(to_native_path_linux(odb.root_path()) + '/', ""))
+				rela_paths.add(abs_path.replace(to_native_path_linux(odb.git_dir()) + '/', ""))
 			# END for each file in root directory
 		# END for each directory to walk
 		

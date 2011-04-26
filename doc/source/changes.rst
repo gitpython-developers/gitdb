@@ -2,6 +2,13 @@
 Changelog
 #########
 
+****
+NEXT
+****
+* Added interface to allow transporting git data: **TransportDBMixin**
+* Added interface to allow reference resolution: **RefParseMixin**
+* Added implementation of git datbase with support for transportation and reference resolution: **RefGitDB**
+
 *****
 0.5.2
 *****

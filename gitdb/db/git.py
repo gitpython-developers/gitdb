@@ -12,7 +12,12 @@ from loose import LooseObjectDB
 from pack import PackedDB
 from ref import ReferenceDB
 
-from gitdb.util import LazyMixin
+from gitdb.util import (
+						LazyMixin, 
+						normpath,
+						join,
+						dirname
+					)
 from gitdb.exc import (
 						InvalidDBRoot, 
 						BadObject, 
@@ -20,12 +25,15 @@ from gitdb.exc import (
 						)
 import os
 
-__all__ = ('GitDB', )
+__all__ = ('GitDB', 'RefGitDB')
 
 
 class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 	"""A git-style object database, which contains all objects in the 'objects'
-	subdirectory"""
+	subdirectory.
+	:note: The type needs to be initialized on the ./objects directory to function, 
+		as it deals solely with object lookup. Use a RefGitDB type if you need
+		reference and push support."""
 	# Configuration
 	PackDBCls = PackedDB
 	LooseDBCls = LooseObjectDB
@@ -37,7 +45,7 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 	alternates_dir = os.path.join('info', 'alternates')
 	
 	def __init__(self, root_path):
-		"""Initialize ourselves on a git objects directory"""
+		"""Initialize ourselves on a git ./objects directory"""
 		super(GitDB, self).__init__(root_path)
 		
 	def _set_cache_(self, attr):
@@ -83,3 +91,33 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 		
 	#} END objectdbw interface
 	
+	
+class RefGitDB(GitDB):
+	"""Git like database with support for object lookup as well as reference resolution.
+	Our rootpath is set to the actual .git directory (bare on unbare).
+	
+	The root_path will be the git objects directory. Use git_dir() to obtain the actual top-level 
+	git directory."""
+	#directories
+	objs_dir = 'objects'
+	__slots__  = "_git_dir"	# slots has no effect here, its just to keep track of used attrs
+	
+	def __init__(self, root_path):
+		"""Initialize ourselves on the .git directory, or the .git/objects directory."""
+		root_path = normpath(root_path)	# truncate trailing /
+		self._git_dir = root_path
+		if root_path.endswith(self.objs_dir):
+			self._git_dir = dirname(root_path)
+		else:
+			root_path = join(root_path, self.objs_dir)
+		#END handle directory
+		assert self._git_dir.endswith('.git'), "require initialization on a git directory, got %s" % self._git_dir
+		super(RefGitDB, self).__init__(root_path)
+	
+	
+	#{ Interface
+	def git_dir(self):
+		""":return: main git directory containing objects and references"""
+		return self._git_dir
+	
+	#} END interface

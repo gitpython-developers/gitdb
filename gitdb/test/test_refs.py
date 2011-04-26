@@ -19,7 +19,7 @@ class TestRefs(TestBase):
 
 	def test_from_path(self):
 		# should be able to create any reference directly
-		for ref_type in ( Reference, Head, TagReference, RemoteReference ):
+		for ref_type in (Reference, Head, TagReference, RemoteReference):
 			for name in ('rela_name', 'path/rela_name'):
 				full_path = ref_type.to_full_path(name)
 				instance = ref_type.from_path(self.rorepo, full_path)
@@ -32,17 +32,17 @@ class TestRefs(TestBase):
 		for tag in TagReference.list_items(self.rorepo):
 			assert "refs/tags" in tag.path
 			assert tag.name
-			assert isinstance( tag.commit, Commit )
+			assert isinstance(tag.commit, tag.CommitCls)
 			if tag.tag is not None:
-				tag_object_refs.append( tag )
+				tag_object_refs.append(tag)
 				tagobj = tag.tag
 				# have no dict
 				self.failUnlessRaises(AttributeError, setattr, tagobj, 'someattr', 1)
-				assert isinstance( tagobj, TagObject ) 
+				assert isinstance(tagobj, TagObject) 
 				assert tagobj.tag == tag.name
-				assert isinstance( tagobj.tagger, Actor )
-				assert isinstance( tagobj.tagged_date, int )
-				assert isinstance( tagobj.tagger_tz_offset, int )
+				assert isinstance(tagobj.tagger, Actor)
+				assert isinstance(tagobj.tagged_date, int)
+				assert isinstance(tagobj.tagger_tz_offset, int)
 				assert tagobj.message
 				assert tag.object == tagobj
 				# can't assign the object
@@ -50,7 +50,7 @@ class TestRefs(TestBase):
 			# END if we have a tag object
 		# END for tag in repo-tags
 		assert tag_object_refs
-		assert isinstance(self.rorepo.tags['0.1.5'], TagReference)
+		assert isinstance(TagReference.list_items(self.rorepo)['0.5.0'], TagReference)
 		
 	def test_tags(self):
 		# tag refs can point to tag objects or to commits

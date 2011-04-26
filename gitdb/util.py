@@ -73,6 +73,7 @@ rename = os.rename
 remove = os.remove
 dirname = os.path.dirname
 basename = os.path.basename
+normpath = os.path.normpath
 join = os.path.join
 read = os.read
 write = os.write
