@@ -7,8 +7,10 @@ from base import (
 						ObjectDBW, 
 						FileDBBase, 
 						RepositoryPathsMixin,
-						ConfigurationMixin
+						ConfigurationMixin,
 					)
+
+from resolve import NameResolvePureMixin
 
 from loose import LooseObjectDB
 from pack import PackedDB
@@ -94,7 +96,7 @@ class GitODB(FileDBBase, ObjectDBW, CompoundDB):
 	#} END objectdbw interface
 	
 	
-class RefGitDB(GitODB, RepositoryPathsMixin, ConfigurationMixin):
+class RefGitDB(GitODB, RepositoryPathsMixin, ConfigurationMixin, NameResolvePureMixin):
 	"""Git like database with support for object lookup as well as reference resolution.
 	Our rootpath is set to the actual .git directory (bare on unbare).
 	

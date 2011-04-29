@@ -34,7 +34,7 @@ import os
 
 
 __all__ = (	'ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB', 
-			'TransportDBMixin', 'RefParseMixin', 'ConfigurationMixin', 'RepositoryPathsMixin',  
+			'TransportDB', 'NameResolveMixin', 'ConfigurationMixin', 'RepositoryPathsMixin',  
 			'RefSpec', 'FetchInfo', 'PushInfo')
 
 
@@ -411,7 +411,7 @@ class FetchInfo(object):
 	FAST_FORWARD, ERROR = [ 1 << x for x in range(8) ]
 
 
-class TransportDBMixin(object):
+class TransportDB(object):
 	"""A database which allows to transport objects from and to different locations
 	which are specified by urls (location) and refspecs (what to transport, 
 	see http://www.kernel.org/pub/software/scm/git/docs/git-fetch.html).
@@ -468,10 +468,16 @@ class TransportDBMixin(object):
 		:raise: if any issue arises during transport or if the url cannot be handled"""
 		raise NotImplementedError()
 		
+	@property
+	def remotes(self):
+		""":return: An IterableList of Remote objects allowing to access and manipulate remotes
+		:note: Remote objects can also be used for the actual push or fetch operation"""
+		raise NotImplementedError()
+		
 	#}end interface
 	
 
-class RefParseMixin(object):
+class NameResolveMixin(object):
 	"""Interface allowing to resolve symbolic names or partial hexadecimal shas into
 	actual binary shas. The actual feature set depends on the implementation though, 
 	but should follow git-rev-parse."""
@@ -479,6 +485,32 @@ class RefParseMixin(object):
 	def resolve(self, name):
 		"""Resolve the given name into a binary sha. Valid names are as defined 
 		in the rev-parse documentation http://www.kernel.org/pub/software/scm/git/docs/git-rev-parse.html"""
+		raise NotImplementedError()
+		
+
+class RefDBMixin(object):
+	"""Database providing reference objects which in turn point to database objects
+	like Commits or Tag(Object)s.
+	
+	The returned types are compatible to the interfaces of the pure python 
+	reference implementation in GitDB.ref"""
+	
+	@property
+	def references(self):
+		""":return: iterable list of all Reference objects representing tags, heads
+		and remote references. This is the most general method to obtain any 
+		references."""
+		raise NotImplementedError()
+		
+	@property
+	def heads(self):
+		""":return: IterableList with HeadReference objects pointing to all
+		heads in the repository."""
+		raise NotImplementedError()
+		
+	@property
+	def tags(self):
+		""":return: An IterableList of TagReferences that are available in this repo"""
 		raise NotImplementedError()
 		
 		

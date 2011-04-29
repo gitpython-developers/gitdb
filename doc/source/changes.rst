@@ -5,10 +5,11 @@ Changelog
 ****
 NEXT
 ****
-* Added interface to allow transporting git data: **TransportDBMixin**
+* Added interface to allow transporting git data: **TransportDB**
 * Added interface to allow reference resolution: **RefParseMixin**
 * Added interface to handle git related paths: **RepositoryPathsMixin**
 * Added interface to read and write git-like configuration: **ConfigurationMixin**
+* Added **RevParseMixin** providing reference resolution.
 * Added implementation of git datbase with support for transportation and reference resolution: **RefGitDB**
 * Renamed type *GitDB* to **GitODB** to differentiate its object-only property to the **RefGitDB** 
 

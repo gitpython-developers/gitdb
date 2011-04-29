@@ -237,7 +237,7 @@ class SymbolicReference(object):
 			is_invalid_type = commit.object.type != self.CommitCls.type
 		else:
 			try:
-				is_invalid_type = self.repo.rev_parse(commit).type != self.CommitCls.type
+				is_invalid_type = self.repo.resolve(commit).type != self.CommitCls.type
 			except BadObject:
 				raise ValueError("Invalid object: %s" % commit)
 			#END handle exception
@@ -293,7 +293,7 @@ class SymbolicReference(object):
 			write_value = ref.hexsha
 		elif isinstance(ref, basestring):
 			try:
-				obj = self.repo.rev_parse(ref+"^{}")	# optionally deref tags
+				obj = self.repo.resolve(ref+"^{}")	# optionally deref tags
 				write_value = obj.hexsha
 			except BadObject:
 				raise ValueError("Could not extract object from %s" % ref)
@@ -474,14 +474,14 @@ class SymbolicReference(object):
 		# figure out target data
 		target = reference
 		if resolve:
-			# could just use the rev_parse method, but it could be expensive
+			# could just use the resolve method, but it could be expensive
 			# so we handle most common cases ourselves
 			if isinstance(reference, cls.ObjectCls):
 				target = reference.hexsha
 			elif isinstance(reference, SymbolicReference):
 				target = reference.object.hexsha
 			else:
-				target = repo.rev_parse(str(reference))
+				target = repo.resolve(str(reference))
 			#END handle resoltion
 		#END need resolution
 			
