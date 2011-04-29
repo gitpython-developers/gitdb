@@ -32,6 +32,7 @@ class SymbolicReference(object):
 	
 	A typical example for a symbolic reference is HEAD."""
 	__slots__ = ("odb", "path")
+	
 	_resolve_ref_on_create = False
 	_points_to_commits_only = True
 	_common_path_default = ""

@@ -4,14 +4,14 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from lib import *
 from gitdb.exc import BadObject
-from gitdb.db import GitDB
+from gitdb.db import GitODB
 from gitdb.base import OStream, OInfo
 from gitdb.util import hex_to_bin, bin_to_hex
 		
 class TestGitDB(TestDBBase):
 	
 	def test_reading(self):
-		gdb = GitDB(fixture_path('../../../.git/objects'))
+		gdb = GitODB(fixture_path('../../../.git/objects'))
 		
 		# we have packs and loose objects, alternates doesn't necessarily exist
 		assert 1 < len(gdb.databases()) < 4
@@ -40,7 +40,7 @@ class TestGitDB(TestDBBase):
 		
 	@with_rw_directory
 	def test_writing(self, path):
-		gdb = GitDB(path)
+		gdb = GitODB(path)
 		
 		# its possible to write objects
 		self._assert_object_writing(gdb)

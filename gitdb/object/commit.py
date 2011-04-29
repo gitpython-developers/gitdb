@@ -118,7 +118,7 @@ class Commit(base.Object, Traversable, Serializable):
 	def _set_cache_(self, attr):
 		if attr in Commit.__slots__:
 			# read the data in a chunk, its faster - then provide a file wrapper
-			binsha, typename, self.size, stream = self.odb.odb.stream(self.binsha)
+			binsha, typename, self.size, stream = self.odb.stream(self.binsha)
 			self._deserialize(StringIO(stream.read()))
 		else:
 			super(Commit, self)._set_cache_(attr)

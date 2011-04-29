@@ -10,6 +10,7 @@ NEXT
 * Added interface to handle git related paths: **RepositoryPathsMixin**
 * Added interface to read and write git-like configuration: **ConfigurationMixin**
 * Added implementation of git datbase with support for transportation and reference resolution: **RefGitDB**
+* Renamed type *GitDB* to **GitODB** to differentiate its object-only property to the **RefGitDB** 
 
 *****
 0.5.2

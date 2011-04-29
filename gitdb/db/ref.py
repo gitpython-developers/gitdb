@@ -14,7 +14,7 @@ class ReferenceDB(CompoundDB):
 	
 	# Configuration
 	# Specifies the object database to use for the paths found in the alternates
-	# file. If None, it defaults to the GitDB
+	# file. If None, it defaults to the GitODB
 	ObjectDBCls = None
 	
 	def __init__(self, ref_file):
@@ -33,8 +33,8 @@ class ReferenceDB(CompoundDB):
 		dbcls = self.ObjectDBCls
 		if dbcls is None:
 			# late import
-			from git import GitDB
-			dbcls = GitDB
+			from git import GitODB
+			dbcls = GitODB
 		# END get db type
 		
 		# try to get as many as possible, don't fail if some are unavailable

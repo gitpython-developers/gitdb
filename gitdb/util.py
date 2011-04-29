@@ -2,6 +2,7 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
+import platform
 import binascii
 import os
 import mmap
@@ -74,6 +75,9 @@ remove = os.remove
 dirname = os.path.dirname
 basename = os.path.basename
 normpath = os.path.normpath
+expandvars = os.path.expandvars
+expanduser = os.path.expanduser
+abspath = os.path.abspath
 join = os.path.join
 read = os.read
 write = os.write
@@ -111,6 +115,29 @@ class _RandomAccessStringIO(object):
 #} END compatibility stuff ...
 
 #{ Routines
+
+def get_user_id():
+	""":return: string identifying the currently active system user as name@node
+	:note: user can be set with the 'USER' environment variable, usually set on windows"""
+	ukn = 'UNKNOWN'
+	username = os.environ.get('USER', os.environ.get('USERNAME', ukn))
+	if username == ukn and hasattr(os, 'getlogin'):
+		username = os.getlogin()
+	# END get username from login
+	return "%s@%s" % (username, platform.node())
+
+def is_git_dir(d):
+	""" This is taken from the git setup.c:is_git_directory
+	function."""
+	if isdir(d) and \
+			isdir(join(d, 'objects')) and \
+			isdir(join(d, 'refs')):
+		headref = join(d, 'HEAD')
+		return isfile(headref) or \
+				(os.path.islink(headref) and
+				os.readlink(headref).startswith('refs'))
+	return False
+
 
 def stream_copy(source, destination, chunk_size=512*1024):
 	"""Copy all data from the source stream into the destination stream in chunks

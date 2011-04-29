@@ -7,15 +7,21 @@ from gitdb.util import (
 		pool,
 		join,
 		normpath,
+		abspath,
 		dirname,
 		LazyMixin, 
-		hex_to_bin
+		hex_to_bin,
+		expandvars,
+		expanduser,
+		exists,
+		is_git_dir
 	)
 
 from gitdb.config import GitConfigParser
 from gitdb.exc import (
 						BadObject, 
-						AmbiguousObjectName
+						AmbiguousObjectName,
+						InvalidDBRoot
 						)
 
 from async import (
@@ -484,13 +490,72 @@ class RepositoryPathsMixin(object):
 	truly is a git repository.
 	
 	If the underlying type provides the config_reader() method, we can properly determine 
-	whether this is a bare repository as well."""
+	whether this is a bare repository as well. Otherwise it will make an educated guess
+	based on the path name."""
 	# slots has no effect here, its just to keep track of used attrs
 	__slots__  = ("_git_path", '_bare')
 	
 	#{ Configuration 
+	repo_dir = '.git'
 	objs_dir = 'objects'
 	#} END configuration
+	
+	#{ Subclass Interface
+	def _initialize(self, path):
+		"""initialize this instance with the given path. It may point to 
+		any location within the repositories own data, as well as the working tree.
+		
+		The implementation will move up and search for traces of a git repository, 
+		which is indicated by a child directory ending with .git or the 
+		current path portion ending with .git.
+		
+		The paths made available for query are suitable for full git repositories
+		only. Plain object databases need to be fed the "objects" directory path.
+		
+		:param path: the path to initialize the repository with
+		:raise InvalidDBRoot:
+		"""
+		epath = abspath(expandvars(expanduser(path or os.getcwd())))
+
+		if not exists(epath):
+			raise InvalidDBRoot(epath)
+		#END check file 
+
+		self._working_tree_dir = None
+		self._git_path = None
+		curpath = epath
+		
+		# walk up the path to find the .git dir
+		while curpath:
+			if is_git_dir(curpath):
+				self._git_path = curpath
+				self._working_tree_dir = os.path.dirname(curpath)
+				break
+			gitpath = join(curpath, self.repo_dir)
+			if is_git_dir(gitpath):
+				self._git_path = gitpath
+				self._working_tree_dir = curpath
+				break
+			curpath, dummy = os.path.split(curpath)
+			if not dummy:
+				break
+		# END while curpath
+		
+		if self._git_path is None:
+			raise InvalidDBRoot(epath)
+		# END path not found
+
+		self._bare = self._git_path.endswith(self.repo_dir)
+		if hasattr(self, 'config_reader'):
+			try:
+				self._bare = self.config_reader("repository").getboolean('core','bare') 
+			except Exception:
+				# lets not assume the option exists, although it should
+				pass
+		#END check bare flag
+
+	
+	#} end subclass interface
 	
 	#{ Interface
 	
@@ -512,6 +577,10 @@ class RepositoryPathsMixin(object):
 			raise AssertionError("Repository at %s is bare and does not have a working tree directory" % self.git_path())
 		#END assertion
 		return dirname(self.git_path())
+		
+	def objects_path(self):
+		""":return: path to the repository's objects directory"""
+		return join(self.git_path(), self.objs_dir)
 		
 	def working_dir(self):
 		""":return: working directory of the git process or related tools, being 
@@ -539,7 +608,11 @@ class ConfigurationMixin(object):
 	#{ Configuration
 	system_config_file_name = "gitconfig"
 	repo_config_file_name = "config"
-	#} END 
+	#} END
+	
+	def __init__(self, *args, **kwargs):
+		"""Verify prereqs"""
+		assert hasattr(self, 'git_path')
 	
 	def _path_at_level(self, level ):
 		# we do not support an absolute path of the gitconfig on windows , 
@@ -551,7 +624,7 @@ class ConfigurationMixin(object):
 		if level == "system":
 			return "/etc/%s" % self.system_config_file_name
 		elif level == "global":
-			return normpath(os.path.expanduser("~/.%s" % self.system_config_file_name))
+			return normpath(expanduser("~/.%s" % self.system_config_file_name))
 		elif level == "repository":
 			return join(self.git_path(), self.repo_config_file_name)
 		#END handle level

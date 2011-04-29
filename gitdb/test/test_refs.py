@@ -90,7 +90,7 @@ class TestRefs(TestBase):
 			# after the clone, we might still have a tracking branch setup
 			head.set_tracking_branch(None)
 			assert head.tracking_branch() is None
- 			remote_ref = rw_repo.remotes[0].refs[0]
+ 			remote_ref = RemoteReference.list_items(rw_repo)[0]
 			assert head.set_tracking_branch(remote_ref) is head
 			assert head.tracking_branch() == remote_ref
 			head.set_tracking_branch(None)
