@@ -1,4 +1,4 @@
-from head import Head
+from headref import Head
 from gitdb.util import (
 						join, 
 						join_path

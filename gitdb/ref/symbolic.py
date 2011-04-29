@@ -31,7 +31,7 @@ class SymbolicReference(object):
 	specifies a commit.
 	
 	A typical example for a symbolic reference is HEAD."""
-	__slots__ = ("odb", "path")
+	__slots__ = ("repo", "path")
 	
 	_resolve_ref_on_create = False
 	_points_to_commits_only = True
@@ -53,8 +53,8 @@ class SymbolicReference(object):
 	ReferenceCls = None
 	#}END configuration
 	
-	def __init__(self, odb, path):
-		self.odb = odb
+	def __init__(self, repo, path):
+		self.repo = repo
 		self.path = path
 		
 	def __str__(self):
@@ -82,18 +82,18 @@ class SymbolicReference(object):
 	
 	@property
 	def abspath(self):
-		return join_path_native(self.odb.git_path(), self.path)
+		return join_path_native(self.repo.git_path(), self.path)
 		
 	@classmethod
-	def _get_packed_refs_path(cls, odb):
-		return join(odb.git_path(), 'packed-refs')
+	def _get_packed_refs_path(cls, repo):
+		return join(repo.git_path(), 'packed-refs')
 		
 	@classmethod
-	def _iter_packed_refs(cls, odb):
+	def _iter_packed_refs(cls, repo):
 		"""Returns an iterator yielding pairs of sha1/path pairs for the corresponding refs.
 		:note: The packed refs file will be kept open as long as we iterate"""
 		try:
-			fp = open(cls._get_packed_refs_path(odb), 'r')
+			fp = open(cls._get_packed_refs_path(repo), 'r')
 			for line in fp:
 				line = line.strip()
 				if not line:
@@ -121,25 +121,25 @@ class SymbolicReference(object):
 		# alright.
 		
 	@classmethod
-	def dereference_recursive(cls, odb, ref_path):
+	def dereference_recursive(cls, repo, ref_path):
 		"""
 		:return: hexsha stored in the reference at the given ref_path, recursively dereferencing all
 			intermediate references as required
-		:param odb: the repository containing the reference at ref_path"""
+		:param repo: the repository containing the reference at ref_path"""
 		while True:
-			hexsha, ref_path = cls._get_ref_info(odb, ref_path)
+			hexsha, ref_path = cls._get_ref_info(repo, ref_path)
 			if hexsha is not None:
 				return hexsha
 		# END recursive dereferencing
 		
 	@classmethod
-	def _get_ref_info(cls, odb, ref_path):
+	def _get_ref_info(cls, repo, ref_path):
 		"""Return: (sha, target_ref_path) if available, the sha the file at 
 		rela_path points to, or None. target_ref_path is the reference we 
 		point to, or None"""
 		tokens = None
 		try:
-			fp = open(join(odb.git_path(), ref_path), 'r')
+			fp = open(join(repo.git_path(), ref_path), 'r')
 			value = fp.read().rstrip()
 			fp.close()
 			tokens = value.split(" ")
@@ -147,7 +147,7 @@ class SymbolicReference(object):
 			# Probably we are just packed, find our entry in the packed refs file
 			# NOTE: We are not a symbolic ref if we are in a packed file, as these
 			# are excluded explictly
-			for sha, path in cls._iter_packed_refs(odb):
+			for sha, path in cls._iter_packed_refs(repo):
 				if path != ref_path: continue
 				tokens = (sha, path)
 				break
@@ -171,7 +171,7 @@ class SymbolicReference(object):
 		:return:
 			The binary sha to the object our ref currently refers to. Refs can be cached, they will 
 			always point to the actual object as it gets re-created on each query"""
-		return hex_to_bin(self.dereference_recursive(self.odb, self.path))
+		return hex_to_bin(self.dereference_recursive(self.repo, self.path))
 	
 	def _get_object(self):
 		"""
@@ -179,7 +179,7 @@ class SymbolicReference(object):
 			The object our ref currently refers to."""
 		# have to be dynamic here as we may be a tag which can point to anything
 		# Our path will be resolved to the hexsha which will be used accordingly
-		return self.ObjectCls.new_from_sha(self.odb, self._get_object_sha())
+		return self.ObjectCls.new_from_sha(self.repo, self._get_object_sha())
 	
 	def set_object(self, object_id, logmsg = None):
 		"""Set the object we point to, possibly dereference our symbolic reference first.
@@ -237,7 +237,7 @@ class SymbolicReference(object):
 			is_invalid_type = commit.object.type != self.CommitCls.type
 		else:
 			try:
-				is_invalid_type = self.odb.rev_parse(commit).type != self.CommitCls.type
+				is_invalid_type = self.repo.rev_parse(commit).type != self.CommitCls.type
 			except BadObject:
 				raise ValueError("Invalid object: %s" % commit)
 			#END handle exception
@@ -261,10 +261,10 @@ class SymbolicReference(object):
 		""":return: Reference Object we point to
 		:raise TypeError: If this symbolic reference is detached, hence it doesn't point
 			to a reference, but to a commit"""
-		sha, target_ref_path = self._get_ref_info(self.odb, self.path)
+		sha, target_ref_path = self._get_ref_info(self.repo, self.path)
 		if target_ref_path is None:
 			raise TypeError("%s is a detached symbolic reference as it points to %r" % (self, sha))
-		return self.from_path(self.odb, target_ref_path)
+		return self.from_path(self.repo, target_ref_path)
 		
 	def set_reference(self, ref, logmsg = None):
 		"""Set ourselves to the given ref. It will stay a symbol if the ref is a Reference.
@@ -293,7 +293,7 @@ class SymbolicReference(object):
 			write_value = ref.hexsha
 		elif isinstance(ref, basestring):
 			try:
-				obj = self.odb.rev_parse(ref+"^{}")	# optionally deref tags
+				obj = self.repo.rev_parse(ref+"^{}")	# optionally deref tags
 				write_value = obj.hexsha
 			except BadObject:
 				raise ValueError("Could not extract object from %s" % ref)
@@ -377,7 +377,7 @@ class SymbolicReference(object):
 		:param newbinsha: The sha the ref points to now. If None, our current commit sha
 			will be used
 		:return: added RefLogEntry instance"""
-		return RefLog.append_entry(self.odb.config_reader(), RefLog.path(self), oldbinsha, 
+		return RefLog.append_entry(self.repo.config_reader(), RefLog.path(self), oldbinsha, 
 									(newbinsha is None and self.commit.binsha) or newbinsha, 
 									message) 
 
@@ -405,10 +405,10 @@ class SymbolicReference(object):
 		return full_ref_path
 	
 	@classmethod
-	def delete(cls, odb, path):
+	def delete(cls, repo, path):
 		"""Delete the reference at the given path
 		
-		:param odb:
+		:param repo:
 			Repository to delete the reference from
 		
 		:param path:
@@ -416,12 +416,12 @@ class SymbolicReference(object):
 			or just "myreference", hence 'refs/' is implied.
 			Alternatively the symbolic reference to be deleted"""
 		full_ref_path = cls.to_full_path(path)
-		abs_path = join(odb.git_path(), full_ref_path)
+		abs_path = join(repo.git_path(), full_ref_path)
 		if exists(abs_path):
 			os.remove(abs_path)
 		else:
 			# check packed refs
-			pack_file_path = cls._get_packed_refs_path(odb)
+			pack_file_path = cls._get_packed_refs_path(repo)
 			try:
 				reader = open(pack_file_path)
 			except (OSError,IOError):
@@ -455,26 +455,35 @@ class SymbolicReference(object):
 		# END handle deletion
 		
 		# delete the reflog
-		reflog_path = RefLog.path(cls(odb, full_ref_path))
+		reflog_path = RefLog.path(cls(repo, full_ref_path))
 		if os.path.isfile(reflog_path):
 			os.remove(reflog_path)
 		#END remove reflog
 		
 			
 	@classmethod
-	def _create(cls, odb, path, resolve, reference, force, logmsg=None):
+	def _create(cls, repo, path, resolve, reference, force, logmsg=None):
 		"""internal method used to create a new symbolic reference.
 		If resolve is False, the reference will be taken as is, creating 
 		a proper symbolic reference. Otherwise it will be resolved to the 
 		corresponding object and a detached symbolic reference will be created
 		instead"""
 		full_ref_path = cls.to_full_path(path)
-		abs_ref_path = join(odb.git_path(), full_ref_path)
+		abs_ref_path = join(repo.git_path(), full_ref_path)
 		
 		# figure out target data
 		target = reference
 		if resolve:
-			target = odb.rev_parse(str(reference))
+			# could just use the rev_parse method, but it could be expensive
+			# so we handle most common cases ourselves
+			if isinstance(reference, cls.ObjectCls):
+				target = reference.hexsha
+			elif isinstance(reference, SymbolicReference):
+				target = reference.object.hexsha
+			else:
+				target = repo.rev_parse(str(reference))
+			#END handle resoltion
+		#END need resolution
 			
 		if not force and isfile(abs_ref_path):
 			target_data = str(target)
@@ -487,15 +496,15 @@ class SymbolicReference(object):
 				raise OSError("Reference at %r does already exist, pointing to %r, requested was %r" % (full_ref_path, existing_data, target_data))
 		# END no force handling
 		
-		ref = cls(odb, full_ref_path)
+		ref = cls(repo, full_ref_path)
 		ref.set_reference(target, logmsg)
 		return ref
 		
 	@classmethod
-	def create(cls, odb, path, reference='HEAD', force=False, logmsg=None):
+	def create(cls, repo, path, reference='HEAD', force=False, logmsg=None):
 		"""Create a new symbolic reference, hence a reference pointing to another reference.
 		
-		:param odb:
+		:param repo:
 			Repository to create the reference in 
 			
 		:param path:
@@ -521,7 +530,7 @@ class SymbolicReference(object):
 			already exists.
 		
 		:note: This does not alter the current HEAD, index or Working Tree"""
-		return cls._create(odb, path, cls._resolve_ref_on_create, reference, force, logmsg)
+		return cls._create(repo, path, cls._resolve_ref_on_create, reference, force, logmsg)
 	
 	def rename(self, new_path, force=False):
 		"""Rename self to a new path
@@ -541,8 +550,8 @@ class SymbolicReference(object):
 		if self.path == new_path:
 			return self
 		
-		new_abs_path = join(self.odb.git_path(), new_path)
-		cur_abs_path = join(self.odb.git_path(), self.path)
+		new_abs_path = join(self.repo.git_path(), new_path)
+		cur_abs_path = join(self.repo.git_path(), self.path)
 		if isfile(new_abs_path):
 			if not force:
 				# if they point to the same file, its not an error
@@ -565,14 +574,14 @@ class SymbolicReference(object):
 		return self
 		
 	@classmethod
-	def _iter_items(cls, odb, common_path = None):
+	def _iter_items(cls, repo, common_path = None):
 		if common_path is None:
 			common_path = cls._common_path_default
 		rela_paths = set()
 		
 		# walk loose refs
 		# Currently we do not follow links 
-		for root, dirs, files in os.walk(join_path_native(odb.git_path(), common_path)):
+		for root, dirs, files in os.walk(join_path_native(repo.git_path(), common_path)):
 			if 'refs/' not in root: # skip non-refs subfolders
 				refs_id = [ i for i,d in enumerate(dirs) if d == 'refs' ]
 				if refs_id:
@@ -581,12 +590,12 @@ class SymbolicReference(object):
 			
 			for f in files:
 				abs_path = to_native_path_linux(join_path(root, f))
-				rela_paths.add(abs_path.replace(to_native_path_linux(odb.git_path()) + '/', ""))
+				rela_paths.add(abs_path.replace(to_native_path_linux(repo.git_path()) + '/', ""))
 			# END for each file in root directory
 		# END for each directory to walk
 		
 		# read packed refs
-		for sha, rela_path in cls._iter_packed_refs(odb):
+		for sha, rela_path in cls._iter_packed_refs(repo):
 			if rela_path.startswith(common_path):
 				rela_paths.add(rela_path)
 			# END relative path matches common path
@@ -595,16 +604,16 @@ class SymbolicReference(object):
 		# return paths in sorted order
 		for path in sorted(rela_paths):
 			try:
-				yield cls.from_path(odb, path)
+				yield cls.from_path(repo, path)
 			except ValueError:
 				continue
 		# END for each sorted relative refpath
 		
 	@classmethod
-	def iter_items(cls, odb, common_path = None):
+	def iter_items(cls, repo, common_path = None):
 		"""Find all refs in the repository
 
-		:param odb: is the odb
+		:param repo: is the repo
 
 		:param common_path:
 			Optional keyword argument to the path which is to be shared by all
@@ -618,10 +627,10 @@ class SymbolicReference(object):
 			
 			List is lexigraphically sorted
 			The returned objects represent actual subclasses, such as Head or TagReference"""
-		return ( r for r in cls._iter_items(odb, common_path) if r.__class__ == cls or not r.is_detached )
+		return ( r for r in cls._iter_items(repo, common_path) if r.__class__ == cls or not r.is_detached )
 		
 	@classmethod
-	def from_path(cls, odb, path):
+	def from_path(cls, repo, path):
 		"""
 		:param path: full .git-directory-relative path name to the Reference to instantiate
 		:note: use to_full_path() if you only have a partial path of a known Reference Type
@@ -633,7 +642,7 @@ class SymbolicReference(object):
 		
 		for ref_type in (cls.HEADCls, cls.HeadCls, cls.RemoteReferenceCls, cls.TagReferenceCls, cls.ReferenceCls, cls):
 			try:
-				instance = ref_type(odb, path)
+				instance = ref_type(repo, path)
 				if instance.__class__ == SymbolicReference and instance.is_detached:
 					raise ValueError("SymbolRef was detached, we drop it")
 				return instance
