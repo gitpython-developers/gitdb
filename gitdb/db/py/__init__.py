@@ -3,4 +3,10 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 
-from interface import *
+from base import *
+from loose import *
+from mem import *
+from pack import *
+from git import *
+from ref import *
+

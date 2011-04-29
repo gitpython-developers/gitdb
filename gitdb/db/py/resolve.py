@@ -1,7 +1,7 @@
 """Module with an implementation for refspec parsing. It is the pure-python
 version assuming compatible interface for reference and object types"""
 
-from base import NameResolveMixin
+from gitdb.db.interface import ReferencesMixin
 from gitdb.exc import BadObject
 from gitdb.ref import SymbolicReference
 from gitdb.object.base import Object
@@ -275,7 +275,7 @@ def rev_parse(repo, rev):
 
 #} END utilities
 
-class NameResolvePureMixin(NameResolveMixin):
+class PureReferencesMixin(ReferencesMixin):
 	"""Pure-Python refparse implementation"""
 	
 	re_hexsha_only = re.compile('^[0-9A-Fa-f]{40}$')
@@ -283,3 +283,18 @@ class NameResolvePureMixin(NameResolveMixin):
 	
 	def resolve(self, name):
 		return rev_parse(self, name)
+		
+	def resolve(self, name):
+		raise NotImplementedError()
+	
+	@property
+	def references(self):
+		raise NotImplementedError()
+		
+	@property
+	def heads(self):
+		raise NotImplementedError()
+		
+	@property
+	def tags(self):
+		raise NotImplementedError()

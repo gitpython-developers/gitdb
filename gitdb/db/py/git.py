@@ -5,7 +5,7 @@
 from base import (
 						CompoundDB, 
 						ObjectDBW, 
-						FileDBBase, 
+						RootPathDBBase, 
 						RepositoryPathsMixin,
 						ConfigurationMixin,
 					)
@@ -29,14 +29,14 @@ from gitdb.exc import (
 						)
 import os
 
-__all__ = ('GitODB', 'RefGitDB')
+__all__ = ('GitODB', 'GitDB')
 
 
-class GitODB(FileDBBase, ObjectDBW, CompoundDB):
+class GitODB(RootPathDBBase, ObjectDBW, CompoundDB):
 	"""A git-style object-only database, which contains all objects in the 'objects'
 	subdirectory.
 	:note: The type needs to be initialized on the ./objects directory to function, 
-		as it deals solely with object lookup. Use a RefGitDB type if you need
+		as it deals solely with object lookup. Use a GitDB type if you need
 		reference and push support."""
 	# Configuration
 	PackDBCls = PackedDB
@@ -96,7 +96,7 @@ class GitODB(FileDBBase, ObjectDBW, CompoundDB):
 	#} END objectdbw interface
 	
 	
-class RefGitDB(GitODB, RepositoryPathsMixin, ConfigurationMixin, NameResolvePureMixin):
+class GitDB(GitODB, RepositoryPathsMixin, ConfigurationMixin, NameResolvePureMixin):
 	"""Git like database with support for object lookup as well as reference resolution.
 	Our rootpath is set to the actual .git directory (bare on unbare).
 	
@@ -107,7 +107,7 @@ class RefGitDB(GitODB, RepositoryPathsMixin, ConfigurationMixin, NameResolvePure
 	def __init__(self, root_path):
 		"""Initialize ourselves on the .git directory, or the .git/objects directory."""
 		RepositoryPathsMixin._initialize(self, root_path)
-		super(RefGitDB, self).__init__(self.objects_path())
+		super(GitDB, self).__init__(self.objects_path())
 	
 	
 	

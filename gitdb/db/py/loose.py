@@ -3,7 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from base import (
-						FileDBBase, 
+						RootPathDBBase, 
 						ObjectDBR, 
 						ObjectDBW
 				)
@@ -60,7 +60,7 @@ import os
 __all__ = ( 'LooseObjectDB', )
 
 
-class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
+class LooseObjectDB(RootPathDBBase, ObjectDBR, ObjectDBW):
 	"""A database which operates on loose object files"""
 	
 	# CONFIGURATION

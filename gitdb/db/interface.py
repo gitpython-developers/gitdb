@@ -2,40 +2,11 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-"""Contains implementations of database retrieveing objects"""
-from gitdb.util import (
-		pool,
-		join,
-		normpath,
-		abspath,
-		dirname,
-		LazyMixin, 
-		hex_to_bin,
-		expandvars,
-		expanduser,
-		exists,
-		is_git_dir
-	)
+"""Contains interfaces for basic database building blocks"""
 
-from gitdb.config import GitConfigParser
-from gitdb.exc import (
-						BadObject, 
-						AmbiguousObjectName,
-						InvalidDBRoot
-						)
-
-from async import (
-		ChannelThreadTask
-	)
-
-from itertools import chain
-import sys
-import os
-
-
-__all__ = (	'ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB', 
-			'TransportDB', 'NameResolveMixin', 'ConfigurationMixin', 'RepositoryPathsMixin',  
-			'RefSpec', 'FetchInfo', 'PushInfo')
+__all__ = (	'ObjectDBR', 'ObjectDBW', 'RootPathDB', 'CompoundDB', 'CachingDB', 
+			'TransportDB', 'ConfigurationMixin', 'RepositoryPathsMixin',  
+			'RefSpec', 'FetchInfo', 'PushInfo', 'ReferencesMixin')
 
 
 class ObjectDBR(object):
@@ -43,7 +14,7 @@ class ObjectDBR(object):
 	Objects are identified either by their 20 byte bin sha"""
 	
 	def __contains__(self, sha):
-		return self.has_obj
+		return self.has_obj(sha)
 	
 	#{ Query Interface 
 	def has_object(self, sha):
@@ -58,8 +29,7 @@ class ObjectDBR(object):
 		:param reader: Reader yielding 20 byte shas.
 		:return: async.Reader yielding tuples of (sha, bool) pairs which indicate
 			whether the given sha exists in the database or not"""
-		task = ChannelThreadTask(reader, str(self.has_object_async), lambda sha: (sha, self.has_object(sha)))
-		return pool.add_task(task) 
+		raise NotImplementedError("To be implemented in subclass")
 		
 	def info(self, sha):
 		""" :return: OInfo instance
@@ -71,8 +41,7 @@ class ObjectDBR(object):
 		"""Retrieve information of a multitude of objects asynchronously
 		:param reader: Channel yielding the sha's of the objects of interest
 		:return: async.Reader yielding OInfo|InvalidOInfo, in any order"""
-		task = ChannelThreadTask(reader, str(self.info_async), self.info)
-		return pool.add_task(task)
+		raise NotImplementedError("To be implemented in subclass")
 		
 	def stream(self, sha):
 		""":return: OStream instance
@@ -88,9 +57,7 @@ class ObjectDBR(object):
 		:note: depending on the system configuration, it might not be possible to 
 			read all OStreams at once. Instead, read them individually using reader.read(x)
 			where x is small enough."""
-		# base implementation just uses the stream method repeatedly
-		task = ChannelThreadTask(reader, str(self.stream_async), self.stream)
-		return pool.add_task(task)
+		raise NotImplementedError("To be implemented in subclass")
 	
 	def size(self):
 		""":return: amount of objects in this database"""
@@ -99,15 +66,28 @@ class ObjectDBR(object):
 	def sha_iter(self):
 		"""Return iterator yielding 20 byte shas for all objects in this data base"""
 		raise NotImplementedError()
+		
+	def partial_to_complete_sha_hex(self, partial_hexsha):
+		"""
+		:return: 20 byte binary sha1 from the given less-than-40 byte hexsha
+		:param partial_hexsha: hexsha with less than 40 byte
+		:raise AmbiguousObjectName: If multiple objects would match the given sha 
+		:raies BadObject: If object was not found"""
+		raise NotImplementedError()
 			
+	def partial_to_complete_sha(self, partial_binsha, canonical_length):
+		""":return: 20 byte sha as inferred by the given partial binary sha
+		:param partial_binsha: binary sha with less than 20 bytes 
+		:param canonical_length: length of the corresponding canonical (hexadecimal) representation.
+			It is required as binary sha's cannot display whether the original hex sha
+			had an odd or even number of characters
+		:raise AmbiguousObjectName: 
+		:raise BadObject: """
 	#} END query interface
 	
 	
 class ObjectDBW(object):
 	"""Defines an interface to create objects in the database"""
-	
-	def __init__(self, *args, **kwargs):
-		self._ostream = None
 	
 	#{ Edit Interface
 	def set_ostream(self, stream):
@@ -118,15 +98,13 @@ class ObjectDBW(object):
 			will be used.
 		:return: previously installed stream, or None if there was no override
 		:raise TypeError: if the stream doesn't have the supported functionality"""
-		cstream = self._ostream
-		self._ostream = stream
-		return cstream
+		raise NotImplementedError("To be implemented in subclass")
 		
 	def ostream(self):
 		"""
 		:return: overridden output stream this instance will write to, or None
 			if it will write to the default stream"""
-		return self._ostream
+		raise NotImplementedError("To be implemented in subclass")
 	
 	def store(self, istream):
 		"""
@@ -156,16 +134,13 @@ class ObjectDBW(object):
 		:note:As some ODB implementations implement this operation atomic, they might 
 			abort the whole operation if one item could not be processed. Hence check how 
 			many items have actually been produced."""
-		# base implementation uses store to perform the work
-		task = ChannelThreadTask(reader, str(self.store_async), self.store) 
-		return pool.add_task(task)
+		raise NotImplementedError("To be implemented in subclass")
 	
 	#} END edit interface
 	
 
-class FileDBBase(object):
-	"""Provides basic facilities to retrieve files of interest, including 
-	caching facilities to help mapping hexsha's to objects"""
+class RootPathDB(object):
+	"""Provides basic facilities to retrieve files of interest"""
 	
 	def __init__(self, root_path):
 		"""Initialize this instance to look for its files at the given root path
@@ -174,20 +149,18 @@ class FileDBBase(object):
 		:note: The base will not perform any accessablity checking as the base
 			might not yet be accessible, but become accessible before the first 
 			access."""
-		super(FileDBBase, self).__init__()
-		self._root_path = root_path
 		
 		
 	#{ Interface 
 	def root_path(self):
 		""":return: path at which this db operates"""
-		return self._root_path
+		raise NotImplementedError()
 	
 	def db_path(self, rela_path):
 		"""
 		:return: the given relative path relative to our database root, allowing 
 			to pontentially access datafiles"""
-		return join(self._root_path, rela_path)
+		raise NotImplementedError()
 	#} END interface
 		
 
@@ -195,6 +168,7 @@ class CachingDB(object):
 	"""A database which uses caches to speed-up access"""
 	
 	#{ Interface 
+	
 	def update_cache(self, force=False):
 		"""
 		Call this method if the underlying data changed to trigger an update
@@ -206,133 +180,16 @@ class CachingDB(object):
 		
 	# END interface
 
-
-
-
-def _databases_recursive(database, output):
-	"""Fill output list with database from db, in order. Deals with Loose, Packed 
-	and compound databases."""
-	if isinstance(database, CompoundDB):
-		compounds = list()
-		dbs = database.databases()
-		output.extend(db for db in dbs if not isinstance(db, CompoundDB))
-		for cdb in (db for db in dbs if isinstance(db, CompoundDB)):
-			_databases_recursive(cdb, output)
-	else:
-		output.append(database)
-	# END handle database type
-	
-
-class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
+class CompoundDB(object):
 	"""A database which delegates calls to sub-databases.
-	
-	Databases are stored in the lazy-loaded _dbs attribute.
-	Define _set_cache_ to update it with your databases"""
-	def _set_cache_(self, attr):
-		if attr == '_dbs':
-			self._dbs = list()
-		elif attr == '_db_cache':
-			self._db_cache = dict()
-		else:
-			super(CompoundDB, self)._set_cache_(attr)
-	
-	def _db_query(self, sha):
-		""":return: database containing the given 20 byte sha
-		:raise BadObject:"""
-		# most databases use binary representations, prevent converting 
-		# it everytime a database is being queried
-		try:
-			return self._db_cache[sha]
-		except KeyError:
-			pass
-		# END first level cache
-		
-		for db in self._dbs:
-			if db.has_object(sha):
-				self._db_cache[sha] = db
-				return db
-		# END for each database
-		raise BadObject(sha)
-	
-	#{ ObjectDBR interface 
-	
-	def has_object(self, sha):
-		try:
-			self._db_query(sha)
-			return True
-		except BadObject:
-			return False
-		# END handle exceptions
-		
-	def info(self, sha):
-		return self._db_query(sha).info(sha)
-		
-	def stream(self, sha):
-		return self._db_query(sha).stream(sha)
-
-	def size(self):
-		""":return: total size of all contained databases"""
-		return reduce(lambda x,y: x+y, (db.size() for db in self._dbs), 0)
-		
-	def sha_iter(self):
-		return chain(*(db.sha_iter() for db in self._dbs))
-		
-	#} END object DBR Interface
+	They should usually be cached and lazy-loaded"""
 	
 	#{ Interface
 	
 	def databases(self):
 		""":return: tuple of database instances we use for lookups"""
-		return tuple(self._dbs)
+		raise NotImplementedError()
 
-	def update_cache(self, force=False):
-		# something might have changed, clear everything
-		self._db_cache.clear()
-		stat = False
-		for db in self._dbs:
-			if isinstance(db, CachingDB):
-				stat |= db.update_cache(force)
-			# END if is caching db
-		# END for each database to update
-		return stat
-		
-	def partial_to_complete_sha_hex(self, partial_hexsha):
-		"""
-		:return: 20 byte binary sha1 from the given less-than-40 byte hexsha
-		:param partial_hexsha: hexsha with less than 40 byte
-		:raise AmbiguousObjectName: """
-		databases = list()
-		_databases_recursive(self, databases)
-		
-		len_partial_hexsha = len(partial_hexsha)
-		if len_partial_hexsha % 2 != 0:
-			partial_binsha = hex_to_bin(partial_hexsha + "0")
-		else:
-			partial_binsha = hex_to_bin(partial_hexsha)
-		# END assure successful binary conversion 
-		
-		candidate = None
-		for db in databases:
-			full_bin_sha = None
-			try:
-				if hasattr(db, 'partial_to_complete_sha_hex'):
-					full_bin_sha = db.partial_to_complete_sha_hex(partial_hexsha)
-				else:
-					full_bin_sha = db.partial_to_complete_sha(partial_binsha, len_partial_hexsha)
-				# END handle database type
-			except BadObject:
-				continue
-			# END ignore bad objects
-			if full_bin_sha:
-				if candidate and candidate != full_bin_sha:
-					raise AmbiguousObjectName(partial_hexsha)
-				candidate = full_bin_sha
-			# END handle candidate
-		# END for each db
-		if not candidate:
-			raise BadObject(partial_binsha)
-		return candidate
-		
 	#} END interface
 	
 
@@ -422,15 +279,9 @@ class TransportDB(object):
 	Afterwards a pack with the required objects is sent (or received). If there is 
 	nothing to send, the pack will be empty.
 	
-	The communication itself if implemented using a protocol instance which deals
-	with the actual formatting of the lines sent.
-	
 	As refspecs involve symbolic names for references to be handled, we require
 	RefParse functionality. How this is done is up to the actual implementation."""
 	# The following variables need to be set by the derived class
-	#{Configuration
-	protocol = None
-	#}end configuraiton
 	
 	#{ Interface
 	
@@ -475,25 +326,22 @@ class TransportDB(object):
 		raise NotImplementedError()
 		
 	#}end interface
-	
 
-class NameResolveMixin(object):
-	"""Interface allowing to resolve symbolic names or partial hexadecimal shas into
-	actual binary shas. The actual feature set depends on the implementation though, 
-	but should follow git-rev-parse."""
-	
-	def resolve(self, name):
-		"""Resolve the given name into a binary sha. Valid names are as defined 
-		in the rev-parse documentation http://www.kernel.org/pub/software/scm/git/docs/git-rev-parse.html"""
-		raise NotImplementedError()
-		
 
-class RefDBMixin(object):
+class ReferencesMixin(object):
 	"""Database providing reference objects which in turn point to database objects
 	like Commits or Tag(Object)s.
 	
 	The returned types are compatible to the interfaces of the pure python 
 	reference implementation in GitDB.ref"""
+	
+	def resolve(self, name):
+		"""Resolve the given name into a binary sha. Valid names are as defined 
+		in the rev-parse documentation http://www.kernel.org/pub/software/scm/git/docs/git-rev-parse.html
+		:return: binary sha matching the name
+		:raise AmbiguousObjectName:
+		:raise BadObject: """
+		raise NotImplementedError()
 	
 	@property
 	def references(self):
@@ -524,14 +372,6 @@ class RepositoryPathsMixin(object):
 	If the underlying type provides the config_reader() method, we can properly determine 
 	whether this is a bare repository as well. Otherwise it will make an educated guess
 	based on the path name."""
-	# slots has no effect here, its just to keep track of used attrs
-	__slots__  = ("_git_path", '_bare')
-	
-	#{ Configuration 
-	repo_dir = '.git'
-	objs_dir = 'objects'
-	#} END configuration
-	
 	#{ Subclass Interface
 	def _initialize(self, path):
 		"""initialize this instance with the given path. It may point to 
@@ -547,46 +387,7 @@ class RepositoryPathsMixin(object):
 		:param path: the path to initialize the repository with
 		:raise InvalidDBRoot:
 		"""
-		epath = abspath(expandvars(expanduser(path or os.getcwd())))
-
-		if not exists(epath):
-			raise InvalidDBRoot(epath)
-		#END check file 
-
-		self._working_tree_dir = None
-		self._git_path = None
-		curpath = epath
-		
-		# walk up the path to find the .git dir
-		while curpath:
-			if is_git_dir(curpath):
-				self._git_path = curpath
-				self._working_tree_dir = os.path.dirname(curpath)
-				break
-			gitpath = join(curpath, self.repo_dir)
-			if is_git_dir(gitpath):
-				self._git_path = gitpath
-				self._working_tree_dir = curpath
-				break
-			curpath, dummy = os.path.split(curpath)
-			if not dummy:
-				break
-		# END while curpath
-		
-		if self._git_path is None:
-			raise InvalidDBRoot(epath)
-		# END path not found
-
-		self._bare = self._git_path.endswith(self.repo_dir)
-		if hasattr(self, 'config_reader'):
-			try:
-				self._bare = self.config_reader("repository").getboolean('core','bare') 
-			except Exception:
-				# lets not assume the option exists, although it should
-				pass
-		#END check bare flag
-
-	
+		raise NotImplementedError()
 	#} end subclass interface
 	
 	#{ Interface
@@ -594,34 +395,27 @@ class RepositoryPathsMixin(object):
 	def is_bare(self):
 		""":return: True if this is a bare repository
 		:note: this value is cached upon initialization"""
-		return self._bare
+		raise NotImplementedError()
 		
 	def git_path(self):
 		""":return: path to directory containing this actual git repository (which 
 		in turn provides access to objects and references"""
-		return self._git_path
+		raise NotImplementedError()
 		
 	def working_tree_path(self):
 		""":return: path to directory containing the working tree checkout of our 
 		git repository.
 		:raise AssertionError: If this is a bare repository"""
-		if self.is_bare():
-			raise AssertionError("Repository at %s is bare and does not have a working tree directory" % self.git_path())
-		#END assertion
-		return dirname(self.git_path())
+		raise NotImplementedError()
 		
 	def objects_path(self):
 		""":return: path to the repository's objects directory"""
-		return join(self.git_path(), self.objs_dir)
+		raise NotImplementedError()
 		
 	def working_dir(self):
 		""":return: working directory of the git process or related tools, being 
 		either the working_tree_path if available or the git_path"""
-		if self.is_bare():
-			return self.git_path()
-		else:
-			return self.working_tree_dir()
-		#END handle bare state
+		raise NotImplementedError()
 		
 	#} END interface
 		
@@ -634,34 +428,8 @@ class ConfigurationMixin(object):
 	when reading. Lower-level files overwrite values from higher level files, i.e. a repository configuration file 
 	overwrites information coming from a system configuration file
 	
-	:note: for this mixin to work, a git_path() compatible type is required"""
+	:note: for the 'repository' config level, a git_path() compatible type is required"""
 	config_level = ("system", "global", "repository")
-	
-	#{ Configuration
-	system_config_file_name = "gitconfig"
-	repo_config_file_name = "config"
-	#} END
-	
-	def __init__(self, *args, **kwargs):
-		"""Verify prereqs"""
-		assert hasattr(self, 'git_path')
-	
-	def _path_at_level(self, level ):
-		# we do not support an absolute path of the gitconfig on windows , 
-		# use the global config instead
-		if sys.platform == "win32" and level == "system":
-			level = "global"
-		#END handle windows
-			
-		if level == "system":
-			return "/etc/%s" % self.system_config_file_name
-		elif level == "global":
-			return normpath(expanduser("~/.%s" % self.system_config_file_name))
-		elif level == "repository":
-			return join(self.git_path(), self.repo_config_file_name)
-		#END handle level
-		
-		raise ValueError("Invalid configuration level: %r" % level)
 		
 	#{ Interface
 	
@@ -680,13 +448,7 @@ class ConfigurationMixin(object):
 			instance
 		:note: On windows, system configuration cannot currently be read as the path is 
 			unknown, instead the global path will be used."""
-		files = None
-		if config_level is None:
-			files = [ self._path_at_level(f) for f in self.config_level ]
-		else:
-			files = [ self._path_at_level(config_level) ]
-		#END handle level
-		return GitConfigParser(files, read_only=True)
+		raise NotImplementedError()
 		
 	def config_writer(self, config_level="repository"):
 		"""
@@ -701,7 +463,7 @@ class ConfigurationMixin(object):
 			system = sytem wide configuration file
 			global = user level configuration file
 			repository = configuration file for this repostory only"""
-		return GitConfigParser(self._path_at_level(config_level), read_only=False)
+		raise NotImplementedError()
 	
 	#} END interface
 	

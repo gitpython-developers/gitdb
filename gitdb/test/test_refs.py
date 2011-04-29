@@ -13,7 +13,6 @@ from gitdb.object.tag import TagObject
 
 from itertools import chain
 import os
-from nose import SkipTest
 
 class TestRefs(TestBase):
 
@@ -154,11 +153,8 @@ class TestRefs(TestBase):
 	def test_orig_head(self):
 		assert type(HEAD(self.rorepo).orig_head()) == SymbolicReference
 		
-	#@with_rw_repo('0.1.6')
-	# todo reenable
-	#def test_head_reset(self, rw_repo):
-	def test_head_reset(self):
-		raise SkipTest()
+	@with_rw_repo
+	def test_head_reset(self, rw_repo):
 		cur_head = rw_repo.head
 		old_head_commit = cur_head.commit
 		new_head_commit = cur_head.ref.commit.parents[0]

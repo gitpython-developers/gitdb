@@ -4,7 +4,7 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module containing a database to deal with packs"""
 from base import (
-						FileDBBase, 
+						RootPathDBBase, 
 						ObjectDBR, 
 						CachingDB
 				)
@@ -27,7 +27,7 @@ __all__ = ('PackedDB', )
 #{ Utilities
 
 
-class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
+class PackedDB(RootPathDBBase, ObjectDBR, CachingDB, LazyMixin):
 	"""A database operating on a set of object packs"""
 	
 	# the type to use when instantiating a pack entity
