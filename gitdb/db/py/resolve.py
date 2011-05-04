@@ -17,7 +17,7 @@ from string import digits
 import os
 import re
 
-__all__ = ["NameResolvePureMixin"]
+__all__ = ["PureReferencesMixin"]
 
 #{ Utilities
 

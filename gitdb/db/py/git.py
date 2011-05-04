@@ -1,20 +1,20 @@
 # Copyright (C) 2010, 2011 Sebastian Thiel (byronimo@gmail.com) and contributors
 #
-# This module is part of GitDB and is released under
+# This module is part of PureGitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from base import (
-						CompoundDB, 
-						ObjectDBW, 
-						RootPathDBBase, 
-						RepositoryPathsMixin,
-						ConfigurationMixin,
+						PureCompoundDB, 
+						PureObjectDBW, 
+						PureRootPathDB, 
+						PureRepositoryPathsMixin,
+						PureConfigurationMixin,
 					)
 
-from resolve import NameResolvePureMixin
+from resolve import PureReferencesMixin
 
-from loose import LooseObjectDB
-from pack import PackedDB
-from ref import ReferenceDB
+from loose import PureLooseObjectODB
+from pack import PurePackedODB
+from ref import PureReferenceDB
 
 from gitdb.util import (
 						LazyMixin, 
@@ -29,19 +29,19 @@ from gitdb.exc import (
 						)
 import os
 
-__all__ = ('GitODB', 'GitDB')
+__all__ = ('PureGitODB', 'PureGitDB')
 
 
-class GitODB(RootPathDBBase, ObjectDBW, CompoundDB):
+class PureGitODB(PureRootPathDB, PureObjectDBW, PureCompoundDB):
 	"""A git-style object-only database, which contains all objects in the 'objects'
 	subdirectory.
 	:note: The type needs to be initialized on the ./objects directory to function, 
-		as it deals solely with object lookup. Use a GitDB type if you need
+		as it deals solely with object lookup. Use a PureGitDB type if you need
 		reference and push support."""
 	# Configuration
-	PackDBCls = PackedDB
-	LooseDBCls = LooseObjectDB
-	ReferenceDBCls = ReferenceDB
+	PackDBCls = PurePackedODB
+	LooseDBCls = PureLooseObjectODB
+	PureReferenceDBCls = PureReferenceDB
 	
 	# Directories
 	packs_dir = 'pack'
@@ -50,7 +50,7 @@ class GitODB(RootPathDBBase, ObjectDBW, CompoundDB):
 	
 	def __init__(self, root_path):
 		"""Initialize ourselves on a git ./objects directory"""
-		super(GitODB, self).__init__(root_path)
+		super(PureGitODB, self).__init__(root_path)
 		
 	def _set_cache_(self, attr):
 		if attr == '_dbs' or attr == '_loose_db':
@@ -58,7 +58,7 @@ class GitODB(RootPathDBBase, ObjectDBW, CompoundDB):
 			loose_db = None
 			for subpath, dbcls in ((self.packs_dir, self.PackDBCls), 
 									(self.loose_dir, self.LooseDBCls),
-									(self.alternates_dir, self.ReferenceDBCls)):
+									(self.alternates_dir, self.PureReferenceDBCls)):
 				path = self.db_path(subpath)
 				if os.path.exists(path):
 					self._dbs.append(dbcls(path))
@@ -79,10 +79,10 @@ class GitODB(RootPathDBBase, ObjectDBW, CompoundDB):
 			# finally set the value
 			self._loose_db = loose_db
 		else:
-			super(GitODB, self)._set_cache_(attr)
+			super(PureGitODB, self)._set_cache_(attr)
 		# END handle attrs
 		
-	#{ ObjectDBW interface
+	#{ PureObjectDBW interface
 		
 	def store(self, istream):
 		return self._loose_db.store(istream)
@@ -96,7 +96,7 @@ class GitODB(RootPathDBBase, ObjectDBW, CompoundDB):
 	#} END objectdbw interface
 	
 	
-class GitDB(GitODB, RepositoryPathsMixin, ConfigurationMixin, NameResolvePureMixin):
+class PureGitDB(PureGitODB, PureRepositoryPathsMixin, PureConfigurationMixin, PureReferencesMixin):
 	"""Git like database with support for object lookup as well as reference resolution.
 	Our rootpath is set to the actual .git directory (bare on unbare).
 	
@@ -106,8 +106,8 @@ class GitDB(GitODB, RepositoryPathsMixin, ConfigurationMixin, NameResolvePureMix
 	
 	def __init__(self, root_path):
 		"""Initialize ourselves on the .git directory, or the .git/objects directory."""
-		RepositoryPathsMixin._initialize(self, root_path)
-		super(GitDB, self).__init__(self.objects_path())
+		PureRepositoryPathsMixin._initialize(self, root_path)
+		super(PureGitDB, self).__init__(self.objects_path())
 	
 	
 	

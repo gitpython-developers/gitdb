@@ -5,7 +5,7 @@
 from lib import *
 from gitdb.db import (
 						MemoryDB,
-						LooseObjectDB
+						PureLooseObjectODB
 					)
 		
 class TestMemoryDB(TestDBBase):
@@ -18,7 +18,7 @@ class TestMemoryDB(TestDBBase):
 		self._assert_object_writing_simple(mdb)
 		
 		# test stream copy
-		ldb = LooseObjectDB(path)
+		ldb = PureLooseObjectODB(path)
 		assert ldb.size() == 0
 		num_streams_copied = mdb.stream_copy(mdb.sha_iter(), ldb)
 		assert num_streams_copied == mdb.size()

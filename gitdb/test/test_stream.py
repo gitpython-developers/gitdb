@@ -145,7 +145,7 @@ class TestStream(TestBase):
 		# END for each os
 	
 	def test_decompress_reader_special_case(self):
-		odb = LooseObjectDB(fixture_path('objects'))
+		odb = PureLooseObjectODB(fixture_path('objects'))
 		ostream = odb.stream(hex_to_bin('7bb839852ed5e3a069966281bb08d50012fb309b'))
 		
 		# if there is a bug, we will be missing one byte exactly !

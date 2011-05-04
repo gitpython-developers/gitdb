@@ -1,12 +1,10 @@
 # Copyright (C) 2010, 2011 Sebastian Thiel (byronimo@gmail.com) and contributors
 #
-# This module is part of GitDB and is released under
+# This module is part of PureGitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Utilities used in ODB testing"""
-from gitdb import (
-	OStream, 
-	GitDB
-	)
+from gitdb import OStream
+from gitdb.db.py import PureGitDB
 from gitdb.stream import ( 
 							Sha1Writer, 
 							ZippedStoreShaWriter
@@ -72,7 +70,7 @@ def with_rw_repo(func):
 		shutil.copytree(src_dir, path)
 		target_gitdir = os.path.join(path, '.git')
 		assert os.path.isdir(target_gitdir)
-		return func(self, GitDB(target_gitdir))
+		return func(self, PureGitDB(target_gitdir))
 	#END wrapper
 	wrapper.__name__ = func.__name__
 	return with_rw_directory(wrapper)
@@ -195,7 +193,8 @@ class DeriveTest(OStream):
 
 class TestBase(unittest.TestCase):
 	"""Base class for all tests"""
-	rorepo = GitDB(repo_dir())
+	# The non-database specific tests just provides a default pure git database
+	rorepo = PureGitDB(repo_dir())
 
 #} END bases
 

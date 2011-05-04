@@ -3,9 +3,9 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from base import (
-						RootPathDBBase, 
-						ObjectDBR, 
-						ObjectDBW
+						PureRootPathDB, 
+						PureObjectDBR, 
+						PureObjectDBW
 				)
 
 
@@ -57,10 +57,10 @@ import sys
 import os
 
 
-__all__ = ( 'LooseObjectDB', )
+__all__ = ( 'PureLooseObjectODB', )
 
 
-class LooseObjectDB(RootPathDBBase, ObjectDBR, ObjectDBW):
+class PureLooseObjectODB(PureRootPathDB, PureObjectDBR, PureObjectDBW):
 	"""A database which operates on loose object files"""
 	
 	# CONFIGURATION
@@ -75,7 +75,7 @@ class LooseObjectDB(RootPathDBBase, ObjectDBR, ObjectDBW):
 			
 	
 	def __init__(self, root_path):
-		super(LooseObjectDB, self).__init__(root_path)
+		super(PureLooseObjectODB, self).__init__(root_path)
 		self._hexsha_to_file = dict()
 		# Additional Flags - might be set to 0 after the first failure
 		# Depending on the root, this might work for some mounts, for others not, which
@@ -156,7 +156,7 @@ class LooseObjectDB(RootPathDBBase, ObjectDBR, ObjectDBW):
 		""":raise TypeError: if the stream does not support the Sha1Writer interface"""
 		if stream is not None and not isinstance(stream, Sha1Writer):
 			raise TypeError("Output stream musst support the %s interface" % Sha1Writer.__name__)
-		return super(LooseObjectDB, self).set_ostream(stream)
+		return super(PureLooseObjectODB, self).set_ostream(stream)
 			
 	def info(self, sha):
 		m = self._map_loose_object(sha)

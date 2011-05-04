@@ -3,7 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from lib import *
-from gitdb.db import LooseObjectDB
+from gitdb.db import PureLooseObjectODB
 from gitdb.exc import BadObject
 from gitdb.util import bin_to_hex
 		
@@ -11,7 +11,7 @@ class TestLooseDB(TestDBBase):
 	
 	@with_rw_directory
 	def test_basics(self, path):
-		ldb = LooseObjectDB(path)
+		ldb = PureLooseObjectODB(path)
 		
 		# write data
 		self._assert_object_writing(ldb)

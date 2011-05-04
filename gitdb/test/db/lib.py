@@ -13,6 +13,10 @@ from gitdb.test.lib import (
 
 from gitdb.stream import Sha1Writer
 
+# import database types we want to support
+# they will be set to None if the respective library could not be loaded
+from gitdb.db.py import PureGitDB
+
 from gitdb.base import (
 							IStream,
 							OStream,
@@ -35,6 +39,9 @@ class TestDBBase(TestBase):
 	# data
 	two_lines = "1234\nhello world"
 	all_data = (two_lines, )
+	
+	# all supported database types. Add your own type 
+	ref_db_types = (PureGitDB, )
 	
 	def _assert_object_writing_simple(self, db):
 		# write a bunch of objects and query their streams and info

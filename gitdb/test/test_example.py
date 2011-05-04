@@ -5,7 +5,7 @@
 """Module with examples from the tutorial section of the docs"""
 from lib import *
 from gitdb import IStream
-from gitdb.db import LooseObjectDB
+from gitdb.db import PureLooseObjectODB
 from gitdb.util import pool
 		
 from cStringIO import StringIO
@@ -15,7 +15,7 @@ from async import IteratorReader
 class TestExamples(TestBase):
 	
 	def test_base(self):
-		ldb = LooseObjectDB(fixture_path("../../../.git/objects"))
+		ldb = PureLooseObjectODB(fixture_path("../../../.git/objects"))
 		
 		for sha1 in ldb.sha_iter():
 			oinfo = ldb.info(sha1)

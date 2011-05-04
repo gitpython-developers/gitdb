@@ -2,14 +2,12 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from base import (
-					CompoundDB,
-				)
+from base import PureCompoundDB
 
 import os
-__all__ = ('ReferenceDB', )
+__all__ = ('PureReferenceDB', )
 
-class ReferenceDB(CompoundDB):
+class PureReferenceDB(PureCompoundDB):
 	"""A database consisting of database referred to in a file"""
 	
 	# Configuration
@@ -18,7 +16,7 @@ class ReferenceDB(CompoundDB):
 	ObjectDBCls = None
 	
 	def __init__(self, ref_file):
-		super(ReferenceDB, self).__init__()
+		super(PureReferenceDB, self).__init__()
 		self._ref_file = ref_file
 		
 	def _set_cache_(self, attr):
@@ -26,7 +24,7 @@ class ReferenceDB(CompoundDB):
 			self._dbs = list()
 			self._update_dbs_from_ref_file()
 		else:
-			super(ReferenceDB, self)._set_cache_(attr)
+			super(PureReferenceDB, self)._set_cache_(attr)
 		# END handle attrs
 		
 	def _update_dbs_from_ref_file(self):
@@ -64,7 +62,7 @@ class ReferenceDB(CompoundDB):
 			try:
 				db = dbcls(path)
 				# force an update to verify path
-				if isinstance(db, CompoundDB):
+				if isinstance(db, PureCompoundDB):
 					db.databases()
 				# END verification
 				self._dbs.append(db)
@@ -76,4 +74,4 @@ class ReferenceDB(CompoundDB):
 	def update_cache(self, force=False):
 		# re-read alternates and update databases
 		self._update_dbs_from_ref_file()
-		return super(ReferenceDB, self).update_cache(force)
+		return super(PureReferenceDB, self).update_cache(force)

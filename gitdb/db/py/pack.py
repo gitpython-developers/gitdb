@@ -3,10 +3,10 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module containing a database to deal with packs"""
+from gitdb.db import CachingDB
 from base import (
-						RootPathDBBase, 
-						ObjectDBR, 
-						CachingDB
+						PureRootPathDB, 
+						PureObjectDBR 
 				)
 
 from gitdb.util import LazyMixin
@@ -22,12 +22,12 @@ from gitdb.pack import PackEntity
 import os
 import glob
 
-__all__ = ('PackedDB', )
+__all__ = ('PurePackedODB', )
 
 #{ Utilities
 
 
-class PackedDB(RootPathDBBase, ObjectDBR, CachingDB, LazyMixin):
+class PurePackedODB(PureRootPathDB, PureObjectDBR, CachingDB, LazyMixin):
 	"""A database operating on a set of object packs"""
 	
 	# the type to use when instantiating a pack entity
@@ -39,7 +39,7 @@ class PackedDB(RootPathDBBase, ObjectDBR, CachingDB, LazyMixin):
 	_sort_interval = 500
 	
 	def __init__(self, root_path):
-		super(PackedDB, self).__init__(root_path)
+		super(PurePackedODB, self).__init__(root_path)
 		# list of lists with three items:
 		# * hits - number of times the pack was hit with a request
 		# * entity - Pack entity instance
@@ -127,7 +127,7 @@ class PackedDB(RootPathDBBase, ObjectDBR, CachingDB, LazyMixin):
 		raise UnsupportedOperation()
 		
 	def store_async(self, reader):
-		# TODO: add ObjectDBRW before implementing this
+		# TODO: add PureObjectDBRW before implementing this
 		raise NotImplementedError()
 	
 	#} END object db write

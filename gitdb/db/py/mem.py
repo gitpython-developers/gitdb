@@ -3,10 +3,10 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Contains the MemoryDatabase implementation"""
-from loose import LooseObjectDB
+from loose import PureLooseObjectODB
 from base import (
-						ObjectDBR, 
-						ObjectDBW
+						PureObjectDBR, 
+						PureObjectDBW
 					)
 
 from gitdb.base import (
@@ -25,9 +25,9 @@ from gitdb.stream import (
 
 from cStringIO import StringIO
 
-__all__ = ("MemoryDB", )
+__all__ = ("PureMemoryDB", )
 
-class MemoryDB(ObjectDBR, ObjectDBW):
+class PureMemoryDB(PureObjectDBR, PureObjectDBW):
 	"""A memory database stores everything to memory, providing fast IO and object
 	retrieval. It should be used to buffer results and obtain SHAs before writing
 	it to the actual physical storage, as it allows to query whether object already
@@ -37,14 +37,14 @@ class MemoryDB(ObjectDBR, ObjectDBW):
 		for storing"""
 	
 	def __init__(self):
-		super(MemoryDB, self).__init__()
-		self._db = LooseObjectDB("path/doesnt/matter")
+		super(PureMemoryDB, self).__init__()
+		self._db = PureLooseObjectODB("path/doesnt/matter")
 		
 		# maps 20 byte shas to their OStream objects
 		self._cache = dict()
 		
 	def set_ostream(self, stream):
-		raise UnsupportedOperation("MemoryDB's always stream into memory")
+		raise UnsupportedOperation("PureMemoryDB's always stream into memory")
 		
 	def store(self, istream):
 		zstream = ZippedStoreShaWriter()
@@ -62,7 +62,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
 		return istream
 		
 	def store_async(self, reader):
-		raise UnsupportedOperation("MemoryDBs cannot currently be used for async write access")
+		raise UnsupportedOperation("PureMemoryDBs cannot currently be used for async write access")
 	
 	def has_object(self, sha):
 		return sha in self._cache

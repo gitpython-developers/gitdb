@@ -35,8 +35,8 @@ import sys
 import os
 
 
-__all__ = (	'PureObjectDBR', 'PureObjectDBW', 'PureRootPathDBBase', 'PureCompoundDB', 
-			'NameResolveMixin', 'PureConfigurationMixin', 'PureRepositoryPathsMixin')
+__all__ = (	'PureObjectDBR', 'PureObjectDBW', 'PureRootPathDB', 'PureCompoundDB', 
+			'PureConfigurationMixin', 'PureRepositoryPathsMixin')
 
 
 class PureObjectDBR(ObjectDBR):
@@ -83,10 +83,10 @@ class PureObjectDBW(ObjectDBW):
 	#} END edit interface
 	
 
-class PureRootPathDBBase(RootPathDBBase):
+class PureRootPathDB(RootPathDB):
 	
 	def __init__(self, root_path):
-		super(PureRootPathDBBase, self).__init__()
+		super(PureRootPathDB, self).__init__(root_path)
 		self._root_path = root_path
 		
 		

@@ -65,7 +65,7 @@ class TestObjDBPerformance(TestBigRepoR):
 	
 	@with_rw_directory
 	def test_large_data_streaming(self, path):
-		ldb = LooseObjectDB(path)
+		ldb = PureLooseObjectODB(path)
 		string_ios = list()			# list of streams we previously created
 		
 		# serial mode 
