@@ -284,9 +284,6 @@ class PureReferencesMixin(ReferencesMixin):
 	def resolve(self, name):
 		return rev_parse(self, name)
 		
-	def resolve(self, name):
-		raise NotImplementedError()
-	
 	@property
 	def references(self):
 		raise NotImplementedError()

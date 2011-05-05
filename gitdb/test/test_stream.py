@@ -23,6 +23,7 @@ from gitdb.typ import (
 	str_blob_type
 	)
 
+from gitdb.db.py import PureLooseObjectODB
 import time
 import tempfile
 import os
