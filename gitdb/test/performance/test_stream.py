@@ -4,7 +4,7 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Performance data streaming performance"""
 from lib import TestBigRepoR
-from gitdb.db import *
+from gitdb.db.py import *
 from gitdb.base import *
 from gitdb.stream import *
 from gitdb.util import (

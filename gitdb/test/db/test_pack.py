@@ -3,7 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from lib import *
-from gitdb.db import PackedDB
+from gitdb.db.py import PurePackedODB
 from gitdb.test.lib import fixture_path
 
 from gitdb.exc import BadObject, AmbiguousObjectName
@@ -15,7 +15,7 @@ class TestPackDB(TestDBBase):
 	
 	@with_packs_rw
 	def test_writing(self, path):
-		pdb = PackedDB(path)
+		pdb = PurePackedODB(path)
 		
 		# on demand, we init our pack cache
 		num_packs = len(pdb.entities())

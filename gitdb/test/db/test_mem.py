@@ -3,16 +3,16 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from lib import *
-from gitdb.db import (
-						MemoryDB,
+from gitdb.db.py import (
+						PureMemoryDB,
 						PureLooseObjectODB
 					)
 		
-class TestMemoryDB(TestDBBase):
+class TestPureMemoryDB(TestDBBase):
 	
 	@with_rw_directory
 	def test_writing(self, path):
-		mdb = MemoryDB()
+		mdb = PureMemoryDB()
 		
 		# write data
 		self._assert_object_writing_simple(mdb)

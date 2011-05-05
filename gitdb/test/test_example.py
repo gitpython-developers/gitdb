@@ -5,7 +5,7 @@
 """Module with examples from the tutorial section of the docs"""
 from lib import *
 from gitdb import IStream
-from gitdb.db import PureLooseObjectODB
+from gitdb.db.py import PureLooseObjectODB
 from gitdb.util import pool
 		
 from cStringIO import StringIO

@@ -3,7 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from lib import *
-from gitdb.db import ReferenceDB
+from gitdb.db.py import PureReferenceDB
 
 from gitdb.util import (
 						NULL_BIN_SHA,
@@ -12,7 +12,7 @@ from gitdb.util import (
 
 import os
 		
-class TestReferenceDB(TestDBBase):
+class TestPureReferenceDB(TestDBBase):
 	
 	def make_alt_file(self, alt_path, alt_list):
 		"""Create an alternates file which contains the given alternates.
@@ -27,7 +27,7 @@ class TestReferenceDB(TestDBBase):
 		NULL_BIN_SHA = '\0'  * 20
 		
 		alt_path = os.path.join(path, 'alternates')
-		rdb = ReferenceDB(alt_path)
+		rdb = PureReferenceDB(alt_path)
 		assert len(rdb.databases()) == 0
 		assert rdb.size() == 0
 		assert len(list(rdb.sha_iter())) == 0
