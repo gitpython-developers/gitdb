@@ -12,7 +12,7 @@ class PureReferenceDB(PureCompoundDB):
 	
 	# Configuration
 	# Specifies the object database to use for the paths found in the alternates
-	# file. If None, it defaults to the GitODB
+	# file. If None, it defaults to the PureGitODB
 	ObjectDBCls = None
 	
 	def __init__(self, ref_file):
@@ -31,8 +31,8 @@ class PureReferenceDB(PureCompoundDB):
 		dbcls = self.ObjectDBCls
 		if dbcls is None:
 			# late import
-			from git import GitODB
-			dbcls = GitODB
+			from git import PureGitODB
+			dbcls = PureGitODB
 		# END get db type
 		
 		# try to get as many as possible, don't fail if some are unavailable

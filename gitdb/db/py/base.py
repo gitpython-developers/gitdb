@@ -57,7 +57,13 @@ class PureObjectDBR(ObjectDBR):
 		return pool.add_task(task)
 	
 	def partial_to_complete_sha_hex(self, partial_hexsha):
-		return self.partial_to_complete_sha(hex_to_bin(partial_hexsha), len(partial_hexsha))
+		len_partial_hexsha = len(partial_hexsha)
+		if len_partial_hexsha % 2 != 0:
+			partial_binsha = hex_to_bin(partial_hexsha + "0")
+		else:
+			partial_binsha = hex_to_bin(partial_hexsha)
+		# END assure successful binary conversion
+		return self.partial_to_complete_sha(partial_binsha, len(partial_hexsha))
 	
 	#} END query interface
 	
@@ -65,6 +71,7 @@ class PureObjectDBR(ObjectDBR):
 class PureObjectDBW(ObjectDBW):
 	
 	def __init__(self, *args, **kwargs):
+		super(PureObjectDBW, self).__init__(*args, **kwargs)
 		self._ostream = None
 	
 	#{ Edit Interface
