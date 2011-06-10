@@ -23,6 +23,14 @@ except ImportError:
 # END try async zlib
 
 from async import ThreadPool
+from smmap import (
+					StaticWindowMapManager,
+					SlidingWindowMapBuffer
+				)
+
+# initialize our global memory manager instance
+# Use it to free cached (and unused) resources.
+mman = StaticWindowMapManager()
 
 try:
     import hashlib
@@ -179,6 +187,11 @@ def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
 	finally:
 		close(fd)
 	# END assure file is closed
+	
+def sliding_ro_buffer(filepath, flags=0):
+	""":return: a buffer compatible object which uses our mapped memory manager internally
+		ready to read the whole given filepath"""
+	return SlidingWindowMapBuffer(mman.make_cursor(filepath), flags=flags)
 	
 def to_hex_sha(sha):
 	""":return: hexified version  of sha"""

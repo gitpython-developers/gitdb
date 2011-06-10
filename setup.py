@@ -69,7 +69,7 @@ if setuptools_build_py_module:
 
 setup(cmdclass={'build_ext':build_ext_nofail},
       name = "gitdb",
-      version = "0.5.2",
+      version = "0.5.3",
       description = "Git Object Database",
       author = "Sebastian Thiel",
       author_email = "byronimo@gmail.com",
@@ -80,7 +80,7 @@ setup(cmdclass={'build_ext':build_ext_nofail},
       ext_modules=[Extension('gitdb._perf', ['gitdb/_fun.c', 'gitdb/_delta_apply.c'], include_dirs=['gitdb'])],
       license = "BSD License",
       zip_safe=False,
-      requires=('async (>=0.6.1)',),
-      install_requires='async >= 0.6.1',
+      requires=('async (>=0.6.1)', 'smmap (>=0.8.0)'),
+      install_requires=('async >= 0.6.1', 'smmap >= 0.8.0'),
       long_description = """GitDB is a pure-Python git object database"""
       )

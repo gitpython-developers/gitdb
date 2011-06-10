@@ -10,13 +10,15 @@ import os
 #{ Initialization
 def _init_externals():
 	"""Initialize external projects by putting them into the path"""
-	sys.path.append(os.path.join(os.path.dirname(__file__), 'ext', 'async'))
-	
-	try:
-		import async
-	except ImportError:
-		raise ImportError("'async' could not be imported, assure it is located in your PYTHONPATH")
-	#END verify import
+	for module in ('async', 'smmap'):
+		sys.path.append(os.path.join(os.path.dirname(__file__), 'ext', module))
+		
+		try:
+			__import__(module)
+		except ImportError:
+			raise ImportError("'%s' could not be imported, assure it is located in your PYTHONPATH" % module)
+		#END verify import
+	#END handel imports
 	
 #} END initialization
 
