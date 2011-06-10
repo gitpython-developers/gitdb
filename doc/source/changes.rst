@@ -3,6 +3,11 @@ Changelog
 #########
 
 *****
+0.5.3
+*****
+* Added support for smmap. SmartMMap allows resources to be managed and controlled. This brings the implementation closer to the way git handles memory maps, such that unused cached memory maps will automatically be freed once a resource limit is hit. The memory limit on 32 bit systems remains though as a sliding mmap implementation is not used for performance reasons. 
+
+*****
 0.5.2
 *****
 * Improved performance of the c implementation, which now uses reverse-delta-aggregation to make a memory bound operation CPU bound.
