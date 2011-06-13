@@ -23,5 +23,5 @@ clean::
 	rm -f *.so
 
 coverage:: build
-	PYTHONPATH=. $(PYTHON) $(TESTRUNNER) --cover-package=dulwich --with-coverage --cover-erase --cover-inclusive gitdb
+	PYTHONPATH=. $(PYTHON) $(TESTRUNNER) --cover-package=gitdb --with-coverage --cover-erase --cover-inclusive gitdb
 

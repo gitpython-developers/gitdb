@@ -72,7 +72,8 @@ class ObjectDBR(object):
 		:param reader: see ``info``
 		:param max_threads: see ``ObjectDBW.store``
 		:return: async.Reader yielding OStream|InvalidOStream instances in any order
-		:note: depending on the system configuration, it might not be possible to 
+		
+		**Note:** depending on the system configuration, it might not be possible to 
 			read all OStreams at once. Instead, read them individually using reader.read(x)
 			where x is small enough."""
 		# base implementation just uses the stream method repeatedly
@@ -140,7 +141,7 @@ class ObjectDBW(object):
 			The same instances will be used in the output channel as were received
 			in by the Reader.
 		
-		:note:As some ODB implementations implement this operation atomic, they might 
+		**Note:** As some ODB implementations implement this operation atomic, they might 
 			abort the whole operation if one item could not be processed. Hence check how 
 			many items have actually been produced."""
 		# base implementation uses store to perform the work
@@ -158,7 +159,7 @@ class FileDBBase(object):
 		"""Initialize this instance to look for its files at the given root path
 		All subsequent operations will be relative to this path
 		:raise InvalidDBRoot: 
-		:note: The base will not perform any accessablity checking as the base
+		**Note:** The base will not perform any accessablity checking as the base
 			might not yet be accessible, but become accessible before the first 
 			access."""
 		super(FileDBBase, self).__init__()

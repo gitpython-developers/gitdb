@@ -173,7 +173,7 @@ def write_stream_to_pack(read, write, zstream, base_crc=None):
 class IndexWriter(object):
 	"""Utility to cache index information, allowing to write all information later
 	in one go to the given stream
-	:note: currently only writes v2 indices"""
+	**Note:** currently only writes v2 indices"""
 	__slots__ = '_objs'
 	
 	def __init__(self):
@@ -391,7 +391,8 @@ class PackIndexFile(LazyMixin):
 		
 	def offsets(self):
 		""":return: sequence of all offsets in the order in which they were written
-		:note: return value can be random accessed, but may be immmutable"""
+		
+		**Note:** return value can be random accessed, but may be immmutable"""
 		if self._version == 2:
 			# read stream to array, convert to tuple
 			a = array.array('I')	# 4 byte unsigned int, long are 8 byte on 64 bit it appears
@@ -497,10 +498,10 @@ class PackFile(LazyMixin):
 	packs therefor is 32 bit on 32 bit systems. On 64 bit systems, this should be 
 	fine though.
 	
-	:note: at some point, this might be implemented using streams as well, or 
-		streams are an alternate path in the case memory maps cannot be created
-		for some reason - one clearly doesn't want to read 10GB at once in that 
-		case"""
+	**Note:** at some point, this might be implemented using streams as well, or 
+	streams are an alternate path in the case memory maps cannot be created
+	for some reason - one clearly doesn't want to read 10GB at once in that 
+	case"""
 	
 	__slots__ = ('_packpath', '_cursor', '_size', '_version')
 	pack_signature = 0x5041434b		# 'PACK'
@@ -625,8 +626,9 @@ class PackFile(LazyMixin):
 			to access the data in the pack directly.
 		:param start_offset: offset to the first object to iterate. If 0, iteration 
 			starts at the very first object in the pack.
-		:note: Iterating a pack directly is costly as the datastream has to be decompressed
-			to determine the bounds between the objects"""
+			
+		**Note:** Iterating a pack directly is costly as the datastream has to be decompressed
+		to determine the bounds between the objects"""
 		return self._iter_objects(start_offset, as_stream=True)
 		
 	#} END Read-Database like Interface
@@ -902,9 +904,11 @@ class PackEntity(LazyMixin):
 		:param zlib_compression: the zlib compression level to use
 		:return: tuple(pack_sha, index_binsha) binary sha over all the contents of the pack
 			and over all contents of the index. If index_write was None, index_binsha will be None
-		:note: The destination of the write functions is up to the user. It could
-			be a socket, or a file for instance
-		:note: writes only undeltified objects"""
+			
+		**Note:** The destination of the write functions is up to the user. It could
+		be a socket, or a file for instance
+		
+		**Note:** writes only undeltified objects"""
 		objs = object_iter
 		if not object_count:
 			if not isinstance(object_iter, (tuple, list)):
@@ -979,7 +983,8 @@ class PackEntity(LazyMixin):
 		and corresponding index file. The pack contains all OStream objects contained in object iter.
 		:param base_dir: directory which is to contain the files
 		:return: PackEntity instance initialized with the new pack
-		:note: for more information on the other parameters see the write_pack method"""
+		
+		**Note:** for more information on the other parameters see the write_pack method"""
 		pack_fd, pack_path = tempfile.mkstemp('', 'pack', base_dir)
 		index_fd, index_path = tempfile.mkstemp('', 'index', base_dir)
 		pack_write = lambda d: os.write(pack_fd, d)

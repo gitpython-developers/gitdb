@@ -58,7 +58,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 		""":return: tuple(entity, index) for an item at the given sha
 		:param sha: 20 or 40 byte sha
 		:raise BadObject:
-		:note: This method is not thread-safe, but may be hit in multi-threaded
+		**Note:** This method is not thread-safe, but may be hit in multi-threaded
 			operation. The worst thing that can happen though is a counter that 
 			was not incremented, or the list being in wrong order. So we safe
 			the time for locking here, lets see how that goes"""

@@ -51,7 +51,7 @@ class DecompressMemMapReader(LazyMixin):
 	To read efficiently, you clearly don't want to read individual bytes, instead, 
 	read a few kilobytes at least.
 	
-	:note: The chunk-size should be carefully selected as it will involve quite a bit 
+	**Note:** The chunk-size should be carefully selected as it will involve quite a bit 
 		of string copying due to the way the zlib is implemented. Its very wasteful, 
 		hence we try to find a good tradeoff between allocation time and number of 
 		times we actually allocate. An own zlib implementation would be good here
@@ -609,8 +609,8 @@ class FDCompressedSha1Writer(Sha1Writer):
 	"""Digests data written to it, making the sha available, then compress the 
 	data and write it to the file descriptor
 	
-	:note: operates on raw file descriptors
-	:note: for this to work, you have to use the close-method of this instance"""
+	**Note:** operates on raw file descriptors
+	**Note:** for this to work, you have to use the close-method of this instance"""
 	__slots__ = ("fd", "sha1", "zip")
 	
 	# default exception

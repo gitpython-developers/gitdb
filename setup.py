@@ -4,6 +4,7 @@ from distutils.command.build_py import build_py
 from distutils.command.build_ext import build_ext
 
 import os, sys
+import gitdb as meta
 
 # wow, this is a mixed bag ... I am pretty upset about all of this ... 
 setuptools_build_py_module = None
@@ -69,11 +70,11 @@ if setuptools_build_py_module:
 
 setup(cmdclass={'build_ext':build_ext_nofail},
       name = "gitdb",
-      version = "0.5.3",
+      version = meta.__version__,
       description = "Git Object Database",
-      author = "Sebastian Thiel",
-      author_email = "byronimo@gmail.com",
-      url = "http://gitorious.org/git-python/gitdb",
+      author = meta.__author__,
+      author_email = meta.__contact__,
+      url = meta.__homepage__,
       packages = ('gitdb', 'gitdb.db', 'gitdb.test', 'gitdb.test.db', 'gitdb.test.performance'),
       package_data={ 'gitdb.test' : ['fixtures/packs/*', 'fixtures/objects/7b/*']},
       package_dir = {'gitdb':'gitdb'},

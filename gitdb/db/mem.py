@@ -33,7 +33,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
 	it to the actual physical storage, as it allows to query whether object already
 	exists in the target storage before introducing actual IO
 	
-	:note: memory is currently not threadsafe, hence the async methods cannot be used
+	**Note:** memory is currently not threadsafe, hence the async methods cannot be used
 		for storing"""
 	
 	def __init__(self):
@@ -92,7 +92,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
 	def stream_copy(self, sha_iter, odb):
 		"""Copy the streams as identified by sha's yielded by sha_iter into the given odb
 		The streams will be copied directly
-		:note: the object will only be written if it did not exist in the target db
+		**Note:** the object will only be written if it did not exist in the target db
 		:return: amount of streams actually copied into odb. If smaller than the amount
 			of input shas, one or more objects did already exist in odb"""
 		count = 0

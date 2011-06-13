@@ -65,7 +65,7 @@ class TestDBBase(TestBase):
 	
 	def _assert_object_writing(self, db):
 		"""General tests to verify object writing, compatible to ObjectDBW
-		:note: requires write access to the database"""
+		**Note:** requires write access to the database"""
 		# start in 'dry-run' mode, using a simple sha1 writer
 		ostreams = (ZippedStoreShaWriter, None)
 		for ostreamcls in ostreams:

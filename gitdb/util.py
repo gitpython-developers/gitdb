@@ -119,8 +119,9 @@ class _RandomAccessStringIO(object):
 #{ Routines
 
 def make_sha(source=''):
-    """A python2.4 workaround for the sha/hashlib module fiasco 
-    :note: From the dulwich project """
+    """A python2.4 workaround for the sha/hashlib module fiasco
+    
+    **Note** From the dulwich project """
     try:
         return hashlib.sha1(source)
     except NameError:
@@ -146,6 +147,7 @@ def allocate_memory(size):
 
 def file_contents_ro(fd, stream=False, allow_mmap=True):
 	""":return: read-only contents of the file represented by the file descriptor fd
+	
 	:param fd: file descriptor opened for reading
 	:param stream: if False, random access is provided, otherwise the stream interface
 		is provided.
@@ -173,14 +175,16 @@ def file_contents_ro(fd, stream=False, allow_mmap=True):
 	
 def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
 	"""Get the file contents at filepath as fast as possible
+	
 	:return: random access compatible memory of the given filepath
 	:param stream: see ``file_contents_ro``
 	:param allow_mmap: see ``file_contents_ro``
 	:param flags: additional flags to pass to os.open
 	:raise OSError: If the file could not be opened
-	:note: for now we don't try to use O_NOATIME directly as the right value needs to be 
-		shared per database in fact. It only makes a real difference for loose object 
-		databases anyway, and they use it with the help of the ``flags`` parameter"""
+	
+	**Note** for now we don't try to use O_NOATIME directly as the right value needs to be 
+	shared per database in fact. It only makes a real difference for loose object 
+	databases anyway, and they use it with the help of the ``flags`` parameter"""
 	fd = os.open(filepath, os.O_RDONLY|getattr(os, 'O_BINARY', 0)|flags)
 	try:
 		return file_contents_ro(fd, stream, allow_mmap)
@@ -189,7 +193,8 @@ def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
 	# END assure file is closed
 	
 def sliding_ro_buffer(filepath, flags=0):
-	""":return: a buffer compatible object which uses our mapped memory manager internally
+	"""
+	:return: a buffer compatible object which uses our mapped memory manager internally
 		ready to read the whole given filepath"""
 	return SlidingWindowMapBuffer(mman.make_cursor(filepath), flags=flags)
 	
@@ -254,7 +259,7 @@ class LockedFD(object):
 	This type handles error correctly in that it will assure a consistent state 
 	on destruction.
 	
-	:note: with this setup, parallel reading is not possible"""
+	**note** with this setup, parallel reading is not possible"""
 	__slots__ = ("_filepath", '_fd', '_write')
 	
 	def __init__(self, filepath):
@@ -283,7 +288,8 @@ class LockedFD(object):
 			and must not be closed directly
 		:raise IOError: if the lock could not be retrieved
 		:raise OSError: If the actual file could not be opened for reading
-		:note: must only be called once"""
+		
+		**note** must only be called once"""
 		if self._write is not None:
 			raise AssertionError("Called %s multiple times" % self.open)
 		
@@ -327,13 +333,15 @@ class LockedFD(object):
 		"""When done writing, call this function to commit your changes into the 
 		actual file. 
 		The file descriptor will be closed, and the lockfile handled.
-		:note: can be called multiple times"""
+		
+		**Note** can be called multiple times"""
 		self._end_writing(successful=True)
 		
 	def rollback(self):
 		"""Abort your operation without any changes. The file descriptor will be 
 		closed, and the lock released.
-		:note: can be called multiple times"""
+		
+		**Note** can be called multiple times"""
 		self._end_writing(successful=False)
 		
 	def _end_writing(self, successful=True):

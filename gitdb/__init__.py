@@ -24,6 +24,13 @@ def _init_externals():
 
 _init_externals()
 
+__author__ = "Sebastian Thiel"
+__contact__ = "byronimo@gmail.com"
+__homepage__ = "https://github.com/gitpython-developers/gitdb"
+version_info = (0, 5, 3)
+__version__ = '.'.join(str(i) for i in version_info)
+
+
 # default imports
 from db import *
 from base import *

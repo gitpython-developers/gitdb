@@ -138,7 +138,7 @@ def _closest_index(dcl, absofs):
 	""":return: index at which the given absofs should be inserted. The index points
 	to the DeltaChunk with a target buffer absofs that equals or is greater than
 	absofs. 
-	:note: global method for performance only, it belongs to DeltaChunkList"""
+	**Note:** global method for performance only, it belongs to DeltaChunkList"""
 	lo = 0
 	hi = len(dcl)
 	while lo < hi:
@@ -414,9 +414,11 @@ def pack_object_header_info(data):
 	return (type_id, size, i)
 
 def create_pack_object_header(obj_type, obj_size):
-	""":return: string defining the pack header comprised of the object type
-	and its incompressed size in bytes
-	:parmam obj_type: pack type_id of the object
+	"""
+	:return: string defining the pack header comprised of the object type
+		and its incompressed size in bytes
+	
+	:param obj_type: pack type_id of the object
 	:param obj_size: uncompressed size in bytes of the following object stream"""
 	c = 0		# 1 byte
 	hdr = str()	# output string
@@ -483,7 +485,7 @@ def stream_copy(read, write, size, chunk_size):
 	Copy a stream up to size bytes using the provided read and write methods, 
 	in chunks of chunk_size
 	
-	:note: its much like stream_copy utility, but operates just using methods"""
+	**Note:** its much like stream_copy utility, but operates just using methods"""
 	dbw = 0												# num data bytes written
 	
 	# WRITE ALL DATA UP TO SIZE
@@ -597,7 +599,8 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):
 	:param delta_buf_size: size fo the delta buffer in bytes
 	:param delta_buf: random access delta data
 	:param write: write method taking a chunk of bytes
-	:note: transcribed to python from the similar routine in patch-delta.c"""
+	
+	**Note:** transcribed to python from the similar routine in patch-delta.c"""
 	i = 0
 	db = delta_buf
 	while i < delta_buf_size:
