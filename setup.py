@@ -4,7 +4,6 @@ from distutils.command.build_py import build_py
 from distutils.command.build_ext import build_ext
 
 import os, sys
-import gitdb as meta
 
 # wow, this is a mixed bag ... I am pretty upset about all of this ... 
 setuptools_build_py_module = None
@@ -68,15 +67,23 @@ if setuptools_build_py_module:
 	setuptools_build_py_module.build_py._get_data_files = get_data_files
 # END apply setuptools patch too
 
+# NOTE: This is currently duplicated from the gitdb.__init__ module, as we cannot
+# satisfy the dependencies at installation time, unfortunately, due to inherent limitations
+# of distutils, which cannot install the prerequesites of a package before the acutal package.
+__author__ = "Sebastian Thiel"
+__contact__ = "byronimo@gmail.com"
+__homepage__ = "https://github.com/gitpython-developers/gitdb"
+version_info = (0, 5, 3)
+__version__ = '.'.join(str(i) for i in version_info)
+
 setup(cmdclass={'build_ext':build_ext_nofail},
       name = "gitdb",
-      version = meta.__version__,
+      version = __version__,
       description = "Git Object Database",
-      author = meta.__author__,
-      author_email = meta.__contact__,
-      url = meta.__homepage__,
-      packages = ('gitdb', 'gitdb.db', 'gitdb.test', 'gitdb.test.db', 'gitdb.test.performance'),
-      package_data={ 'gitdb.test' : ['fixtures/packs/*', 'fixtures/objects/7b/*']},
+      author = __author__,
+      author_email = __contact__,
+      url = __homepage__,
+      packages = ('gitdb', 'gitdb.db'),
       package_dir = {'gitdb':'gitdb'},
       ext_modules=[Extension('gitdb._perf', ['gitdb/_fun.c', 'gitdb/_delta_apply.c'], include_dirs=['gitdb'])],
       license = "BSD License",
