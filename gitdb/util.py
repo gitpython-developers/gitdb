@@ -31,7 +31,11 @@ from smmap import (
 
 # initialize our global memory manager instance
 # Use it to free cached (and unused) resources.
-mman = SlidingWindowMapManager()
+if sys.version_info[1] < 6:
+	mman = StaticWindowMapManager()
+else:
+	mman = SlidingWindowMapManager()
+#END handle mman
 
 try:
     import hashlib
