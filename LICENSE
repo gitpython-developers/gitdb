@@ -28,3 +28,15 @@ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
+Additional Licenses
+-------------------
+The files at 
+gitdb/test/fixtures/packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.idx
+and 
+gitdb/test/fixtures/packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.pack 
+are licensed under GNU GPL as part of the git source repository, 
+see http://en.wikipedia.org/wiki/Git_%28software%29 for more information.
+
+They are not required for the actual operation, which is why they are not found 
+in the distribution package.
