@@ -25,12 +25,13 @@ except ImportError:
 from async import ThreadPool
 from smmap import (
 					StaticWindowMapManager,
+					SlidingWindowMapManager,
 					SlidingWindowMapBuffer
 				)
 
 # initialize our global memory manager instance
 # Use it to free cached (and unused) resources.
-mman = StaticWindowMapManager()
+mman = SlidingWindowMapManager()
 
 try:
     import hashlib
