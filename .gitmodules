@@ -1,6 +1,6 @@
 [submodule "async"]
 	path = gitdb/ext/async
-	url = git://github.com/gitpython-developers/async.git
+	url = http://github.com/gitpython-developers/async.git
 [submodule "smmap"]
 	path = gitdb/ext/smmap
-	url = git://github.com/Byron/smmap.git
+	url = http://github.com/Byron/smmap.git
