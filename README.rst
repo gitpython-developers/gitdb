@@ -32,6 +32,9 @@ http://groups.google.com/group/git-python
 
 ISSUE TRACKER
 =============
+
+.. image:: https://travis-ci.org/Byron/gitdb.svg?branch=master   :target: https://travis-ci.org/Byron/gitdb
+
 https://github.com/gitpython-developers/gitdb/issues
 
 LICENSE
