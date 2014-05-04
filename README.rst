@@ -33,7 +33,7 @@ http://groups.google.com/group/git-python
 ISSUE TRACKER
 =============
 
-.. image:: https://travis-ci.org/Byron/gitdb.svg?branch=master   :target: https://travis-ci.org/Byron/gitdb
+.. image:: https://travis-ci.org/gitpython-developers/gitdb.svg?branch=master   :target: https://travis-ci.org/gitpython-developers/gitdb
 
 https://github.com/gitpython-developers/gitdb/issues
 
