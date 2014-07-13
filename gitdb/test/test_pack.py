@@ -3,12 +3,13 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Test everything about packs reading and writing"""
-from lib import (
-                    TestBase,
-                    with_rw_directory, 
-                    with_packs_rw,
-                    fixture_path
-                )
+from gitdb.test.lib import (
+    TestBase,
+    with_rw_directory,
+    with_packs_rw,
+    fixture_path
+)
+
 from gitdb.stream import DeltaApplyReader
 
 from gitdb.pack import (
@@ -25,7 +26,13 @@ from gitdb.base import (
 from gitdb.fun import delta_types
 from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
-from itertools import izip, chain
+from itertools import chain
+
+try:
+    from itertools import izip
+except ImportError:
+    izip = zip
+
 from nose import SkipTest
 
 import os
@@ -57,7 +64,7 @@ class TestPack(TestBase):
         assert len(index.offsets()) == size
 
         # get all data of all objects
-        for oidx in xrange(index.size()):
+        for oidx in range(index.size()):
             sha = index.sha(oidx)
             assert oidx == index.sha_to_index(sha)
 

@@ -2,11 +2,11 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from base import (
-                        FileDBBase, 
-                        ObjectDBR, 
-                        ObjectDBW
-                )
+from gitdb.db.base import (
+    FileDBBase,
+    ObjectDBR,
+    ObjectDBW
+)
 
 
 from gitdb.exc import (
@@ -69,11 +69,11 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 
     # On windows we need to keep it writable, otherwise it cannot be removed
     # either
-    new_objects_mode = 0444
+    new_objects_mode = int("444", 8)
     if os.name == 'nt':
-        new_objects_mode = 0644
-            
-    
+        new_objects_mode = int("644", 8)
+
+
     def __init__(self, root_path):
         super(LooseObjectDB, self).__init__(root_path)
         self._hexsha_to_file = dict()
@@ -133,7 +133,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
         db_path = self.db_path(self.object_path(bin_to_hex(sha)))
         try:
             return file_contents_ro_filepath(db_path, flags=self._fd_open_flags)
-        except OSError,e:
+        except OSError as e:
             if e.errno != ENOENT:
                 # try again without noatime
                 try:

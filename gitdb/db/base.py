@@ -20,6 +20,7 @@ from async import (
 )
 
 from itertools import chain
+from functools import reduce
 
 
 __all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB')

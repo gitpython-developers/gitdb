@@ -23,7 +23,15 @@ from gitdb.exc import BadObject
 from gitdb.typ import str_blob_type
 
 from async import IteratorReader
-from cStringIO import StringIO
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    try:
+        from StringIO import StringIO
+    except ImportError:
+        from io import StringIO
+
 from struct import pack
 
 
@@ -40,7 +48,7 @@ class TestDBBase(TestBase):
         # write a bunch of objects and query their streams and info
         null_objs = db.size()
         ni = 250
-        for i in xrange(ni):
+        for i in range(ni):
             data = pack(">L", i)
             istream = IStream(str_blob_type, len(data), StringIO(data))
             new_istream = db.store(istream)

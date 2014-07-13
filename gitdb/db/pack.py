@@ -3,11 +3,11 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module containing a database to deal with packs"""
-from base import (
-                        FileDBBase, 
-                        ObjectDBR, 
-                        CachingDB
-                )
+from gitdb.db.base import (
+    FileDBBase,
+    ObjectDBR,
+    CachingDB
+)
 
 from gitdb.util import LazyMixin
 
@@ -18,6 +18,8 @@ from gitdb.exc import (
 )
 
 from gitdb.pack import PackEntity
+
+from functools import reduce
 
 import os
 import glob
@@ -104,7 +106,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         for entity in self.entities():
             index = entity.index()
             sha_by_index = index.sha
-            for index in xrange(index.size()):
+            for index in range(index.size()):
                 yield sha_by_index(index)
             # END for each index
         # END for each entity

@@ -16,7 +16,14 @@ from gitdb.util import zlib
 import sys
 import random
 from array import array
-from cStringIO import StringIO
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    try:
+        from StringIO import StringIO
+    except ImportError:
+        from io import StringIO
 
 import glob
 import unittest
@@ -109,7 +116,7 @@ def make_bytes(size_in_bytes, randomize=False):
     """:return: string with given size in bytes
     :param randomize: try to produce a very random stream"""
     actual_size = size_in_bytes / 4
-    producer = xrange(actual_size)
+    producer = range(actual_size)
     if randomize:
         producer = list(producer)
         random.shuffle(producer)

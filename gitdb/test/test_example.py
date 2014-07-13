@@ -3,12 +3,18 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module with examples from the tutorial section of the docs"""
-from lib import *
+from gitdb.test.lib import *
 from gitdb import IStream
 from gitdb.db import LooseObjectDB
 from gitdb.util import pool
-        
-from cStringIO import StringIO
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    try:
+        from StringIO import StringIO
+    except ImportError:
+        from io import StringIO
 
 from async import IteratorReader
 

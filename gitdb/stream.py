@@ -3,28 +3,35 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 
-from cStringIO import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    try:
+        from StringIO import StringIO
+    except ImportError:
+        from io import StringIO
+
 import errno
 import mmap
 import os
 
-from fun import (
-                    msb_size,
-                    stream_copy, 
-                    apply_delta_data,
-                    connect_deltas,
-                    DeltaChunkList,
-                    delta_types
-                )
+from gitdb.fun import (
+    msb_size,
+    stream_copy,
+    apply_delta_data,
+    connect_deltas,
+    DeltaChunkList,
+    delta_types
+)
 
-from util import (
-        allocate_memory,
-        LazyMixin,
-        make_sha,
-        write, 
-        close,
-        zlib
-    )
+from gitdb.util import (
+    allocate_memory,
+    LazyMixin,
+    make_sha,
+    write,
+    close,
+    zlib
+)
 
 has_perf_mod = False
 try:

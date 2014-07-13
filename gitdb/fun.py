@@ -6,17 +6,28 @@
 Keeping this code separate from the beginning makes it easier to out-source
 it into c later, if required"""
 
-from exc import (
+from gitdb.exc import (
     BadObjectType
-    )
+)
 
-from util import zlib
+from gitdb.util import zlib
 decompressobj = zlib.decompressobj
 
 import mmap
-from itertools import islice, izip
+from itertools import islice
 
-from cStringIO import StringIO
+try:
+    from itertools import izip
+except ImportError:
+    izip = zip
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    try:
+        from StringIO import StringIO
+    except ImportError:
+        from io import StringIO
 
 # INVARIANTS
 OFS_DELTA = 6

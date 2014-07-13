@@ -8,13 +8,13 @@ import mmap
 import sys
 import errno
 
-from cStringIO import StringIO
-
-# in py 2.4, StringIO is only StringI, without write support.
-# Hence we must use the python implementation for this
-if sys.version_info[1] < 5:
-    from StringIO import StringIO
-# END handle python 2.4
+try:
+    from cStringIO import StringIO
+except ImportError:
+    try:
+        from StringIO import StringIO
+    except ImportError:
+        from io import StringIO
 
 try:
     import async.mod.zlib as zlib
@@ -303,7 +303,7 @@ class LockedFD(object):
         binary = getattr(os, 'O_BINARY', 0)
         lockmode =  os.O_WRONLY | os.O_CREAT | os.O_EXCL | binary
         try:
-            fd = os.open(self._lockfilepath(), lockmode, 0600)
+            fd = os.open(self._lockfilepath(), lockmode, int("600", 8))
             if not write:
                 os.close(fd)
             else:
@@ -372,7 +372,7 @@ class LockedFD(object):
             # assure others can at least read the file - the tmpfile left it at rw--
             # We may also write that file, on windows that boils down to a remove-
             # protection as well
-            chmod(self._filepath, 0644)
+            chmod(self._filepath, int("644", 8))
         else:
             # just delete the file so far, we failed
             os.remove(lockfile)

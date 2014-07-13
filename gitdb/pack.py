@@ -4,31 +4,32 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Contains PackIndexFile and PackFile implementations"""
 from gitdb.exc import (
-                        BadObject,
-                        UnsupportedOperation,
-                        ParseError
-                        )
-from util import (
-                    zlib,
-                    mman,
-                    LazyMixin,
-                    unpack_from,
-                    bin_to_hex,
-                    )
+    BadObject,
+    UnsupportedOperation,
+    ParseError
+)
 
-from fun import (
-                    create_pack_object_header,
-                    pack_object_header_info,
-                    is_equal_canonical_sha,
-                    type_id_to_type_map,
-                    write_object,
-                    stream_copy, 
-                    chunk_size,
-                    delta_types,
-                    OFS_DELTA, 
-                    REF_DELTA,
-                    msb_size
-                )
+from gitdb.util import (
+    zlib,
+    mman,
+    LazyMixin,
+    unpack_from,
+    bin_to_hex,
+)
+
+from gitdb.fun import (
+    create_pack_object_header,
+    pack_object_header_info,
+    is_equal_canonical_sha,
+    type_id_to_type_map,
+    write_object,
+    stream_copy,
+    chunk_size,
+    delta_types,
+    OFS_DELTA,
+    REF_DELTA,
+    msb_size
+)
 
 try:
     from _perf import PackIndexFile_sha_to_index
@@ -36,22 +37,23 @@ except ImportError:
     pass
 # END try c module
 
-from base import (      # Amazing !
-                        OInfo,
-                        OStream,
-                        OPackInfo,
-                        OPackStream,
-                        ODeltaStream,
-                        ODeltaPackInfo,
-                        ODeltaPackStream,
-                    )
-from stream import (
-                        DecompressMemMapReader,
-                        DeltaApplyReader,
-                        Sha1Writer,
-                        NullStream,
-                        FlexibleSha1Writer
-                    )
+from gitdb.base import (      # Amazing !
+    OInfo,
+    OStream,
+    OPackInfo,
+    OPackStream,
+    ODeltaStream,
+    ODeltaPackInfo,
+    ODeltaPackStream,
+)
+
+from gitdb.stream import (
+    DecompressMemMapReader,
+    DeltaApplyReader,
+    Sha1Writer,
+    NullStream,
+    FlexibleSha1Writer
+)
 
 from struct import (
     pack,
@@ -60,7 +62,11 @@ from struct import (
 
 from binascii import crc32
 
-from itertools import izip
+try:
+    from itertools import izip
+except ImportError:
+    izip = zip
+
 import tempfile
 import array
 import os
@@ -200,7 +206,7 @@ class IndexWriter(object):
         for t in self._objs:
             tmplist[ord(t[0][0])] += 1
         #END prepare fanout
-        for i in xrange(255):
+        for i in range(255):
             v = tmplist[i]
             sha_write(pack('>L', v))
             tmplist[i+1] += v
@@ -407,7 +413,7 @@ class PackIndexFile(LazyMixin):
                 a.byteswap()
             return a
         else:
-            return tuple(self.offset(index) for index in xrange(self.size()))
+            return tuple(self.offset(index) for index in range(self.size()))
         # END handle version
 
     def sha_to_index(self, sha):
@@ -694,7 +700,7 @@ class PackEntity(LazyMixin):
         """Iterate over all objects in our index and yield their OInfo or OStream instences"""
         _sha = self._index.sha
         _object = self._object
-        for index in xrange(self._index.size()):
+        for index in range(self._index.size()):
             yield _object(_sha(index), as_stream, index)
         # END for each index
 

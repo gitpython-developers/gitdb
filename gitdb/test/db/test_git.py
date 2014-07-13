@@ -2,7 +2,7 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from lib import *
+from gitdb.test.db.lib import *
 from gitdb.exc import BadObject
 from gitdb.db import GitDB
 from gitdb.base import OStream, OInfo

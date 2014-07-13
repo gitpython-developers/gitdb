@@ -32,7 +32,6 @@ __version__ = '.'.join(str(i) for i in version_info)
 
 
 # default imports
-from db import *
-from base import *
-from stream import *
-
+from gitdb.base import *
+from gitdb.db import *
+from gitdb.stream import *

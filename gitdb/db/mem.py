@@ -3,11 +3,11 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Contains the MemoryDatabase implementation"""
-from loose import LooseObjectDB
-from base import (
-                        ObjectDBR, 
-                        ObjectDBW
-                    )
+from gitdb.db.loose import LooseObjectDB
+from gitdb.db.base import (
+    ObjectDBR,
+    ObjectDBW
+)
 
 from gitdb.base import (
     OStream,
@@ -19,7 +19,18 @@ from gitdb.exc import (
     UnsupportedOperation
 )
 
-from cStringIO import StringIO
+from gitdb.stream import (
+    ZippedStoreShaWriter,
+    DecompressMemMapReader,
+)
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    try:
+        from StringIO import StringIO
+    except ImportError:
+        from io import StringIO
 
 __all__ = ("MemoryDB", )
 
