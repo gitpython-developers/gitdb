@@ -270,7 +270,10 @@ class DecompressMemMapReader(LazyMixin):
         # END adjust winsize
 
         # takes a slice, but doesn't copy the data, it says ...
-        indata = buffer(self._m, self._cws, self._cwe - self._cws)
+        try:
+            indata = memoryview(self._m)[self._cws:self._cwe].tobytes()
+        except (NameError, TypeError):
+            indata = buffer(self._m, self._cws, self._cwe - self._cws)
 
         # get the actual window end to be sure we don't use it for computations
         self._cwe = self._cws + len(indata)
