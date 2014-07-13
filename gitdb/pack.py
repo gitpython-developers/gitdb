@@ -121,7 +121,11 @@ def pack_object_at(cursor, offset, as_stream):
 
     abs_data_offset = offset + total_rela_offset
     if as_stream:
-        stream = DecompressMemMapReader(buffer(data, total_rela_offset), False, uncomp_size)
+        try:
+            buff = memoryview(data)[total_rela_offset:].tobytes()
+        except (NameError, TypeError):
+            buff = buffer(data, total_rela_offset)
+        stream = DecompressMemMapReader(buff, False, uncomp_size)
         if delta_info is None:
             return abs_data_offset, OPackStream(offset, type_id, uncomp_size, stream)
         else:

@@ -402,7 +402,7 @@ def loose_object_header_info(m):
     :param m: memory map from which to read the compressed object data"""
     decompress_size = 8192      # is used in cgit as well
     hdr = decompressobj().decompress(m, decompress_size)
-    type_name, size = hdr[:hdr.find("\0")].split(" ")
+    type_name, size = hdr[:hdr.find("\0".encode("ascii"))].split(" ".encode("ascii"))
     return type_name, int(size)
 
 def pack_object_header_info(data):

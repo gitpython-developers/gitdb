@@ -105,8 +105,8 @@ class DecompressMemMapReader(LazyMixin):
         maxb = 512              # should really be enough, cgit uses 8192 I believe
         self._s = maxb
         hdr = self.read(maxb)
-        hdrend = hdr.find("\0")
-        type, size = hdr[:hdrend].split(" ")
+        hdrend = hdr.find("\0".encode("ascii"))
+        type, size = hdr[:hdrend].split(" ".encode("ascii"))
         size = int(size)
         self._s = size
 
