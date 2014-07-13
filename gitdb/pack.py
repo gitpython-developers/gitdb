@@ -15,6 +15,7 @@ from gitdb.util import (
     LazyMixin,
     unpack_from,
     bin_to_hex,
+    byte_ord,
 )
 
 from gitdb.fun import (
@@ -421,7 +422,7 @@ class PackIndexFile(LazyMixin):
         :return: index usable with the ``offset`` or ``entry`` method, or None
             if the sha was not found in this pack index
         :param sha: 20 byte sha to lookup"""
-        first_byte = ord(sha[0])
+        first_byte = byte_ord(sha[0])
         get_sha = self.sha
         lo = 0                  # lower index, the left bound of the bisection
         if first_byte != 0:
@@ -430,11 +431,11 @@ class PackIndexFile(LazyMixin):
 
         # bisect until we have the sha
         while lo < hi:
-            mid = (lo + hi) / 2
-            c = cmp(sha, get_sha(mid))
-            if c < 0:
+            mid = (lo + hi) // 2
+            mid_sha = get_sha(mid)
+            if sha < mid_sha:
                 hi = mid
-            elif not c:
+            elif sha == mid_sha:
                 return mid
             else:
                 lo = mid + 1
@@ -453,7 +454,8 @@ class PackIndexFile(LazyMixin):
         if len(partial_bin_sha) < 2:
             raise ValueError("Require at least 2 bytes of partial sha")
 
-        first_byte = ord(partial_bin_sha[0])
+        first_byte = byte_ord(partial_bin_sha[0])
+
         get_sha = self.sha
         lo = 0                  # lower index, the left bound of the bisection
         if first_byte != 0:
@@ -461,15 +463,15 @@ class PackIndexFile(LazyMixin):
         hi = self._fanout_table[first_byte]     # the upper, right bound of the bisection
 
         # fill the partial to full 20 bytes
-        filled_sha = partial_bin_sha + '\0'*(20 - len(partial_bin_sha))
+        filled_sha = partial_bin_sha + '\0'.encode("ascii") * (20 - len(partial_bin_sha))
 
         # find lowest
         while lo < hi:
-            mid = (lo + hi) / 2
-            c = cmp(filled_sha, get_sha(mid))
-            if c < 0:
+            mid = (lo + hi) // 2
+            mid_sha = get_sha(mid)
+            if filled_sha < mid_sha:
                 hi = mid
-            elif not c:
+            elif filled_sha == mid_sha:
                 # perfect match
                 lo = mid
                 break
@@ -482,7 +484,7 @@ class PackIndexFile(LazyMixin):
             cur_sha = get_sha(lo)
             if is_equal_canonical_sha(canonical_length, partial_bin_sha, cur_sha):
                 next_sha = None
-                if lo+1 < self.size():
+                if lo + 1 < self.size():
                     next_sha = get_sha(lo+1)
                 if next_sha and next_sha == cur_sha:
                     raise AmbiguousObjectName(partial_bin_sha)

@@ -10,7 +10,7 @@ from gitdb.exc import (
     BadObjectType
 )
 
-from gitdb.util import zlib
+from gitdb.util import byte_ord, zlib
 decompressobj = zlib.decompressobj
 
 import mmap
@@ -411,13 +411,13 @@ def pack_object_header_info(data):
         The type_id should be interpreted according to the ``type_id_to_type_map`` map
         The byte-offset specifies the start of the actual zlib compressed datastream
     :param m: random-access memory, like a string or memory map"""
-    c = ord(data[0])                # first byte
+    c = byte_ord(data[0])           # first byte
     i = 1                           # next char to read
     type_id = (c >> 4) & 7          # numeric type
     size = c & 15                   # starting size
     s = 4                           # starting bit-shift size
     while c & 0x80:
-        c = ord(data[i])
+        c = byte_ord(data[i])
         i += 1
         size += (c & 0x7f) << s
         s += 7
@@ -668,12 +668,12 @@ def is_equal_canonical_sha(canonical_length, match, sha1):
         hence the comparison will only use the last 4 bytes for uneven canonical representations
     :param match: less than 20 byte sha
     :param sha1: 20 byte sha"""
-    binary_length = canonical_length/2
+    binary_length = canonical_length // 2
     if match[:binary_length] != sha1[:binary_length]:
         return False
 
     if canonical_length - binary_length and \
-        (ord(match[-1]) ^ ord(sha1[len(match)-1])) & 0xf0:
+        (byte_ord(match[-1]) ^ byte_ord(sha1[len(match)-1])) & 0xf0:
         return False
     # END handle uneven canonnical length
     return True
