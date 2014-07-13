@@ -5,7 +5,7 @@
 
 import gitdb.util
 
-#{ Initialization 
+#{ Initialization
 def _init_pool():
     """Assure the pool is actually threaded"""
     size = 2

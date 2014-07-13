@@ -6,7 +6,7 @@
 from lib import (
         TestBase,
         DummyStream,
-        DeriveTest, 
+        DeriveTest,
     )
 
 from gitdb import *
@@ -20,33 +20,33 @@ from gitdb.typ import (
 
 
 class TestBaseTypes(TestBase):
-    
+
     def test_streams(self):
         # test info
         sha = NULL_BIN_SHA
         s = 20
         blob_id = 3
-        
+
         info = OInfo(sha, str_blob_type, s)
         assert info.binsha == sha
         assert info.type == str_blob_type
         assert info.type_id == blob_id
         assert info.size == s
-        
+
         # test pack info
         # provides type_id
         pinfo = OPackInfo(0, blob_id, s)
         assert pinfo.type == str_blob_type
         assert pinfo.type_id == blob_id
         assert pinfo.pack_offset == 0
-        
+
         dpinfo = ODeltaPackInfo(0, blob_id, s, sha)
         assert dpinfo.type == str_blob_type
         assert dpinfo.type_id == blob_id
         assert dpinfo.delta_info == sha
         assert dpinfo.pack_offset == 0
-        
-        
+
+
         # test ostream
         stream = DummyStream()
         ostream = OStream(*(info + (stream, )))
@@ -56,33 +56,33 @@ class TestBaseTypes(TestBase):
         assert stream.bytes == 15
         ostream.read(20)
         assert stream.bytes == 20
-        
+
         # test packstream
         postream = OPackStream(*(pinfo + (stream, )))
         assert postream.stream is stream
         postream.read(10)
         stream._assert()
         assert stream.bytes == 10
-        
+
         # test deltapackstream
         dpostream = ODeltaPackStream(*(dpinfo + (stream, )))
         dpostream.stream is stream
         dpostream.read(5)
         stream._assert()
         assert stream.bytes == 5
-        
+
         # derive with own args
         DeriveTest(sha, str_blob_type, s, stream, 'mine',myarg = 3)._assert()
-        
+
         # test istream
         istream = IStream(str_blob_type, s, stream)
         assert istream.binsha == None
         istream.binsha = sha
         assert istream.binsha == sha
-        
+
         assert len(istream.binsha) == 20
         assert len(istream.hexsha) == 40
-        
+
         assert istream.size == s
         istream.size = s * 2
         istream.size == s * 2
@@ -92,7 +92,7 @@ class TestBaseTypes(TestBase):
         assert istream.stream is stream
         istream.stream = None
         assert istream.stream is None
-        
+
         assert istream.error is None
         istream.error = Exception()
         assert isinstance(istream.error, Exception)
