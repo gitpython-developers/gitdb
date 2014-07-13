@@ -3,6 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Test for object db"""
+
 from gitdb.test.lib import (
     TestBase,
     DummyStream,
@@ -16,18 +17,16 @@ from gitdb import *
 from gitdb.util import (
     NULL_HEX_SHA,
     hex_to_bin
-    )
+)
 
 from gitdb.util import zlib
 from gitdb.typ import (
     str_blob_type
-    )
+)
 
 import time
 import tempfile
 import os
-
-
 
 
 class TestStream(TestBase):
@@ -45,7 +44,7 @@ class TestStream(TestBase):
         assert len(cdata) > ns-1, "Data must be larger than %i, was %i" % (ns, len(cdata))
 
         # read in small steps
-        ss = len(cdata) / ns
+        ss = len(cdata) // ns
         for i in range(ns):
             data = stream.read(ss)
             chunk = cdata[i*ss:(i+1)*ss]

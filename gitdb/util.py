@@ -327,7 +327,7 @@ class LockedFD(object):
 
         if stream:
             # need delayed import
-            from stream import FDStream
+            from gitdb.stream import FDStream
             return FDStream(self._fd)
         else:
             return self._fd

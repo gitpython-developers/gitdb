@@ -54,7 +54,7 @@ def with_rw_directory(func):
             try:
                 return func(self, path)
             except Exception:
-                print >> sys.stderr, "Test %s.%s failed, output is at %r" % (type(self).__name__, func.__name__, path)
+                sys.stderr.write("Test %s.%s failed, output is at %r\n" % (type(self).__name__, func.__name__, path))
                 keep = True
                 raise
         finally:
@@ -115,7 +115,7 @@ def copy_files_globbed(source_glob, target_dir, hard_link_ok=False):
 def make_bytes(size_in_bytes, randomize=False):
     """:return: string with given size in bytes
     :param randomize: try to produce a very random stream"""
-    actual_size = size_in_bytes / 4
+    actual_size = size_in_bytes // 4
     producer = range(actual_size)
     if randomize:
         producer = list(producer)
@@ -127,7 +127,7 @@ def make_bytes(size_in_bytes, randomize=False):
 def make_object(type, data):
     """:return: bytes resembling an uncompressed object"""
     odata = "blob %i\0" % len(data)
-    return odata + data
+    return odata.encode("ascii") + data
 
 def make_memory_file(size_in_bytes, randomize=False):
     """:return: tuple(size_of_stream, stream)
