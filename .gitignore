@@ -4,3 +4,5 @@ dist/
 *.pyc
 *.o
 *.so
+.noseids
+*.sublime-workspace
