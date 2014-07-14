@@ -16,10 +16,10 @@ from gitdb.exc import (
 )
 
 from gitdb.stream import (
-        DecompressMemMapReader,
-        FDCompressedSha1Writer,
-        FDStream,
-        Sha1Writer
+    DecompressMemMapReader,
+    FDCompressedSha1Writer,
+    FDStream,
+    Sha1Writer
 )
 
 from gitdb.base import (

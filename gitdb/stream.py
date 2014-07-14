@@ -551,7 +551,7 @@ class Sha1Writer(object):
 
     def write(self, data):
         """:raise IOError: If not all bytes could be written
-        :return: lenght of incoming data"""
+        :return: length of incoming data"""
         self.sha1.update(data)
         return len(data)
 

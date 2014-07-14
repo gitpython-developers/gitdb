@@ -24,7 +24,7 @@ class TestReferenceDB(TestDBBase):
 
     @with_rw_directory
     def test_writing(self, path):
-        NULL_BIN_SHA = '\0'  * 20
+        NULL_BIN_SHA = '\0'.encode("ascii") * 20
 
         alt_path = os.path.join(path, 'alternates')
         rdb = ReferenceDB(alt_path)
@@ -34,7 +34,6 @@ class TestReferenceDB(TestDBBase):
 
         # try empty, non-existing
         assert not rdb.has_object(NULL_BIN_SHA)
-
 
         # setup alternate file
         # add two, one is invalid
