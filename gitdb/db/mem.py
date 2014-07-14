@@ -24,7 +24,7 @@ from gitdb.stream import (
     DecompressMemMapReader,
 )
 
-from io import StringIO
+from io import BytesIO
 
 __all__ = ("MemoryDB", )
 
@@ -104,7 +104,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
 
             ostream = self.stream(sha)
             # compressed data including header
-            sio = StringIO(ostream.stream.data())
+            sio = BytesIO(ostream.stream.data())
             istream = IStream(ostream.type, ostream.size, sio, sha)
 
             odb.store(istream)

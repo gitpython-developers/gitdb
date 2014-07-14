@@ -24,7 +24,7 @@ from gitdb.typ import str_blob_type
 
 from async import IteratorReader
 
-from io import StringIO
+from io import BytesIO
 
 from struct import pack
 
@@ -44,7 +44,7 @@ class TestDBBase(TestBase):
         ni = 250
         for i in range(ni):
             data = pack(">L", i)
-            istream = IStream(str_blob_type, len(data), StringIO(data))
+            istream = IStream(str_blob_type, len(data), BytesIO(data))
             new_istream = db.store(istream)
             assert new_istream is istream
             assert db.has_object(istream.binsha)
@@ -82,7 +82,7 @@ class TestDBBase(TestBase):
                 prev_ostream = db.set_ostream(ostream)
                 assert type(prev_ostream) in ostreams or prev_ostream in ostreams
 
-                istream = IStream(str_blob_type, len(data), StringIO(data))
+                istream = IStream(str_blob_type, len(data), BytesIO(data))
 
                 # store returns same istream instance, with new sha set
                 my_istream = db.store(istream)
@@ -132,8 +132,9 @@ class TestDBBase(TestBase):
         ni = 5000
         def istream_generator(offset=0, ni=ni):
             for data_src in xrange(ni):
-                data = str(data_src + offset)
-                yield IStream(str_blob_type, len(data), StringIO(data))
+                print(type(data_src), type(offset))
+                data = bytes(data_src + offset)
+                yield IStream(str_blob_type, len(data), BytesIO(data))
             # END for each item
         # END generator utility
 

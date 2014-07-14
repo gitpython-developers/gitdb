@@ -8,7 +8,7 @@ from gitdb import IStream
 from gitdb.db import LooseObjectDB
 from gitdb.util import pool
 
-from io import StringIO
+from io import BytesIO
 
 from async import IteratorReader
 
@@ -33,8 +33,8 @@ class TestExamples(TestBase):
             pass
         # END ignore exception if there are no loose objects
 
-        data = "my data"
-        istream = IStream("blob", len(data), StringIO(data))
+        data = "my data".encode("ascii")
+        istream = IStream("blob", len(data), BytesIO(data))
 
         # the object does not yet have a sha
         assert istream.binsha is None

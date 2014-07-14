@@ -161,8 +161,8 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
     def info(self, sha):
         m = self._map_loose_object(sha)
         try:
-            type, size = loose_object_header_info(m)
-            return OInfo(sha, type, size)
+            typ, size = loose_object_header_info(m)
+            return OInfo(sha, typ, size)
         finally:
             m.close()
         # END assure release of system resources
