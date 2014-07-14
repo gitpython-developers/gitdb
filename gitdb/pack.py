@@ -118,7 +118,6 @@ def pack_object_at(cursor, offset, as_stream):
         # assume its a base object
         total_rela_offset = data_rela_offset
     # END handle type id
-
     abs_data_offset = offset + total_rela_offset
     if as_stream:
         try:
@@ -129,6 +128,8 @@ def pack_object_at(cursor, offset, as_stream):
         if delta_info is None:
             return abs_data_offset, OPackStream(offset, type_id, uncomp_size, stream)
         else:
+            if hasattr(delta_info, "tobytes"):
+                delta_info = delta_info.tobytes()
             return abs_data_offset, ODeltaPackStream(offset, type_id, uncomp_size, delta_info, stream)
     else:
         if delta_info is None:
