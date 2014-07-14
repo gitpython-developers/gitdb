@@ -3,13 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    try:
-        from StringIO import StringIO
-    except ImportError:
-        from io import StringIO
+from io import BytesIO, StringIO
 
 import errno
 import mmap
@@ -106,20 +100,20 @@ class DecompressMemMapReader(LazyMixin):
         self._s = maxb
         hdr = self.read(maxb)
         hdrend = hdr.find("\0".encode("ascii"))
-        type, size = hdr[:hdrend].split(" ".encode("ascii"))
+        typ, size = hdr[:hdrend].split(" ".encode("ascii"))
         size = int(size)
         self._s = size
 
         # adjust internal state to match actual header length that we ignore
         # The buffer will be depleted first on future reads
         self._br = 0
-        hdrend += 1                                 # count terminating \0
-        self._buf = StringIO(hdr[hdrend:])
+        hdrend += 1
+        self._buf = BytesIO(hdr[hdrend:])
         self._buflen = len(hdr) - hdrend
 
         self._phi = True
 
-        return type, size
+        return typ.decode("ascii"), size
 
     #{ Interface
 
@@ -133,8 +127,8 @@ class DecompressMemMapReader(LazyMixin):
         :param close_on_deletion: if True, the memory map will be closed once we are
             being deleted"""
         inst = DecompressMemMapReader(m, close_on_deletion, 0)
-        type, size = inst._parse_header_info()
-        return type, size, inst
+        typ, size = inst._parse_header_info()
+        return typ, size, inst
 
     def data(self):
         """:return: random access compatible data we are working on"""
@@ -211,14 +205,14 @@ class DecompressMemMapReader(LazyMixin):
         # END clamp size
 
         if size == 0:
-            return str()
+            return bytes()
         # END handle depletion
 
 
         # deplete the buffer, then just continue using the decompress object
         # which has an own buffer. We just need this to transparently parse the
         # header from the zlib stream
-        dat = str()
+        dat = bytes()
         if self._buf:
             if self._buflen >= size:
                 # have enough data
@@ -588,7 +582,7 @@ class ZippedStoreShaWriter(Sha1Writer):
     __slots__ = ('buf', 'zip')
     def __init__(self):
         Sha1Writer.__init__(self)
-        self.buf = StringIO()
+        self.buf = BytesIO()
         self.zip = zlib.compressobj(zlib.Z_BEST_SPEED)
 
     def __getattr__(self, attr):

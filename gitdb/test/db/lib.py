@@ -24,13 +24,7 @@ from gitdb.typ import str_blob_type
 
 from async import IteratorReader
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    try:
-        from StringIO import StringIO
-    except ImportError:
-        from io import StringIO
+from io import StringIO
 
 from struct import pack
 
@@ -41,7 +35,7 @@ class TestDBBase(TestBase):
     """Base class providing testing routines on databases"""
 
     # data
-    two_lines = "1234\nhello world"
+    two_lines = "1234\nhello world".encode("ascii")
     all_data = (two_lines, )
 
     def _assert_object_writing_simple(self, db):

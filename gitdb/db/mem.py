@@ -24,13 +24,7 @@ from gitdb.stream import (
     DecompressMemMapReader,
 )
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    try:
-        from StringIO import StringIO
-    except ImportError:
-        from io import StringIO
+from io import StringIO
 
 __all__ = ("MemoryDB", )
 

@@ -82,9 +82,9 @@ class TestStream(TestBase):
                     if with_size:
                         # need object data
                         zdata = zlib.compress(make_object(str_blob_type, cdata))
-                        type, size, reader = DecompressMemMapReader.new(zdata, close_on_deletion)
+                        typ, size, reader = DecompressMemMapReader.new(zdata, close_on_deletion)
                         assert size == len(cdata)
-                        assert type == str_blob_type
+                        assert typ == str_blob_type
 
                         # even if we don't set the size, it will be set automatically on first read
                         test_reader = DecompressMemMapReader(zdata, close_on_deletion=False)

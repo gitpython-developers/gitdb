@@ -8,13 +8,7 @@ import mmap
 import sys
 import errno
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    try:
-        from StringIO import StringIO
-    except ImportError:
-        from io import StringIO
+from io import StringIO
 
 try:
     import async.mod.zlib as zlib

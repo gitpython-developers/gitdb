@@ -21,13 +21,7 @@ try:
 except ImportError:
     izip = zip
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    try:
-        from StringIO import StringIO
-    except ImportError:
-        from io import StringIO
+from io import StringIO
 
 # INVARIANTS
 OFS_DELTA = 6
@@ -453,7 +447,7 @@ def msb_size(data, offset=0):
     l = len(data)
     hit_msb = False
     while i < l:
-        c = ord(data[i+offset])
+        c = byte_ord(data[i+offset])
         size |= (c & 0x7f) << i*7
         i += 1
         if not c & 0x80:
