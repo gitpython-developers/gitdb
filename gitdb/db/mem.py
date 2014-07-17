@@ -86,7 +86,10 @@ class MemoryDB(ObjectDBR, ObjectDBW):
         return len(self._cache)
 
     def sha_iter(self):
-        return self._cache.iterkeys()
+        try:
+            return self._cache.iterkeys()
+        except AttributeError:
+            return self._cache.keys()
 
 
     #{ Interface

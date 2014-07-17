@@ -52,6 +52,7 @@ from gitdb.fun import (
 )
 
 from gitdb.utils.compat import MAXSIZE
+from gitdb.utils.encoding import force_bytes
 
 import tempfile
 import mmap
@@ -116,7 +117,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
         :raise BadObject: """
         candidate = None
         for binsha in self.sha_iter():
-            if bin_to_hex(binsha).startswith(partial_hexsha):
+            if bin_to_hex(binsha).startswith(force_bytes(partial_hexsha)):
                 # it can't ever find the same object twice
                 if candidate is not None:
                     raise AmbiguousObjectName(partial_hexsha)

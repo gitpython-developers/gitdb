@@ -21,6 +21,7 @@ from gitdb.base import (
 
 from gitdb.exc import BadObject
 from gitdb.typ import str_blob_type
+from gitdb.utils.encoding import force_bytes
 
 from async import IteratorReader
 
@@ -97,7 +98,7 @@ class TestDBBase(TestBase):
                     assert info.size == len(data)
 
                     ostream = db.stream(sha)
-                    assert ostream.read() == data
+                    assert ostream.read() == force_bytes(data)
                     assert ostream.type == str_blob_type
                     assert ostream.size == len(data)
                 else:
