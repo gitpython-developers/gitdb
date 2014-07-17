@@ -178,15 +178,9 @@ class FileDBBase(object):
         """
         :return: the given relative path relative to our database root, allowing
             to pontentially access datafiles"""
-        if sys.version_info[0] == 3:
-            text_type = str
-        else:
-            text_type = basestring
+        from gitdb.utils.encoding import force_text
 
-        if not isinstance(rela_path, text_type):
-            rela_path = rela_path.decode("utf-8")
-
-        return join(self._root_path, rela_path)
+        return join(self._root_path, force_text(rela_path))
     #} END interface
 
 

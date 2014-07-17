@@ -51,6 +51,8 @@ from gitdb.fun import (
     stream_copy
 )
 
+from gitdb.utils.compat import MAXSIZE
+
 import tempfile
 import mmap
 import sys
@@ -200,7 +202,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                 if istream.binsha is not None:
                     # copy as much as possible, the actual uncompressed item size might
                     # be smaller than the compressed version
-                    stream_copy(istream.read, writer.write, sys.maxint, self.stream_chunk_size)
+                    stream_copy(istream.read, writer.write, MAXSIZE, self.stream_chunk_size)
                 else:
                     # write object with header, we have to make a new one
                     write_object(istream.type, istream.size, istream.read, writer.write,

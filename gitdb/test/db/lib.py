@@ -35,7 +35,7 @@ class TestDBBase(TestBase):
     """Base class providing testing routines on databases"""
 
     # data
-    two_lines = "1234\nhello world".encode("ascii")
+    two_lines = "1234\nhello world"
     all_data = (two_lines, )
 
     def _assert_object_writing_simple(self, db):
@@ -81,8 +81,7 @@ class TestDBBase(TestBase):
 
                 prev_ostream = db.set_ostream(ostream)
                 assert type(prev_ostream) in ostreams or prev_ostream in ostreams
-
-                istream = IStream(str_blob_type, len(data), BytesIO(data))
+                istream = IStream(str_blob_type, len(data), BytesIO(data.encode("ascii")))
 
                 # store returns same istream instance, with new sha set
                 my_istream = db.store(istream)
@@ -131,8 +130,7 @@ class TestDBBase(TestBase):
         """Test generic object writing using asynchronous access"""
         ni = 5000
         def istream_generator(offset=0, ni=ni):
-            for data_src in xrange(ni):
-                print(type(data_src), type(offset))
+            for data_src in range(ni):
                 data = bytes(data_src + offset)
                 yield IStream(str_blob_type, len(data), BytesIO(data))
             # END for each item

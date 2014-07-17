@@ -27,6 +27,10 @@ from gitdb.util import (
     zlib
 )
 
+from gitdb.const import NULL_BYTE
+from gitdb.utils.compat import buffer
+from gitdb.utils.encoding import force_bytes, force_text
+
 has_perf_mod = False
 try:
     from _perf import apply_delta as c_apply_delta
@@ -99,7 +103,7 @@ class DecompressMemMapReader(LazyMixin):
         maxb = 512              # should really be enough, cgit uses 8192 I believe
         self._s = maxb
         hdr = self.read(maxb)
-        hdrend = hdr.find("\0".encode("ascii"))
+        hdrend = hdr.find(NULL_BYTE)
         typ, size = hdr[:hdrend].split(" ".encode("ascii"))
         size = int(size)
         self._s = size
@@ -113,7 +117,7 @@ class DecompressMemMapReader(LazyMixin):
 
         self._phi = True
 
-        return typ.decode("ascii"), size
+        return force_text(typ), size
 
     #{ Interface
 
@@ -264,10 +268,7 @@ class DecompressMemMapReader(LazyMixin):
         # END adjust winsize
 
         # takes a slice, but doesn't copy the data, it says ...
-        try:
-            indata = memoryview(self._m)[self._cws:self._cwe].tobytes()
-        except (NameError, TypeError):
-            indata = buffer(self._m, self._cws, self._cwe - self._cws)
+        indata = buffer(self._m, self._cws, self._cwe - self._cws)
 
         # get the actual window end to be sure we don't use it for computations
         self._cwe = self._cws + len(indata)
@@ -379,6 +380,7 @@ class DeltaApplyReader(LazyMixin):
 
     def _set_cache_brute_(self, attr):
         """If we are here, we apply the actual deltas"""
+        from gitdb.utils.compat import buffer
 
         # TODO: There should be a special case if there is only one stream
         # Then the default-git algorithm should perform a tad faster, as the
@@ -546,7 +548,10 @@ class Sha1Writer(object):
     def write(self, data):
         """:raise IOError: If not all bytes could be written
         :return: length of incoming data"""
+
+        data = force_bytes(data)
         self.sha1.update(data)
+
         return len(data)
 
     # END stream interface
@@ -589,8 +594,11 @@ class ZippedStoreShaWriter(Sha1Writer):
         return getattr(self.buf, attr)
 
     def write(self, data):
+        data = force_bytes(data)
+
         alen = Sha1Writer.write(self, data)
         self.buf.write(self.zip.compress(data))
+
         return alen
 
     def close(self):
@@ -630,11 +638,15 @@ class FDCompressedSha1Writer(Sha1Writer):
     def write(self, data):
         """:raise IOError: If not all bytes could be written
         :return: lenght of incoming data"""
+        data = force_bytes(data)
+
         self.sha1.update(data)
         cdata = self.zip.compress(data)
         bytes_written = write(self.fd, cdata)
+
         if bytes_written != len(cdata):
             raise self.exc
+
         return len(data)
 
     def close(self):

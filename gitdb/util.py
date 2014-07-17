@@ -30,10 +30,7 @@ else:
     mman = SlidingWindowMapManager()
 #END handle mman
 
-try:
-    import hashlib
-except ImportError:
-    import sha
+import hashlib
 
 try:
     from struct import unpack_from
@@ -84,9 +81,8 @@ write = os.write
 close = os.close
 fsync = os.fsync
 
-# constants
-NULL_HEX_SHA = "0"*40
-NULL_BIN_SHA = "\0"*20
+# Backwards compatibility imports
+from gitdb.const import NULL_BIN_SHA, NULL_HEX_SHA
 
 #} END Aliases
 

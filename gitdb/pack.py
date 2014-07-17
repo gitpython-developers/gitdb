@@ -63,10 +63,8 @@ from struct import (
 
 from binascii import crc32
 
-try:
-    from itertools import izip
-except ImportError:
-    izip = zip
+from gitdb.const import NULL_BYTE
+from gitdb.utils.compat import izip, buffer
 
 import tempfile
 import array
@@ -90,6 +88,8 @@ def pack_object_at(cursor, offset, as_stream):
     :parma offset: offset in to the data at which the object information is located
     :param as_stream: if True, a stream object will be returned that can read
         the data, otherwise you receive an info object only"""
+    from gitdb.utils.encoding import force_bytes
+
     data = cursor.use_region(offset).buffer()
     type_id, uncomp_size, data_rela_offset = pack_object_header_info(data)
     total_rela_offset = None                # set later, actual offset until data stream begins
@@ -120,16 +120,12 @@ def pack_object_at(cursor, offset, as_stream):
     # END handle type id
     abs_data_offset = offset + total_rela_offset
     if as_stream:
-        try:
-            buff = memoryview(data)[total_rela_offset:].tobytes()
-        except (NameError, TypeError):
-            buff = buffer(data, total_rela_offset)
+        buff = buffer(data, total_rela_offset)
         stream = DecompressMemMapReader(buff, False, uncomp_size)
         if delta_info is None:
             return abs_data_offset, OPackStream(offset, type_id, uncomp_size, stream)
         else:
-            if hasattr(delta_info, "tobytes"):
-                delta_info = delta_info.tobytes()
+            delta_info = force_bytes(delta_info)
             return abs_data_offset, ODeltaPackStream(offset, type_id, uncomp_size, delta_info, stream)
     else:
         if delta_info is None:
@@ -468,7 +464,7 @@ class PackIndexFile(LazyMixin):
         hi = self._fanout_table[first_byte]     # the upper, right bound of the bisection
 
         # fill the partial to full 20 bytes
-        filled_sha = partial_bin_sha + '\0'.encode("ascii") * (20 - len(partial_bin_sha))
+        filled_sha = partial_bin_sha + NULL_BYTE * (20 - len(partial_bin_sha))
 
         # find lowest
         while lo < hi:
