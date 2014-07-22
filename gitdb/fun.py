@@ -17,6 +17,12 @@ import mmap
 from itertools import islice
 
 from gitdb.utils.compat import izip
+from gitdb.typ import (
+    str_blob_type,
+    str_commit_type,
+    str_tree_type,
+    str_tag_type,
+)
 
 from io import StringIO
 
@@ -27,23 +33,23 @@ delta_types = (OFS_DELTA, REF_DELTA)
 
 type_id_to_type_map =   {
     0 : "",             # EXT 1
-    1 : "commit",
-    2 : "tree",
-    3 : "blob",
-    4 : "tag",
+    1 : str_commit_type,
+    2 : str_tree_type,
+    3 : str_blob_type,
+    4 : str_tag_type,
     5 : "",             # EXT 2
     OFS_DELTA : "OFS_DELTA",    # OFFSET DELTA
     REF_DELTA : "REF_DELTA"     # REFERENCE DELTA
 }
 
-type_to_type_id_map = dict(
-    commit=1,
-    tree=2,
-    blob=3,
-    tag=4,
-    OFS_DELTA=OFS_DELTA,
-    REF_DELTA=REF_DELTA
-)
+type_to_type_id_map = {
+    str_commit_type: 1,
+    str_tree_type: 2,
+    str_blob_type: 3,
+    str_tag_type: 4,
+    "OFS_DELTA": OFS_DELTA,
+    "REF_DELTA": REF_DELTA,
+}
 
 # used when dealing with larger streams
 chunk_size = 1000 * mmap.PAGESIZE
@@ -398,7 +404,7 @@ def loose_object_header_info(m):
     hdr = decompressobj().decompress(m, decompress_size)
     type_name, size = hdr[:hdr.find(NULL_BYTE)].split(" ".encode("ascii"))
 
-    return force_text(type_name), int(size)
+    return type_name, int(size)
 
 def pack_object_header_info(data):
     """

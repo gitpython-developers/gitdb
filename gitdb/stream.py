@@ -29,7 +29,7 @@ from gitdb.util import (
 
 from gitdb.const import NULL_BYTE
 from gitdb.utils.compat import buffer
-from gitdb.utils.encoding import force_bytes, force_text
+from gitdb.utils.encoding import force_bytes
 
 has_perf_mod = False
 try:
@@ -117,7 +117,7 @@ class DecompressMemMapReader(LazyMixin):
 
         self._phi = True
 
-        return force_text(typ), size
+        return typ, size
 
     #{ Interface
 
