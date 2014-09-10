@@ -21,7 +21,7 @@ class build_ext_nofail(build_ext):
 		try:
 			build_ext.run(self)
 		except Exception:
-			print "Ignored failure when building extensions, pure python modules will be used instead"
+			print("Ignored failure when building extensions, pure python modules will be used instead")
 		# END ignore errors
 		
 
