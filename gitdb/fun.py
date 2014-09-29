@@ -6,17 +6,18 @@
 Keeping this code separate from the beginning makes it easier to out-source
 it into c later, if required"""
 
-from exc import (
+from .exc import (
     BadObjectType
     )
 
-from util import zlib
+from .util import zlib
+from functools import reduce
 decompressobj = zlib.decompressobj
 
 import mmap
-from itertools import islice, izip
+from itertools import islice
 
-from cStringIO import StringIO
+from io import StringIO
 
 # INVARIANTS
 OFS_DELTA = 6
@@ -249,7 +250,7 @@ class DeltaChunkList(list):
                 #if first_data_index is not None:
                     nd = StringIO()                     # new data
                     so = self[first_data_index].to      # start offset in target buffer
-                    for x in xrange(first_data_index, i-1):
+                    for x in range(first_data_index, i-1):
                         xdc = self[x]
                         nd.write(xdc.data[:xdc.ts])
                     # END collect data
@@ -296,10 +297,10 @@ class DeltaChunkList(list):
             
         left = islice(self, 0, len(self)-1)
         right = iter(self)
-        right.next()
+        next(right)
         # this is very pythonic - we might have just use index based access here, 
         # but this could actually be faster
-        for lft,rgt in izip(left, right):
+        for lft,rgt in zip(left, right):
             assert lft.rbound() == rgt.to
             assert lft.to + lft.ts == rgt.to
         # END for each pair
@@ -380,7 +381,7 @@ def is_loose_object(m):
     """
     :return: True the file contained in memory map m appears to be a loose object.
         Only the first two bytes are needed"""
-    b0, b1 = map(ord, m[:2])
+    b0, b1 = list(map(ord, m[:2]))
     word = (b0 << 8) + b1
     return b0 == 0x78 and (word % 31) == 0
 

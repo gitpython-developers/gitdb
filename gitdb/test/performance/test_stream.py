@@ -19,7 +19,7 @@ from async import (
     ChannelThreadTask,
     )
 
-from cStringIO import StringIO
+from io import StringIO
 from time import time
 import os
 import sys
@@ -71,11 +71,11 @@ class TestObjDBPerformance(TestBigRepoR):
         # serial mode 
         for randomize in range(2):
             desc = (randomize and 'random ') or ''
-            print >> sys.stderr, "Creating %s data ..." % desc
+            print("Creating %s data ..." % desc, file=sys.stderr)
             st = time()
             size, stream = make_memory_file(self.large_data_size_bytes, randomize)
             elapsed = time() - st
-            print >> sys.stderr, "Done (in %f s)" % elapsed
+            print("Done (in %f s)" % elapsed, file=sys.stderr)
             string_ios.append(stream)
             
             # writing - due to the compression it will seem faster than it is 
@@ -88,7 +88,7 @@ class TestObjDBPerformance(TestBigRepoR):
             
             
             size_kib = size / 1000
-            print >> sys.stderr, "Added %i KiB (filesize = %i KiB) of %s data to loose odb in %f s ( %f Write KiB / s)" % (size_kib, fsize_kib, desc, elapsed_add, size_kib / elapsed_add)
+            print("Added %i KiB (filesize = %i KiB) of %s data to loose odb in %f s ( %f Write KiB / s)" % (size_kib, fsize_kib, desc, elapsed_add, size_kib / elapsed_add), file=sys.stderr)
             
             # reading all at once
             st = time()
@@ -98,7 +98,7 @@ class TestObjDBPerformance(TestBigRepoR):
             
             stream.seek(0)
             assert shadata == stream.getvalue()
-            print >> sys.stderr, "Read %i KiB of %s data at once from loose odb in %f s ( %f Read KiB / s)" % (size_kib, desc, elapsed_readall, size_kib / elapsed_readall)
+            print("Read %i KiB of %s data at once from loose odb in %f s ( %f Read KiB / s)" % (size_kib, desc, elapsed_readall, size_kib / elapsed_readall), file=sys.stderr)
             
             
             # reading in chunks of 1 MiB
@@ -118,7 +118,7 @@ class TestObjDBPerformance(TestBigRepoR):
             assert ''.join(chunks) == stream.getvalue()
             
             cs_kib = cs / 1000
-            print >> sys.stderr, "Read %i KiB of %s data in %i KiB chunks from loose odb in %f s ( %f Read KiB / s)" % (size_kib, desc, cs_kib, elapsed_readchunks, size_kib / elapsed_readchunks)
+            print("Read %i KiB of %s data in %i KiB chunks from loose odb in %f s ( %f Read KiB / s)" % (size_kib, desc, cs_kib, elapsed_readchunks, size_kib / elapsed_readchunks), file=sys.stderr)
             
             # del db file so we keep something to do
             os.remove(db_file)
@@ -152,7 +152,7 @@ class TestObjDBPerformance(TestBigRepoR):
         assert len(istreams) == nsios
         elapsed = time() - st
         
-        print >> sys.stderr, "Threads(%i): Compressed %i KiB of data in loose odb in %f s ( %f Write KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed)
+        print("Threads(%i): Compressed %i KiB of data in loose odb in %f s ( %f Write KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed), file=sys.stderr)
         
         # decompress multiple at once, by reading them
         # chunk size is not important as the stream will not really be decompressed
@@ -169,7 +169,7 @@ class TestObjDBPerformance(TestBigRepoR):
         assert len(output_reader.read(nsios)) == nsios
         elapsed = time() - st
         
-        print >> sys.stderr, "Threads(%i): Decompressed %i KiB of data in loose odb in %f s ( %f Read KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed)
+        print("Threads(%i): Decompressed %i KiB of data in loose odb in %f s ( %f Read KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed), file=sys.stderr)
         
         # store the files, and read them back. For the reading, we use a task 
         # as well which is chunked into one item per task. Reading all will
@@ -192,4 +192,4 @@ class TestObjDBPerformance(TestBigRepoR):
         assert len(output_reader.read(nsios)) == nsios
         elapsed = time() - st
         
-        print >> sys.stderr, "Threads(%i): Compressed and decompressed and read %i KiB of data in loose odb in %f s ( %f Combined KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed)
+        print("Threads(%i): Compressed and decompressed and read %i KiB of data in loose odb in %f s ( %f Combined KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed), file=sys.stderr)

@@ -2,15 +2,15 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from base import (
+from .base import (
                         CompoundDB, 
                         ObjectDBW, 
                         FileDBBase
                     )
 
-from loose import LooseObjectDB
-from pack import PackedDB
-from ref import ReferenceDB
+from .loose import LooseObjectDB
+from .pack import PackedDB
+from .ref import ReferenceDB
 
 from gitdb.util import LazyMixin
 from gitdb.exc import (

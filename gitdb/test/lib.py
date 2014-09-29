@@ -16,7 +16,7 @@ from gitdb.util import zlib
 import sys
 import random
 from array import array
-from cStringIO import StringIO
+from io import StringIO
 
 import glob
 import unittest
@@ -47,7 +47,7 @@ def with_rw_directory(func):
             try:
                 return func(self, path)
             except Exception:
-                print >> sys.stderr, "Test %s.%s failed, output is at %r" % (type(self).__name__, func.__name__, path)
+                print("Test %s.%s failed, output is at %r" % (type(self).__name__, func.__name__, path), file=sys.stderr)
                 keep = True
                 raise
         finally:
@@ -109,7 +109,7 @@ def make_bytes(size_in_bytes, randomize=False):
     """:return: string with given size in bytes
     :param randomize: try to produce a very random stream"""
     actual_size = size_in_bytes / 4
-    producer = xrange(actual_size)
+    producer = range(actual_size)
     if randomize:
         producer = list(producer)
         random.shuffle(producer)

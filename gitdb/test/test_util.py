@@ -6,7 +6,7 @@
 import tempfile
 import os
 
-from lib import TestBase
+from .lib import TestBase
 from gitdb.util import (
     to_hex_sha, 
     to_bin_sha, 

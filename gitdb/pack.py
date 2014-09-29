@@ -8,7 +8,7 @@ from gitdb.exc import (
                         UnsupportedOperation,
                         ParseError
                         )
-from util import (
+from .util import (
                     zlib,
                     mman,
                     LazyMixin,
@@ -16,7 +16,7 @@ from util import (
                     bin_to_hex,
                     )
 
-from fun import (
+from .fun import (
                     create_pack_object_header,
                     pack_object_header_info,
                     is_equal_canonical_sha,
@@ -36,7 +36,7 @@ except ImportError:
     pass
 # END try c module
 
-from base import (      # Amazing !
+from .base import (      # Amazing !
                         OInfo,
                         OStream,
                         OPackInfo,
@@ -45,7 +45,7 @@ from base import (      # Amazing !
                         ODeltaPackInfo,
                         ODeltaPackStream,
                     )
-from stream import (
+from .stream import (
                         DecompressMemMapReader,
                         DeltaApplyReader,
                         Sha1Writer,
@@ -60,7 +60,7 @@ from struct import (
 
 from binascii import crc32
 
-from itertools import izip
+
 import tempfile
 import array
 import os
@@ -200,7 +200,7 @@ class IndexWriter(object):
         for t in self._objs:
             tmplist[ord(t[0][0])] += 1
         #END prepare fanout
-        for i in xrange(255):
+        for i in range(255):
             v = tmplist[i]
             sha_write(pack('>L', v))
             tmplist[i+1] += v
@@ -407,7 +407,7 @@ class PackIndexFile(LazyMixin):
                 a.byteswap()
             return a
         else:
-            return tuple(self.offset(index) for index in xrange(self.size()))
+            return tuple(self.offset(index) for index in range(self.size()))
         # END handle version
         
     def sha_to_index(self, sha):
@@ -673,8 +673,8 @@ class PackEntity(LazyMixin):
         else:
             iter_offsets = iter(offsets_sorted)
             iter_offsets_plus_one = iter(offsets_sorted)
-            iter_offsets_plus_one.next()
-            consecutive = izip(iter_offsets, iter_offsets_plus_one)
+            next(iter_offsets_plus_one)
+            consecutive = zip(iter_offsets, iter_offsets_plus_one)
             
             offset_map = dict(consecutive)
             
@@ -694,7 +694,7 @@ class PackEntity(LazyMixin):
         """Iterate over all objects in our index and yield their OInfo or OStream instences"""
         _sha = self._index.sha
         _object = self._object
-        for index in xrange(self._index.size()):
+        for index in range(self._index.size()):
             yield _object(_sha(index), as_stream, index)
         # END for each index
     

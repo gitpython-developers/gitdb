@@ -3,12 +3,12 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 
-from cStringIO import StringIO
+from io import StringIO
 import errno
 import mmap
 import os
 
-from fun import (
+from .fun import (
                     msb_size,
                     stream_copy, 
                     apply_delta_data,
@@ -17,7 +17,7 @@ from fun import (
                     delta_types
                 )
 
-from util import (
+from .util import (
         allocate_memory,
         LazyMixin,
         make_sha,
@@ -417,7 +417,7 @@ class DeltaApplyReader(LazyMixin):
         # For the actual copying, we use a seek and write pattern of buffer
         # slices.
         final_target_size = None
-        for (dbuf, offset, src_size, target_size), dstream in reversed(zip(buffer_info_list, self._dstreams)):
+        for (dbuf, offset, src_size, target_size), dstream in reversed(list(zip(buffer_info_list, self._dstreams))):
             # allocate a buffer to hold all delta data - fill in the data for 
             # fast access. We do this as we know that reading individual bytes
             # from our stream would be slower than necessary ( although possible )

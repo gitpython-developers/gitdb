@@ -3,8 +3,8 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Contains the MemoryDatabase implementation"""
-from loose import LooseObjectDB
-from base import (
+from .loose import LooseObjectDB
+from .base import (
                         ObjectDBR, 
                         ObjectDBW
                     )
@@ -23,7 +23,7 @@ from gitdb.stream import (
                             DecompressMemMapReader,
                         )
 
-from cStringIO import StringIO
+from io import StringIO
 
 __all__ = ("MemoryDB", )
 
@@ -85,7 +85,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
         return len(self._cache)
         
     def sha_iter(self):
-        return self._cache.iterkeys()
+        return iter(self._cache.keys())
         
         
     #{ Interface 
