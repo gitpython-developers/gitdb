@@ -47,13 +47,13 @@ class TestPackStreamingPerformance(TestBigRepoR):
                 break
         #END gather objects for pack-writing
         elapsed = time() - st
-        print >> sys.stderr, "PDB Streaming: Got %i streams by sha in in %f s ( %f streams/s )" % (ni, elapsed, ni / elapsed)
+        print("PDB Streaming: Got %i streams by sha in in %f s ( %f streams/s )" % (ni, elapsed, ni / elapsed), file=sys.stderr)
         
         st = time()
         PackEntity.write_pack((pdb.stream(sha) for sha in pdb.sha_iter()), ostream.write, object_count=ni)
         elapsed = time() - st
         total_kb = ostream.bytes_written() / 1000
-        print >> sys.stderr, "PDB Streaming: Wrote pack of size %i kb in %f s (%f kb/s)" % (total_kb, elapsed, total_kb/elapsed)
+        print("PDB Streaming: Wrote pack of size %i kb in %f s (%f kb/s)" % (total_kb, elapsed, total_kb/elapsed), file=sys.stderr)
         
     
     def test_stream_reading(self):
@@ -75,5 +75,5 @@ class TestPackStreamingPerformance(TestBigRepoR):
             count += 1
         elapsed = time() - st
         total_kib = total_size / 1000
-        print >> sys.stderr, "PDB Streaming: Got %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" % (ni, total_kib, total_kib/elapsed , elapsed, ni / elapsed)
+        print("PDB Streaming: Got %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" % (ni, total_kib, total_kib/elapsed , elapsed, ni / elapsed), file=sys.stderr)
         

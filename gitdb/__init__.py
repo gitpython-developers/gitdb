@@ -32,7 +32,7 @@ __version__ = '.'.join(str(i) for i in version_info)
 
 
 # default imports
-from db import *
-from base import *
-from stream import *
+from .db import *
+from .base import *
+from .stream import *
 

@@ -2,7 +2,7 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from base import (
+from .base import (
                         FileDBBase, 
                         ObjectDBR, 
                         ObjectDBW
@@ -69,9 +69,9 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
     
     # On windows we need to keep it writable, otherwise it cannot be removed
     # either
-    new_objects_mode = 0444
+    new_objects_mode = 0o444
     if os.name == 'nt':
-        new_objects_mode = 0644
+        new_objects_mode = 0o644
             
     
     def __init__(self, root_path):
@@ -133,7 +133,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
         db_path = self.db_path(self.object_path(bin_to_hex(sha)))
         try:
             return file_contents_ro_filepath(db_path, flags=self._fd_open_flags)
-        except OSError,e:
+        except OSError as e:
             if e.errno != ENOENT:
                 # try again without noatime
                 try:
@@ -200,7 +200,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                 if istream.binsha is not None:
                     # copy as much as possible, the actual uncompressed item size might
                     # be smaller than the compressed version
-                    stream_copy(istream.read, writer.write, sys.maxint, self.stream_chunk_size)
+                    stream_copy(istream.read, writer.write, sys.maxsize, self.stream_chunk_size)
                 else:
                     # write object with header, we have to make a new one
                     write_object(istream.type, istream.size, istream.read, writer.write,

@@ -2,7 +2,7 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from base import (
+from .base import (
                     CompoundDB,
                 )
 
@@ -33,7 +33,7 @@ class ReferenceDB(CompoundDB):
         dbcls = self.ObjectDBCls
         if dbcls is None:
             # late import
-            from git import GitDB
+            from .git import GitDB
             dbcls = GitDB
         # END get db type
         
@@ -68,7 +68,7 @@ class ReferenceDB(CompoundDB):
                     db.databases()
                 # END verification
                 self._dbs.append(db)
-            except Exception, e:
+            except Exception as e:
                 # ignore invalid paths or issues
                 pass
         # END for each path to add

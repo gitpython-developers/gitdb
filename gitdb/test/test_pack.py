@@ -3,7 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Test everything about packs reading and writing"""
-from lib import (
+from .lib import (
                     TestBase,
                     with_rw_directory, 
                     with_packs_rw,
@@ -25,7 +25,7 @@ from gitdb.base import (
 from gitdb.fun import delta_types
 from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
-from itertools import izip, chain
+from itertools import chain
 from nose import SkipTest
 
 import os
@@ -57,7 +57,7 @@ class TestPack(TestBase):
         assert len(index.offsets()) == size
         
         # get all data of all objects
-        for oidx in xrange(index.size()):
+        for oidx in range(index.size()):
             sha = index.sha(oidx)
             assert oidx == index.sha_to_index(sha)
             
@@ -152,7 +152,7 @@ class TestPack(TestBase):
             pack_objs.extend(entity.stream_iter())
             
             count = 0
-            for info, stream in izip(entity.info_iter(), entity.stream_iter()):
+            for info, stream in zip(entity.info_iter(), entity.stream_iter()):
                 count += 1
                 assert info.binsha == stream.binsha
                 assert len(info.binsha) == 20
