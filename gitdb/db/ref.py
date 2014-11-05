@@ -68,7 +68,7 @@ class ReferenceDB(CompoundDB):
                     db.databases()
                 # END verification
                 self._dbs.append(db)
-            except Exception, e:
+            except Exception as e:
                 # ignore invalid paths or issues
                 pass
         # END for each path to add
