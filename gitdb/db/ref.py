@@ -6,7 +6,6 @@ from .base import (
     CompoundDB,
 )
 
-import os
 __all__ = ('ReferenceDB', )
 
 
@@ -74,7 +73,7 @@ class ReferenceDB(CompoundDB):
                     db.databases()
                 # END verification
                 self._dbs.append(db)
-            except Exception as e:
+            except Exception:
                 # ignore invalid paths or issues
                 pass
         # END for each path to add

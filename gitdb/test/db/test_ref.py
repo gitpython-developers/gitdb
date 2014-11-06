@@ -25,7 +25,6 @@ class TestReferenceDB(TestDBBase):
 
     @with_rw_directory
     def test_writing(self, path):
-        NULL_BIN_SHA = '\0' * 20
 
         alt_path = os.path.join(path, 'alternates')
         rdb = ReferenceDB(alt_path)

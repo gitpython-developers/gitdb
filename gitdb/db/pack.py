@@ -25,7 +25,7 @@ from functools import reduce
 
 __all__ = ('PackedDB', )
 
-#{ Utilities
+# { Utilities
 
 
 class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
@@ -84,7 +84,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         # and leave it to the super-caller to trigger that
         raise BadObject(sha)
 
-    #{ Object DB Read
+    # { Object DB Read
 
     def has_object(self, sha):
         try:
@@ -103,7 +103,6 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         return entity.stream_at_index(index)
 
     def sha_iter(self):
-        sha_list = list()
         for entity in self.entities():
             index = entity.index()
             sha_by_index = index.sha
@@ -116,9 +115,9 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         sizes = [item[1].index().size() for item in self._entities]
         return reduce(lambda x, y: x + y, sizes, 0)
 
-    #} END object db read
+    # } END object db read
 
-    #{ object db write
+    # { object db write
 
     def store(self, istream):
         """Storing individual objects is not feasible as a pack is designed to
@@ -130,9 +129,9 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         # TODO: add ObjectDBRW before implementing this
         raise NotImplementedError()
 
-    #} END object db write
+    # } END object db write
 
-    #{ Interface
+    # { Interface
 
     def update_cache(self, force=False):
         """
@@ -211,4 +210,4 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         # still not found ?
         raise BadObject(partial_binsha)
 
-    #} END interface
+    # } END interface

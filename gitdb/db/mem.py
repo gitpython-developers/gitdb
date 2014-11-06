@@ -92,7 +92,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
     def sha_iter(self):
         return self._cache.iterkeys()
 
-    #{ Interface
+    # { Interface
     def stream_copy(self, sha_iter, odb):
         """Copy the streams as identified by sha's yielded by sha_iter into the given odb
         The streams will be copied directly
@@ -114,4 +114,4 @@ class MemoryDB(ObjectDBR, ObjectDBW):
             count += 1
         # END for each sha
         return count
-    #} END interface
+    # } END interface

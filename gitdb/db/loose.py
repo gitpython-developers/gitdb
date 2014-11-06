@@ -10,7 +10,6 @@ from .base import (
 
 
 from gitdb.exc import (
-    InvalidDBRoot,
     BadObject,
     AmbiguousObjectName
 )
@@ -52,7 +51,6 @@ from gitdb.fun import (
 )
 
 import tempfile
-import mmap
 import sys
 import os
 
@@ -82,7 +80,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
         # is why it is per instance
         self._fd_open_flags = getattr(os, 'O_NOATIME', 0)
 
-    #{ Interface
+    # { Interface
     def object_path(self, hexsha):
         """
         :return: path at which the object with the given hexsha would be stored,
@@ -124,7 +122,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
             raise BadObject(partial_hexsha)
         return candidate
 
-    #} END interface
+    # } END interface
 
     def _map_loose_object(self, sha):
         """
@@ -147,11 +145,6 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                 raise BadObject(sha)
             # END handle error
         # END exception handling
-        try:
-            return mmap.mmap(fd, 0, access=mmap.ACCESS_READ)
-        finally:
-            os.close(fd)
-        # END assure file is closed
 
     def set_ostream(self, stream):
         """:raise TypeError: if the stream does not support the Sha1Writer interface"""

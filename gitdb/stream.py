@@ -4,7 +4,6 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 
 from cStringIO import StringIO
-import errno
 import mmap
 import os
 
@@ -13,7 +12,6 @@ from .fun import (
     stream_copy,
     apply_delta_data,
     connect_deltas,
-    DeltaChunkList,
     delta_types
 )
 
@@ -45,7 +43,7 @@ __all__ = (
     'NullStream')
 
 
-#{ RO Streams
+# { RO Streams
 
 class DecompressMemMapReader(LazyMixin):
 
@@ -139,7 +137,7 @@ class DecompressMemMapReader(LazyMixin):
 
         return type, size
 
-    #{ Interface
+    # { Interface
 
     @classmethod
     def new(self, m, close_on_deletion=False):
@@ -205,7 +203,7 @@ class DecompressMemMapReader(LazyMixin):
         # from the count already
         return self._cbr
 
-    #} END interface
+    # } END interface
 
     def seek(self, offset, whence=getattr(os, 'SEEK_SET', 0)):
         """Allows to reset the stream to restart reading
@@ -352,9 +350,9 @@ class DeltaApplyReader(LazyMixin):
         "_br"                   # number of bytes read
     )
 
-    #{ Configuration
+    # { Configuration
     k_max_memory_move = 250 * 1000 * 1000
-    #} END configuration
+    # } END configuration
 
     def __init__(self, stream_list):
         """Initialize this instance with a list of streams, the first stream being
@@ -403,8 +401,8 @@ class DeltaApplyReader(LazyMixin):
             mmap.PAGESIZE)
 
         # APPLY CHUNKS
-        write = self._mm_target.write
-        dcl.apply(bbuf, write)
+        write_func = self._mm_target.write
+        dcl.apply(bbuf, write_func)
 
         self._mm_target.seek(0)
 
@@ -489,13 +487,13 @@ class DeltaApplyReader(LazyMixin):
         self._mm_target = bbuf
         self._size = final_target_size
 
-    #{ Configuration
+    # { Configuration
     if not has_perf_mod:
         _set_cache_ = _set_cache_brute_
     else:
         _set_cache_ = _set_cache_too_slow_without_c
 
-    #} END configuration
+    # } END configuration
 
     def read(self, count=0):
         bl = self._size - self._br      # bytes left
@@ -517,7 +515,7 @@ class DeltaApplyReader(LazyMixin):
         self._br = 0
         self._mm_target.seek(0)
 
-    #{ Interface
+    # { Interface
 
     @classmethod
     def new(cls, stream_list):
@@ -545,9 +543,9 @@ class DeltaApplyReader(LazyMixin):
 
         return cls(stream_list)
 
-    #} END interface
+    # } END interface
 
-    #{ OInfo like Interface
+    # { OInfo like Interface
 
     @property
     def type(self):
@@ -562,13 +560,13 @@ class DeltaApplyReader(LazyMixin):
         """:return: number of uncompressed bytes in the stream"""
         return self._size
 
-    #} END oinfo like interface
+    # } END oinfo like interface
 
 
-#} END RO streams
+# } END RO streams
 
 
-#{ W Streams
+# { W Streams
 
 class Sha1Writer(object):
 
@@ -579,7 +577,7 @@ class Sha1Writer(object):
     def __init__(self):
         self.sha1 = make_sha()
 
-    #{ Stream Interface
+    # { Stream Interface
 
     def write(self, data):
         """:raise IOError: If not all bytes could be written
@@ -589,7 +587,7 @@ class Sha1Writer(object):
 
     # END stream interface
 
-    #{ Interface
+    # { Interface
 
     def sha(self, as_hex=False):
         """:return: sha so far
@@ -598,7 +596,7 @@ class Sha1Writer(object):
             return self.sha1.hexdigest()
         return self.sha1.digest()
 
-    #} END interface
+    # } END interface
 
 
 class FlexibleSha1Writer(Sha1Writer):
@@ -667,7 +665,7 @@ class FDCompressedSha1Writer(Sha1Writer):
         self.fd = fd
         self.zip = zlib.compressobj(zlib.Z_BEST_SPEED)
 
-    #{ Stream Interface
+    # { Stream Interface
 
     def write(self, data):
         """:raise IOError: If not all bytes could be written
@@ -685,7 +683,7 @@ class FDCompressedSha1Writer(Sha1Writer):
             raise self.exc
         return close(self.fd)
 
-    #} END stream interface
+    # } END stream interface
 
 
 class FDStream(object):
@@ -738,4 +736,4 @@ class NullStream(object):
         return len(data)
 
 
-#} END W streams
+# } END W streams

@@ -4,7 +4,6 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from .lib import *
 from gitdb.db import PackedDB
-from gitdb.test.lib import fixture_path
 
 from gitdb.exc import BadObject, AmbiguousObjectName
 
@@ -47,8 +46,8 @@ class TestPackDB(TestDBBase):
         random.shuffle(sha_list)
 
         for sha in sha_list:
-            info = pdb.info(sha)
-            stream = pdb.stream(sha)
+            pdb.info(sha)
+            pdb.stream(sha)
         # END for each sha to query
 
         # test short finding - be a bit more brutal here

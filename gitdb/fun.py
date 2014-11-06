@@ -6,10 +6,6 @@
 Keeping this code separate from the beginning makes it easier to out-source
 it into c later, if required"""
 
-from .exc import (
-    BadObjectType
-)
-
 from .util import zlib
 from functools import reduce
 decompressobj = zlib.decompressobj
@@ -62,7 +58,7 @@ __all__ = (
     'create_pack_object_header')
 
 
-#{ Structures
+# { Structures
 
 def _set_delta_rbound(d, size):
     """Truncate the given delta to the given size
@@ -143,7 +139,7 @@ class DeltaChunk(object):
         return "DeltaChunk(%i, %i, %s, %s)" % (
             self.to, self.ts, self.so, self.data or "")
 
-    #{ Interface
+    # { Interface
 
     def rbound(self):
         return self.to + self.ts
@@ -152,7 +148,7 @@ class DeltaChunk(object):
         """:return: True if the instance has data to add to the target stream"""
         return self.data is not None
 
-    #} END interface
+    # } END interface
 
 
 def _closest_index(dcl, absofs):
@@ -262,7 +258,6 @@ class DeltaChunkList(list):
         if slen < 2:
             return self
         i = 0
-        slen_orig = slen
 
         first_data_index = None
         while i < slen:
@@ -403,9 +398,9 @@ class TopdownDeltaChunkList(DeltaChunkList):
         return True
 
 
-#} END structures
+# } END structures
 
-#{ Routines
+# { Routines
 
 def is_loose_object(m):
     """
@@ -546,7 +541,7 @@ def stream_copy(read, write, size, chunk_size):
     return dbw
 
 
-def connect_deltas(dstreams):
+def _connect_deltas(dstreams):
     """
     Read the condensed delta chunk information from dstream and merge its information
         into a list of existing delta chunks
@@ -630,6 +625,12 @@ def connect_deltas(dstreams):
 
     return tdcl
 
+try:
+    # raise ImportError; # DEBUG
+    from _perf import connect_deltas
+except ImportError:
+    connect_deltas = _connect_deltas
+
 
 def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):
     """
@@ -708,11 +709,4 @@ def is_equal_canonical_sha(canonical_length, match, sha1):
     # END handle uneven canonnical length
     return True
 
-#} END routines
-
-
-try:
-    # raise ImportError; # DEBUG
-    from _perf import connect_deltas
-except ImportError:
-    pass
+# } END routines

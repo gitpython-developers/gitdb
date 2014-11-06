@@ -7,7 +7,7 @@
 import sys
 import os
 
-#{ Initialization
+# { Initialization
 
 
 def _init_externals():
@@ -24,7 +24,7 @@ def _init_externals():
         # END verify import
     # END handel imports
 
-#} END initialization
+# } END initialization
 
 _init_externals()
 

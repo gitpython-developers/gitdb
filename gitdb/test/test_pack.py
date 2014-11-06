@@ -6,7 +6,6 @@
 from .lib import (
     TestBase,
     with_rw_directory,
-    with_packs_rw,
     fixture_path
 )
 from gitdb.stream import DeltaApplyReader
@@ -25,18 +24,17 @@ from gitdb.base import (
 from gitdb.fun import delta_types
 from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
-from itertools import izip, chain
+from itertools import izip
 from nose import SkipTest
 
 import os
-import sys
 import tempfile
 
 
-#{ Utilities
+# { Utilities
 def bin_sha_from_filename(filename):
     return to_bin_sha(os.path.splitext(os.path.basename(filename))[0][5:])
-#} END utilities
+# } END utilities
 
 
 class TestPack(TestBase):
@@ -179,7 +177,7 @@ class TestPack(TestBase):
 
                 # we return fully resolved items, which is implied by the sha
                 # centric access
-                assert not info.type_id in delta_types
+                assert info.type_id not in delta_types
 
                 # try all calls
                 assert len(entity.collect_streams(info.binsha))

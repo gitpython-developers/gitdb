@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from distutils.core import setup, Extension
 from distutils.command.build_py import build_py
-from distutils.command.build_ext import build_ext
 
 import os
 import sys
@@ -13,6 +12,8 @@ try:
     if 'setuptools' in sys.modules:
         import setuptools.command.build_py as setuptools_build_py_module
         from setuptools.command.build_ext import build_ext
+    else:
+        from distutils.command.build_ext import build_ext
 except ImportError:
     pass
 
@@ -111,4 +112,4 @@ setup(
     install_requires=(
         'async >= 0.6.1',
         'smmap >= 0.8.0'),
-    long_description = """GitDB is a pure-Python git object database""" )
+    long_description = """GitDB is a pure-Python git object database""")

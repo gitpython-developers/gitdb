@@ -4,6 +4,7 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Contains PackIndexFile and PackFile implementations"""
 from gitdb.exc import (
+    AmbiguousObjectName,
     BadObject,
     UnsupportedOperation,
     ParseError
@@ -53,10 +54,7 @@ from .stream import (
     FlexibleSha1Writer
 )
 
-from struct import (
-    pack,
-    unpack,
-)
+from struct import pack
 
 from binascii import crc32
 
@@ -69,7 +67,7 @@ import sys
 __all__ = ('PackIndexFile', 'PackFile', 'PackEntity')
 
 
-#{ Utilities
+# { Utilities
 
 def pack_object_at(cursor, offset, as_stream):
     """
@@ -171,7 +169,7 @@ def write_stream_to_pack(read, write, zstream, base_crc=None):
     return (br, bw, crc)
 
 
-#} END utilities
+# } END utilities
 
 
 class IndexWriter(object):
@@ -308,7 +306,7 @@ class PackIndexFile(LazyMixin):
             self._initialize()
         # END handle attributes
 
-    #{ Access V1
+    # { Access V1
 
     def _entry_v1(self, i):
         """:return: tuple(offset, binsha, 0)"""
@@ -327,9 +325,9 @@ class PackIndexFile(LazyMixin):
         """unsupported"""
         return 0
 
-    #} END access V1
+    # } END access V1
 
-    #{ Access V2
+    # { Access V2
     def _entry_v2(self, i):
         """:return: tuple(offset, binsha, crc)"""
         return (self._offset_v2(i), self._sha_v2(i), self._crc_v2(i))
@@ -360,9 +358,9 @@ class PackIndexFile(LazyMixin):
         return unpack_from(
             ">L", self._cursor.map(), self._crc_list_offset + i * 4)[0]
 
-    #} END access V2
+    # } END access V2
 
-    #{ Initialization
+    # { Initialization
 
     def _initialize(self):
         """initialize base data"""
@@ -384,9 +382,9 @@ class PackIndexFile(LazyMixin):
         # END for each entry
         return out
 
-    #} END initialization
+    # } END initialization
 
-    #{ Properties
+    # { Properties
     def version(self):
         return self._version
 
@@ -429,7 +427,7 @@ class PackIndexFile(LazyMixin):
             return tuple(self.offset(index) for index in xrange(self.size()))
         # END handle version
 
-    def sha_to_index(self, sha):
+    def _sha_to_index(self, sha):
         """
         :return: index usable with the ``offset`` or ``entry`` method, or None
             if the sha was not found in this pack index
@@ -455,6 +453,15 @@ class PackIndexFile(LazyMixin):
             # END handle midpoint
         # END bisect
         return None
+
+    if 'PackIndexFile_sha_to_index' in globals():
+        # NOTE: Its just about 25% faster, the major bottleneck might be the attr
+        # accesses
+        def sha_to_index(self, sha):
+            return PackIndexFile_sha_to_index(self, sha)
+    else:
+        sha_to_index = _sha_to_index
+    # END redefine heavy-hitter with c version
 
     def partial_sha_to_index(self, partial_bin_sha, canonical_length):
         """
@@ -507,14 +514,7 @@ class PackIndexFile(LazyMixin):
         # END if we found something
         return None
 
-    if 'PackIndexFile_sha_to_index' in globals():
-        # NOTE: Its just about 25% faster, the major bottleneck might be the attr
-        # accesses
-        def sha_to_index(self, sha):
-            return PackIndexFile_sha_to_index(self, sha)
-    # END redefine heavy-hitter with c version
-
-    #} END properties
+    # } END properties
 
 
 class PackFile(LazyMixin):
@@ -578,7 +578,7 @@ class PackFile(LazyMixin):
             yield ostream
         # END until we have read everything
 
-    #{ Pack Information
+    # { Pack Information
 
     def size(self):
         """:return: The amount of objects stored in this pack"""
@@ -605,9 +605,9 @@ class PackFile(LazyMixin):
     def path(self):
         """:return: path to the packfile"""
         return self._packpath
-    #} END pack information
+    # } END pack information
 
-    #{ Pack Specific
+    # { Pack Specific
 
     def collect_streams(self, offset):
         """
@@ -634,9 +634,9 @@ class PackFile(LazyMixin):
         # END while chaining streams
         return out
 
-    #} END pack specific
+    # } END pack specific
 
-    #{ Read-Database like Interface
+    # { Read-Database like Interface
 
     def info(self, offset):
         """Retrieve information about the object at the given file-absolute offset
@@ -665,7 +665,7 @@ class PackFile(LazyMixin):
         to determine the bounds between the objects"""
         return self._iter_objects(start_offset, as_stream=True)
 
-    #} END Read-Database like Interface
+    # } END Read-Database like Interface
 
 
 class PackEntity(LazyMixin):
@@ -775,7 +775,7 @@ class PackEntity(LazyMixin):
             return OInfo(sha, streams[-1].type, target_size)
         # END handle stream
 
-    #{ Read-Database like Interface
+    # { Read-Database like Interface
 
     def info(self, sha):
         """Retrieve information about the object identified by the given sha
@@ -802,9 +802,9 @@ class PackEntity(LazyMixin):
         object"""
         return self._object(None, True, index)
 
-    #} END Read-Database like Interface
+    # } END Read-Database like Interface
 
-    #{ Interface
+    # { Interface
 
     def pack(self):
         """:return: the underlying pack file instance"""
@@ -1057,4 +1057,4 @@ class PackEntity(LazyMixin):
 
         return cls(new_pack_path)
 
-    #} END interface
+    # } END interface

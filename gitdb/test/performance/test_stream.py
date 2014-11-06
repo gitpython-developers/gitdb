@@ -3,7 +3,6 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Performance data streaming performance"""
-from lib import TestBigRepoR
 from gitdb.db import *
 from gitdb.base import *
 from gitdb.stream import *
@@ -19,12 +18,9 @@ from async import (
     ChannelThreadTask,
 )
 
-from cStringIO import StringIO
 from time import time
 import os
 import sys
-import stat
-import subprocess
 
 
 from lib import (
@@ -34,7 +30,7 @@ from lib import (
 )
 
 
-#{ Utilities
+# { Utilities
 def read_chunked_stream(stream):
     total = 0
     while True:
@@ -58,7 +54,7 @@ class TestStreamReader(ChannelThreadTask):
         self.max_chunksize = 1
 
 
-#} END utilities
+# } END utilities
 
 class TestObjDBPerformance(TestBigRepoR):
 

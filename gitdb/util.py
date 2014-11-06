@@ -59,16 +59,16 @@ except ImportError:
     # END own unpack_from implementation
 
 
-#{ Globals
+# { Globals
 
 # A pool distributing tasks, initially with zero threads, hence everything
 # will be handled in the main thread
 pool = ThreadPool(0)
 
-#} END globals
+# } END globals
 
 
-#{ Aliases
+# { Aliases
 
 hex_to_bin = binascii.a2b_hex
 bin_to_hex = binascii.b2a_hex
@@ -96,9 +96,9 @@ fsync = os.fsync
 NULL_HEX_SHA = "0" * 40
 NULL_BIN_SHA = "\0" * 20
 
-#} END Aliases
+# } END Aliases
 
-#{ compatibility stuff ...
+# { compatibility stuff ...
 
 
 class _RandomAccessStringIO(object):
@@ -122,9 +122,9 @@ class _RandomAccessStringIO(object):
     def __getslice__(self, start, end):
         return self.getvalue()[start:end]
 
-#} END compatibility stuff ...
+# } END compatibility stuff ...
 
-#{ Routines
+# { Routines
 
 
 def make_sha(source=''):
@@ -226,10 +226,10 @@ def to_bin_sha(sha):
     return hex_to_bin(sha)
 
 
-#} END routines
+# } END routines
 
 
-#{ Utilities
+# { Utilities
 
 class LazyMixin(object):
 
@@ -394,4 +394,4 @@ class LockedFD(object):
             os.remove(lockfile)
         # END successful handling
 
-#} END utilities
+# } END utilities

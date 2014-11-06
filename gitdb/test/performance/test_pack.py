@@ -13,7 +13,6 @@ from gitdb.db.pack import PackedDB
 import sys
 import os
 from time import time
-import random
 
 from nose import SkipTest
 

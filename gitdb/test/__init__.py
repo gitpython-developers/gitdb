@@ -5,7 +5,7 @@
 
 import gitdb.util
 
-#{ Initialization
+# { Initialization
 
 
 def _init_pool():
@@ -15,4 +15,4 @@ def _init_pool():
     gitdb.util.pool.set_size(size)
 
 
-#} END initialization
+# } END initialization

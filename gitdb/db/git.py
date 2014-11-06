@@ -12,12 +12,7 @@ from .loose import LooseObjectDB
 from .pack import PackedDB
 from .ref import ReferenceDB
 
-from gitdb.util import LazyMixin
-from gitdb.exc import (
-    InvalidDBRoot,
-    BadObject,
-    AmbiguousObjectName
-)
+from gitdb.exc import InvalidDBRoot
 import os
 
 __all__ = ('GitDB', )
@@ -72,7 +67,7 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
             super(GitDB, self)._set_cache_(attr)
         # END handle attrs
 
-    #{ ObjectDBW interface
+    # { ObjectDBW interface
 
     def store(self, istream):
         return self._loose_db.store(istream)
@@ -83,4 +78,4 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
     def set_ostream(self, ostream):
         return self._loose_db.set_ostream(ostream)
 
-    #} END objectdbw interface
+    # } END objectdbw interface

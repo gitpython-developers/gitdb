@@ -34,7 +34,7 @@ class ObjectDBR(object):
     def __contains__(self, sha):
         return self.has_obj
 
-    #{ Query Interface
+    # { Query Interface
     def has_object(self, sha):
         """
         :return: True if the object identified by the given 20 bytes
@@ -50,7 +50,7 @@ class ObjectDBR(object):
         task = ChannelThreadTask(
             reader, str(
                 self.has_object_async), lambda sha: (
-                sha, self.has_object(sha)))
+                    sha, self.has_object(sha)))
         return pool.add_task(task)
 
     def info(self, sha):
@@ -93,7 +93,7 @@ class ObjectDBR(object):
         """Return iterator yielding 20 byte shas for all objects in this data base"""
         raise NotImplementedError()
 
-    #} END query interface
+    # } END query interface
 
 
 class ObjectDBW(object):
@@ -103,7 +103,7 @@ class ObjectDBW(object):
     def __init__(self, *args, **kwargs):
         self._ostream = None
 
-    #{ Edit Interface
+    # { Edit Interface
     def set_ostream(self, stream):
         """
         Adjusts the stream to which all data should be sent when storing new objects
@@ -154,7 +154,7 @@ class ObjectDBW(object):
         task = ChannelThreadTask(reader, str(self.store_async), self.store)
         return pool.add_task(task)
 
-    #} END edit interface
+    # } END edit interface
 
 
 class FileDBBase(object):
@@ -172,7 +172,7 @@ class FileDBBase(object):
         super(FileDBBase, self).__init__()
         self._root_path = root_path
 
-    #{ Interface
+    # { Interface
     def root_path(self):
         """:return: path at which this db operates"""
         return self._root_path
@@ -182,14 +182,14 @@ class FileDBBase(object):
         :return: the given relative path relative to our database root, allowing
             to pontentially access datafiles"""
         return join(self._root_path, rela_path)
-    #} END interface
+    # } END interface
 
 
 class CachingDB(object):
 
     """A database which uses caches to speed-up access"""
 
-    #{ Interface
+    # { Interface
     def update_cache(self, force=False):
         """
         Call this method if the underlying data changed to trigger an update
@@ -206,7 +206,6 @@ def _databases_recursive(database, output):
     """Fill output list with database from db, in order. Deals with Loose, Packed
     and compound databases."""
     if isinstance(database, CompoundDB):
-        compounds = list()
         dbs = database.databases()
         output.extend(db for db in dbs if not isinstance(db, CompoundDB))
         for cdb in (db for db in dbs if isinstance(db, CompoundDB)):
@@ -249,7 +248,7 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
         # END for each database
         raise BadObject(sha)
 
-    #{ ObjectDBR interface
+    # { ObjectDBR interface
 
     def has_object(self, sha):
         try:
@@ -272,9 +271,9 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
     def sha_iter(self):
         return chain(*(db.sha_iter() for db in self._dbs))
 
-    #} END object DBR Interface
+    # } END object DBR Interface
 
-    #{ Interface
+    # { Interface
 
     def databases(self):
         """:return: tuple of database instances we use for lookups"""
@@ -330,4 +329,4 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
             raise BadObject(partial_binsha)
         return candidate
 
-    #} END interface
+    # } END interface

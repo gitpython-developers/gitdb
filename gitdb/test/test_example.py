@@ -52,10 +52,10 @@ class TestExamples(TestBase):
         info_reader = ldb.stream_async(reader)
 
         # read one
-        info = info_reader.read(1)[0]
+        info_reader.read(1)[0]
 
         # read all the rest until depletion
-        ostreams = info_reader.read()
+        info_reader.read()
 
         # set the pool to use two threads
         pool.set_size(2)

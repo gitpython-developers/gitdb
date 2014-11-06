@@ -41,7 +41,6 @@ class TestPackStreamingPerformance(TestBigRepoR):
 
         ni = 5000
         count = 0
-        total_size = 0
         st = time()
         for sha in pdb.sha_iter():
             count += 1

@@ -6,24 +6,19 @@
 from .lib import (
     TestBase,
     DummyStream,
-    Sha1Writer,
     make_bytes,
     make_object,
     fixture_path
 )
 
 from gitdb import *
-from gitdb.util import (
-    NULL_HEX_SHA,
-    hex_to_bin
-)
+from gitdb.util import hex_to_bin
 
 from gitdb.util import zlib
 from gitdb.typ import (
     str_blob_type
 )
 
-import time
 import tempfile
 import os
 

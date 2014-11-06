@@ -6,12 +6,6 @@
 from gitdb import (
     OStream,
 )
-from gitdb.stream import (
-    Sha1Writer,
-    ZippedStoreShaWriter
-)
-
-from gitdb.util import zlib
 
 import sys
 import random
@@ -26,16 +20,16 @@ import os
 import gc
 
 
-#{ Bases
+# { Bases
 
 class TestBase(unittest.TestCase):
 
     """Base class for all tests"""
 
 
-#} END bases
+# } END bases
 
-#{ Decorators
+# { Decorators
 
 def with_rw_directory(func):
     """Create a temporary directory which can be written to, remove it if the
@@ -81,9 +75,9 @@ def with_packs_rw(func):
     wrapper.__name__ = func.__name__
     return wrapper
 
-#} END decorators
+# } END decorators
 
-#{ Routines
+# { Routines
 
 
 def fixture_path(relapath=''):
@@ -136,9 +130,9 @@ def make_memory_file(size_in_bytes, randomize=False):
     d = make_bytes(size_in_bytes, randomize)
     return len(d), StringIO(d)
 
-#} END routines
+# } END routines
 
-#{ Stream Utilities
+# { Stream Utilities
 
 
 class DummyStream(object):
@@ -169,4 +163,4 @@ class DeriveTest(OStream):
         assert self.args
         assert self.myarg
 
-#} END stream utilitiess
+# } END stream utilitiess
