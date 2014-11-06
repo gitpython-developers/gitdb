@@ -4,7 +4,7 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module containing information about types known to the database"""
 
-#{ String types 
+#{ String types
 
 str_blob_type = "blob"
 str_commit_type = "commit"

@@ -8,18 +8,22 @@ import sys
 import os
 
 #{ Initialization
+
+
 def _init_externals():
     """Initialize external projects by putting them into the path"""
     for module in ('async', 'smmap'):
         sys.path.append(os.path.join(os.path.dirname(__file__), 'ext', module))
-        
+
         try:
             __import__(module)
         except ImportError:
-            raise ImportError("'%s' could not be imported, assure it is located in your PYTHONPATH" % module)
-        #END verify import
-    #END handel imports
-    
+            raise ImportError(
+                "'%s' could not be imported, assure it is located in your PYTHONPATH" %
+                module)
+        # END verify import
+    # END handel imports
+
 #} END initialization
 
 _init_externals()
@@ -32,7 +36,6 @@ __version__ = '.'.join(str(i) for i in version_info)
 
 
 # default imports
-from db import *
-from base import *
-from stream import *
-
+from .db import *
+from .base import *
+from .stream import *
