@@ -10,7 +10,6 @@ from gitdb import (
 import sys
 import random
 from array import array
-from cStringIO import StringIO
 
 import glob
 import unittest
@@ -19,6 +18,10 @@ import shutil
 import os
 import gc
 
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 # { Bases
 
@@ -128,7 +131,7 @@ def make_memory_file(size_in_bytes, randomize=False):
     """:return: tuple(size_of_stream, stream)
     :param randomize: try to produce a very random stream"""
     d = make_bytes(size_in_bytes, randomize)
-    return len(d), StringIO(d)
+    return len(d), StringIO(d)  # read-only StringIO with cStringIO
 
 # } END routines
 

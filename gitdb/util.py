@@ -8,13 +8,10 @@ import mmap
 import sys
 import errno
 
-from cStringIO import StringIO
-
-# in py 2.4, StringIO is only StringI, without write support.
-# Hence we must use the python implementation for this
-if sys.version_info[1] < 5:
-    from StringIO import StringIO
-# END handle python 2.4
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 try:
     import async.mod.zlib as zlib
@@ -108,7 +105,11 @@ class _RandomAccessStringIO(object):
     __slots__ = '_sio'
 
     def __init__(self, buf=''):
-        self._sio = StringIO(buf)
+        # supplying an initial string to cStringIO.StringIO will result
+        # in a StringI object being returned which is read-only.
+        # Instead create and then write to it to get the read/write version
+        self._sio = StringIO()
+        self._sio.write(buf)
 
     def __getattr__(self, attr):
         return getattr(self._sio, attr)

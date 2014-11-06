@@ -3,7 +3,6 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 
-from cStringIO import StringIO
 import mmap
 import os
 
@@ -30,6 +29,11 @@ try:
     has_perf_mod = True
 except ImportError:
     pass
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 __all__ = (
     'DecompressMemMapReader',

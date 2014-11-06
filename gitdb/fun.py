@@ -13,7 +13,10 @@ decompressobj = zlib.decompressobj
 import mmap
 from itertools import islice, izip
 
-from cStringIO import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 # INVARIANTS
 OFS_DELTA = 6

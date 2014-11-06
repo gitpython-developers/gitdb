@@ -8,9 +8,12 @@ from gitdb import IStream
 from gitdb.db import LooseObjectDB
 from gitdb.util import pool
 
-from cStringIO import StringIO
-
 from async import IteratorReader
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 
 class TestExamples(TestBase):

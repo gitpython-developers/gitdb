@@ -22,9 +22,12 @@ from gitdb.exc import BadObject
 from gitdb.typ import str_blob_type
 
 from async import IteratorReader
-from cStringIO import StringIO
 from struct import pack
 
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 __all__ = ('TestDBBase', 'with_rw_directory', 'with_packs_rw', 'fixture_path')
 
