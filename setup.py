@@ -90,5 +90,13 @@ setup(cmdclass={'build_ext':build_ext_nofail},
       zip_safe=False,
       requires=('async (>=0.6.1)', 'smmap (>=0.8.0)'),
       install_requires=('async >= 0.6.1', 'smmap >= 0.8.0'),
-      long_description = """GitDB is a pure-Python git object database"""
+      long_description = """GitDB is a pure-Python git object database""",
+      # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
+      classifiers=[
+          # Specify the Python versions you support here. In particular, ensure
+          # that you indicate whether you support Python 2, Python 3 or both.
+          'Programming Language :: Python :: 2',
+          'Programming Language :: Python :: 2.6',
+          'Programming Language :: Python :: 2.7',
+      ],
       )
