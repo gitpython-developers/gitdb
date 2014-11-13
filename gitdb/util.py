@@ -7,27 +7,22 @@ import os
 import mmap
 import sys
 import errno
-
-from cStringIO import StringIO
+import stat
 
 # in py 2.4, StringIO is only StringI, without write support.
 # Hence we must use the python implementation for this
 if sys.version_info[1] < 5:
     from StringIO import StringIO
+else:
+    from cStringIO import StringIO
 # END handle python 2.4
-
-try:
-    import async.mod.zlib as zlib
-except ImportError:
-    import zlib
-# END try async zlib
 
 from async import ThreadPool
 from smmap import (
-                    StaticWindowMapManager,
-                    SlidingWindowMapManager,
-                    SlidingWindowMapBuffer
-                )
+        StaticWindowMapManager,
+        SlidingWindowMapManager,
+        SlidingWindowMapBuffer
+    )
 
 # initialize our global memory manager instance
 # Use it to free cached (and unused) resources.
@@ -304,7 +299,7 @@ class LockedFD(object):
         binary = getattr(os, 'O_BINARY', 0)
         lockmode =  os.O_WRONLY | os.O_CREAT | os.O_EXCL | binary
         try:
-            fd = os.open(self._lockfilepath(), lockmode, 0600)
+            fd = os.open(self._lockfilepath(), lockmode, stat.S_IREAD|stat.S_IWRITE)
             if not write:
                 os.close(fd)
             else:
@@ -373,7 +368,7 @@ class LockedFD(object):
             # assure others can at least read the file - the tmpfile left it at rw--
             # We may also write that file, on windows that boils down to a remove-
             # protection as well
-            chmod(self._filepath, 0644)
+            chmod(self._filepath, stat.S_IREAD|stat.S_IWRITE|stat.S_IRGRP|stat.S_IROTH)
         else:
             # just delete the file so far, we failed
             os.remove(lockfile)

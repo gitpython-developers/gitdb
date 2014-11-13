@@ -18,12 +18,11 @@ from gitdb.util import (
     hex_to_bin
     )
 
-from gitdb.util import zlib
+import zlib
 from gitdb.typ import (
     str_blob_type
     )
 
-import time
 import tempfile
 import os
 

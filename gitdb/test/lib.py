@@ -11,8 +11,6 @@ from gitdb.stream import (
                             ZippedStoreShaWriter
                         )
 
-from gitdb.util import zlib
-
 import sys
 import random
 from array import array

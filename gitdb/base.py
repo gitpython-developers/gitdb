@@ -3,11 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module with basic data structures - they are designed to be lightweight and fast"""
-from util import (
-        bin_to_hex,
-        zlib
-    )
-
+from util import bin_to_hex
 from fun import (
                     type_id_to_type_map,
                     type_to_type_id_map

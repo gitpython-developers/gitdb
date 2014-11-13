@@ -10,7 +10,7 @@ from exc import (
     BadObjectType
     )
 
-from util import zlib
+import zlib
 decompressobj = zlib.decompressobj
 
 import mmap

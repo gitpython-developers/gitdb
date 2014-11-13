@@ -3,13 +3,14 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Contains PackIndexFile and PackFile implementations"""
+import zlib
+
 from gitdb.exc import (
                         BadObject,
                         UnsupportedOperation,
                         ParseError
                         )
 from util import (
-                    zlib,
                     mman,
                     LazyMixin,
                     unpack_from,

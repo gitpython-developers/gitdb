@@ -4,7 +4,7 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 
 from cStringIO import StringIO
-import errno
+import zlib
 import mmap
 import os
 
@@ -23,7 +23,6 @@ from util import (
         make_sha,
         write, 
         close,
-        zlib
     )
 
 has_perf_mod = False
