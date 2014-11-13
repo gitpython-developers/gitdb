@@ -9,6 +9,7 @@ from gitdb.util import (
     hex_to_bin
 )
 
+from gitdb.utils.encoding import force_text
 from gitdb.exc import (
     BadObject,
     AmbiguousObjectName
@@ -122,8 +123,6 @@ class FileDBBase(object):
         """
         :return: the given relative path relative to our database root, allowing
             to pontentially access datafiles"""
-        from gitdb.utils.encoding import force_text
-
         return join(self._root_path, force_text(rela_path))
     #} END interface
 
@@ -234,12 +233,12 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 
     def partial_to_complete_sha_hex(self, partial_hexsha):
         """
-        :return: 20 byte binary sha1 from the given less-than-40 byte hexsha
+        :return: 20 byte binary sha1 from the given less-than-40 byte hexsha (bytes or str)
         :param partial_hexsha: hexsha with less than 40 byte
         :raise AmbiguousObjectName: """
         databases = list()
         _databases_recursive(self, databases)
-
+        partial_hexsha = force_text(partial_hexsha)
         len_partial_hexsha = len(partial_hexsha)
         if len_partial_hexsha % 2 != 0:
             partial_binsha = hex_to_bin(partial_hexsha + "0")

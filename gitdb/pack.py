@@ -86,8 +86,6 @@ def pack_object_at(cursor, offset, as_stream):
     :parma offset: offset in to the data at which the object information is located
     :param as_stream: if True, a stream object will be returned that can read
         the data, otherwise you receive an info object only"""
-    from gitdb.utils.encoding import force_bytes
-
     data = cursor.use_region(offset).buffer()
     type_id, uncomp_size, data_rela_offset = pack_object_header_info(data)
     total_rela_offset = None                # set later, actual offset until data stream begins
@@ -96,11 +94,11 @@ def pack_object_at(cursor, offset, as_stream):
     # OFFSET DELTA
     if type_id == OFS_DELTA:
         i = data_rela_offset
-        c = ord(data[i])
+        c = byte_ord(data[i])
         i += 1
         delta_offset = c & 0x7f
         while c & 0x80:
-            c = ord(data[i])
+            c = byte_ord(data[i])
             i += 1
             delta_offset += 1
             delta_offset = (delta_offset << 7) + (c & 0x7f)
@@ -118,12 +116,10 @@ def pack_object_at(cursor, offset, as_stream):
     # END handle type id
     abs_data_offset = offset + total_rela_offset
     if as_stream:
-        buff = buffer(data, total_rela_offset)
-        stream = DecompressMemMapReader(buff, False, uncomp_size)
+        stream = DecompressMemMapReader(buffer(data, total_rela_offset), False, uncomp_size)
         if delta_info is None:
             return abs_data_offset, OPackStream(offset, type_id, uncomp_size, stream)
         else:
-            delta_info = force_bytes(delta_info)
             return abs_data_offset, ODeltaPackStream(offset, type_id, uncomp_size, delta_info, stream)
     else:
         if delta_info is None:
@@ -204,7 +200,7 @@ class IndexWriter(object):
         # fanout
         tmplist = list((0,)*256)                                # fanout or list with 64 bit offsets
         for t in self._objs:
-            tmplist[ord(t[0][0])] += 1
+            tmplist[byte_ord(t[0][0])] += 1
         #END prepare fanout
         for i in xrange(255):
             v = tmplist[i]
@@ -215,7 +211,7 @@ class IndexWriter(object):
 
         # sha1 ordered
         # save calls, that is push them into c
-        sha_write(''.join(t[0] for t in self._objs))
+        sha_write(b''.join(t[0] for t in self._objs))
 
         # crc32
         for t in self._objs:
@@ -258,7 +254,7 @@ class PackIndexFile(LazyMixin):
 
     # used in v2 indices
     _sha_list_offset = 8 + 1024
-    index_v2_signature = '\377tOc'
+    index_v2_signature = b'\xfftOc'
     index_version_default = 2
 
     def __init__(self, indexpath):
@@ -446,13 +442,14 @@ class PackIndexFile(LazyMixin):
         """
         :return: index as in `sha_to_index` or None if the sha was not found in this
             index file
-        :param partial_bin_sha: an at least two bytes of a partial binary sha
+        :param partial_bin_sha: an at least two bytes of a partial binary sha as bytes
         :param canonical_length: lenght of the original hexadecimal representation of the
             given partial binary sha
         :raise AmbiguousObjectName:"""
         if len(partial_bin_sha) < 2:
             raise ValueError("Require at least 2 bytes of partial sha")
 
+        assert isinstance(partial_bin_sha, bytes), "partial_bin_sha must be bytes"
         first_byte = byte_ord(partial_bin_sha[0])
 
         get_sha = self.sha
@@ -680,7 +677,7 @@ class PackEntity(LazyMixin):
         else:
             iter_offsets = iter(offsets_sorted)
             iter_offsets_plus_one = iter(offsets_sorted)
-            iter_offsets_plus_one.next()
+            next(iter_offsets_plus_one)
             consecutive = izip(iter_offsets, iter_offsets_plus_one)
 
             offset_map = dict(consecutive)

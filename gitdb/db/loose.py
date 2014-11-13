@@ -109,7 +109,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 
     def partial_to_complete_sha_hex(self, partial_hexsha):
         """:return: 20 byte binary sha1 string which matches the given name uniquely
-        :param name: hexadecimal partial name
+        :param name: hexadecimal partial name (bytes or ascii string)
         :raise AmbiguousObjectName:
         :raise BadObject: """
         candidate = None

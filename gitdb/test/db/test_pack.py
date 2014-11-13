@@ -73,4 +73,4 @@ class TestPackDB(TestDBBase):
         # assert num_ambiguous
 
         # non-existing
-        self.failUnlessRaises(BadObject, pdb.partial_to_complete_sha, "\0\0", 4)
+        self.failUnlessRaises(BadObject, pdb.partial_to_complete_sha, b'\0\0', 4)

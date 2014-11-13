@@ -11,9 +11,6 @@ def force_bytes(data, encoding="utf-8"):
     if isinstance(data, bytes):
         return data
 
-    if isinstance(data, compat.memoryview):
-        return bytes(data)
-
     if isinstance(data, string_types):
         return data.encode(encoding)
 
@@ -27,6 +24,7 @@ def force_text(data, encoding="utf-8"):
         return data.decode(encoding)
 
     if not isinstance(data, bytes):
+        assert False, "Shouldn't be here"
         data = force_bytes(data, encoding)
 
     if compat.PY3:

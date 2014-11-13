@@ -25,7 +25,7 @@ from gitdb.util import (
     close,
 )
 
-from gitdb.const import NULL_BYTE
+from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.utils.compat import buffer
 from gitdb.utils.encoding import force_bytes
 
@@ -102,7 +102,7 @@ class DecompressMemMapReader(LazyMixin):
         self._s = maxb
         hdr = self.read(maxb)
         hdrend = hdr.find(NULL_BYTE)
-        typ, size = hdr[:hdrend].split(" ".encode("ascii"))
+        typ, size = hdr[:hdrend].split(BYTE_SPACE)
         size = int(size)
         self._s = size
 
@@ -378,8 +378,6 @@ class DeltaApplyReader(LazyMixin):
 
     def _set_cache_brute_(self, attr):
         """If we are here, we apply the actual deltas"""
-        from gitdb.utils.compat import buffer
-
         # TODO: There should be a special case if there is only one stream
         # Then the default-git algorithm should perform a tad faster, as the
         # delta is not peaked into, causing less overhead.
@@ -421,7 +419,7 @@ class DeltaApplyReader(LazyMixin):
         # For the actual copying, we use a seek and write pattern of buffer
         # slices.
         final_target_size = None
-        for (dbuf, offset, src_size, target_size), dstream in reversed(zip(buffer_info_list, self._dstreams)):
+        for (dbuf, offset, src_size, target_size), dstream in zip(reversed(buffer_info_list), reversed(self._dstreams)):
             # allocate a buffer to hold all delta data - fill in the data for
             # fast access. We do this as we know that reading individual bytes
             # from our stream would be slower than necessary ( although possible )
