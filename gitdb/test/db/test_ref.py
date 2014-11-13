@@ -2,7 +2,11 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from gitdb.test.db.lib import *
+from gitdb.test.db.lib import (
+    TestDBBase, 
+    with_rw_directory, 
+    fixture_path
+)
 from gitdb.db import ReferenceDB
 
 from gitdb.util import (
@@ -24,8 +28,6 @@ class TestReferenceDB(TestDBBase):
 
     @with_rw_directory
     def test_writing(self, path):
-        NULL_BIN_SHA = '\0'.encode("ascii") * 20
-
         alt_path = os.path.join(path, 'alternates')
         rdb = ReferenceDB(alt_path)
         assert len(rdb.databases()) == 0

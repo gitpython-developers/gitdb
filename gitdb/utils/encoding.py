@@ -7,7 +7,7 @@ else:
     string_types = (basestring, )
     text_type = unicode
 
-def force_bytes(data, encoding="utf-8"):
+def force_bytes(data, encoding="ascii"):
     if isinstance(data, bytes):
         return data
 
@@ -22,10 +22,6 @@ def force_text(data, encoding="utf-8"):
 
     if isinstance(data, string_types):
         return data.decode(encoding)
-
-    if not isinstance(data, bytes):
-        assert False, "Shouldn't be here"
-        data = force_bytes(data, encoding)
 
     if compat.PY3:
         return text_type(data, encoding)

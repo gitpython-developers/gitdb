@@ -543,9 +543,9 @@ class Sha1Writer(object):
 
     def write(self, data):
         """:raise IOError: If not all bytes could be written
+        :param data: byte object
         :return: length of incoming data"""
 
-        data = force_bytes(data)
         self.sha1.update(data)
 
         return len(data)
@@ -590,8 +590,6 @@ class ZippedStoreShaWriter(Sha1Writer):
         return getattr(self.buf, attr)
 
     def write(self, data):
-        data = force_bytes(data)
-
         alen = Sha1Writer.write(self, data)
         self.buf.write(self.zip.compress(data))
 
@@ -634,8 +632,6 @@ class FDCompressedSha1Writer(Sha1Writer):
     def write(self, data):
         """:raise IOError: If not all bytes could be written
         :return: lenght of incoming data"""
-        data = force_bytes(data)
-
         self.sha1.update(data)
         cdata = self.zip.compress(data)
         bytes_written = write(self.fd, cdata)

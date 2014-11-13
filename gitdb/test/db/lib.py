@@ -23,7 +23,6 @@ from gitdb.base import (
 
 from gitdb.exc import BadObject
 from gitdb.typ import str_blob_type
-from gitdb.utils.encoding import force_bytes
 from gitdb.utils.compat import xrange
 
 from io import BytesIO
@@ -37,7 +36,7 @@ class TestDBBase(TestBase):
     """Base class providing testing routines on databases"""
 
     # data
-    two_lines = "1234\nhello world"
+    two_lines = b'1234\nhello world'
     all_data = (two_lines, )
 
     def _assert_object_writing_simple(self, db):
@@ -83,7 +82,7 @@ class TestDBBase(TestBase):
 
                 prev_ostream = db.set_ostream(ostream)
                 assert type(prev_ostream) in ostreams or prev_ostream in ostreams
-                istream = IStream(str_blob_type, len(data), BytesIO(data.encode("ascii")))
+                istream = IStream(str_blob_type, len(data), BytesIO(data))
 
                 # store returns same istream instance, with new sha set
                 my_istream = db.store(istream)
@@ -99,7 +98,7 @@ class TestDBBase(TestBase):
                     assert info.size == len(data)
 
                     ostream = db.stream(sha)
-                    assert ostream.read() == force_bytes(data)
+                    assert ostream.read() == data
                     assert ostream.type == str_blob_type
                     assert ostream.size == len(data)
                 else:
