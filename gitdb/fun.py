@@ -758,7 +758,6 @@ def is_equal_canonical_sha(canonical_length, match, sha1):
 
 
 try:
-    # NOQA
     from _perf import connect_deltas
 except ImportError:
     pass

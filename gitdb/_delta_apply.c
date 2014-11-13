@@ -506,7 +506,6 @@ DeltaInfo* DIV_closest_chunk(const DeltaInfoVector* vec, ull ofs)
 // Return the amount of chunks a slice at the given spot would have, as well as 
 // its size in bytes it would have if the possibly partial chunks would be encoded
 // and added to the spot marked by sdc
-inline
 uint DIV_count_slice_bytes(const DeltaInfoVector* src, uint ofs, uint size)
 {
 	uint num_bytes = 0;
@@ -559,7 +558,6 @@ uint DIV_count_slice_bytes(const DeltaInfoVector* src, uint ofs, uint size)
 // destination memory. The individual chunks written will be a byte copy of the source 
 // data chunk stream
 // Return: number of chunks in the slice
-inline
 uint DIV_copy_slice_to(const DeltaInfoVector* src, uchar** dest, ull tofs, uint size)
 {
 	assert(DIV_lbound(src) <= tofs);
