@@ -7,15 +7,8 @@ import os
 import mmap
 import sys
 import errno
-import stat
 
-# in py 2.4, StringIO is only StringI, without write support.
-# Hence we must use the python implementation for this
-if sys.version_info[1] < 5:
-    from StringIO import StringIO
-else:
-    from cStringIO import StringIO
-# END handle python 2.4
+from io import StringIO
 
 from async import ThreadPool
 from smmap import (
@@ -32,10 +25,7 @@ else:
     mman = SlidingWindowMapManager()
 #END handle mman
 
-try:
-    import hashlib
-except ImportError:
-    import sha
+import hashlib
 
 try:
     from struct import unpack_from
@@ -55,7 +45,7 @@ except ImportError:
 
 #{ Globals
 
-# A pool distributing tasks, initially with zero threads, hence everything 
+# A pool distributing tasks, initially with zero threads, hence everything
 # will be handled in the main thread
 pool = ThreadPool(0)
 
@@ -86,41 +76,50 @@ write = os.write
 close = os.close
 fsync = os.fsync
 
-# constants
-NULL_HEX_SHA = "0"*40
-NULL_BIN_SHA = "\0"*20
+# Backwards compatibility imports
+from gitdb.const import NULL_BIN_SHA, NULL_HEX_SHA
 
 #} END Aliases
 
-#{ compatibility stuff ... 
+#{ compatibility stuff ...
 
 class _RandomAccessStringIO(object):
-    """Wrapper to provide required functionality in case memory maps cannot or may 
+    """Wrapper to provide required functionality in case memory maps cannot or may
     not be used. This is only really required in python 2.4"""
     __slots__ = '_sio'
-    
+
     def __init__(self, buf=''):
         self._sio = StringIO(buf)
-        
+
     def __getattr__(self, attr):
         return getattr(self._sio, attr)
-    
+
     def __len__(self):
         return len(self.getvalue())
-        
+
     def __getitem__(self, i):
         return self.getvalue()[i]
-        
+
     def __getslice__(self, start, end):
         return self.getvalue()[start:end]
-    
+
+def byte_ord(b):
+    """
+    Return the integer representation of the byte string.  This supports Python
+    3 byte arrays as well as standard strings.
+    """
+    try:
+        return ord(b)
+    except TypeError:
+        return b
+
 #} END compatibility stuff ...
 
 #{ Routines
 
-def make_sha(source=''):
+def make_sha(source=''.encode("ascii")):
     """A python2.4 workaround for the sha/hashlib module fiasco
-    
+
     **Note** From the dulwich project """
     try:
         return hashlib.sha1(source)
@@ -133,25 +132,25 @@ def allocate_memory(size):
     if size == 0:
         return _RandomAccessStringIO('')
     # END handle empty chunks gracefully
-    
+
     try:
         return mmap.mmap(-1, size)  # read-write by default
     except EnvironmentError:
         # setup real memory instead
         # this of course may fail if the amount of memory is not available in
-        # one chunk - would only be the case in python 2.4, being more likely on 
+        # one chunk - would only be the case in python 2.4, being more likely on
         # 32 bit systems.
         return _RandomAccessStringIO("\0"*size)
     # END handle memory allocation
-    
+
 
 def file_contents_ro(fd, stream=False, allow_mmap=True):
     """:return: read-only contents of the file represented by the file descriptor fd
-    
+
     :param fd: file descriptor opened for reading
     :param stream: if False, random access is provided, otherwise the stream interface
         is provided.
-    :param allow_mmap: if True, its allowed to map the contents into memory, which 
+    :param allow_mmap: if True, its allowed to map the contents into memory, which
         allows large files to be handled and accessed efficiently. The file-descriptor
         will change its position if this is False"""
     try:
@@ -166,24 +165,24 @@ def file_contents_ro(fd, stream=False, allow_mmap=True):
     except OSError:
         pass
     # END exception handling
-    
+
     # read manully
     contents = os.read(fd, os.fstat(fd).st_size)
     if stream:
         return _RandomAccessStringIO(contents)
     return contents
-    
+
 def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
     """Get the file contents at filepath as fast as possible
-    
+
     :return: random access compatible memory of the given filepath
     :param stream: see ``file_contents_ro``
     :param allow_mmap: see ``file_contents_ro``
     :param flags: additional flags to pass to os.open
     :raise OSError: If the file could not be opened
-    
-    **Note** for now we don't try to use O_NOATIME directly as the right value needs to be 
-    shared per database in fact. It only makes a real difference for loose object 
+
+    **Note** for now we don't try to use O_NOATIME directly as the right value needs to be
+    shared per database in fact. It only makes a real difference for loose object
     databases anyway, and they use it with the help of the ``flags`` parameter"""
     fd = os.open(filepath, os.O_RDONLY|getattr(os, 'O_BINARY', 0)|flags)
     try:
@@ -191,19 +190,19 @@ def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
     finally:
         close(fd)
     # END assure file is closed
-    
+
 def sliding_ro_buffer(filepath, flags=0):
     """
     :return: a buffer compatible object which uses our mapped memory manager internally
         ready to read the whole given filepath"""
     return SlidingWindowMapBuffer(mman.make_cursor(filepath), flags=flags)
-    
+
 def to_hex_sha(sha):
     """:return: hexified version  of sha"""
     if len(sha) == 40:
         return sha
     return bin_to_hex(sha)
-    
+
 def to_bin_sha(sha):
     if len(sha) == 20:
         return sha
@@ -222,12 +221,12 @@ class LazyMixin(object):
     is actually accessed and retrieved the first time. All future accesses will
     return the cached value as stored in the Instance's dict or slot.
     """
-    
+
     __slots__ = tuple()
-    
+
     def __getattr__(self, attr):
         """
-        Whenever an attribute is requested that we do not know, we allow it 
+        Whenever an attribute is requested that we do not know, we allow it
         to be created and set. Next time the same attribute is reqeusted, it is simply
         returned from our dict/slots. """
         self._set_cache_(attr)
@@ -236,70 +235,70 @@ class LazyMixin(object):
 
     def _set_cache_(self, attr):
         """
-        This method should be overridden in the derived class. 
+        This method should be overridden in the derived class.
         It should check whether the attribute named by attr can be created
         and cached. Do nothing if you do not know the attribute or call your subclass
-        
-        The derived class may create as many additional attributes as it deems 
-        necessary in case a git command returns more information than represented 
+
+        The derived class may create as many additional attributes as it deems
+        necessary in case a git command returns more information than represented
         in the single attribute."""
         pass
 
-    
+
 class LockedFD(object):
     """
     This class facilitates a safe read and write operation to a file on disk.
-    If we write to 'file', we obtain a lock file at 'file.lock' and write to 
-    that instead. If we succeed, the lock file will be renamed to overwrite 
+    If we write to 'file', we obtain a lock file at 'file.lock' and write to
+    that instead. If we succeed, the lock file will be renamed to overwrite
     the original file.
-    
-    When reading, we obtain a lock file, but to prevent other writers from 
+
+    When reading, we obtain a lock file, but to prevent other writers from
     succeeding while we are reading the file.
-    
-    This type handles error correctly in that it will assure a consistent state 
+
+    This type handles error correctly in that it will assure a consistent state
     on destruction.
-    
+
     **note** with this setup, parallel reading is not possible"""
     __slots__ = ("_filepath", '_fd', '_write')
-    
+
     def __init__(self, filepath):
         """Initialize an instance with the givne filepath"""
         self._filepath = filepath
         self._fd = None
         self._write = None          # if True, we write a file
-    
+
     def __del__(self):
         # will do nothing if the file descriptor is already closed
         if self._fd is not None:
             self.rollback()
-        
+
     def _lockfilepath(self):
         return "%s.lock" % self._filepath
-        
+
     def open(self, write=False, stream=False):
         """
         Open the file descriptor for reading or writing, both in binary mode.
-        
+
         :param write: if True, the file descriptor will be opened for writing. Other
             wise it will be opened read-only.
-        :param stream: if True, the file descriptor will be wrapped into a simple stream 
+        :param stream: if True, the file descriptor will be wrapped into a simple stream
             object which supports only reading or writing
         :return: fd to read from or write to. It is still maintained by this instance
             and must not be closed directly
         :raise IOError: if the lock could not be retrieved
         :raise OSError: If the actual file could not be opened for reading
-        
+
         **note** must only be called once"""
         if self._write is not None:
             raise AssertionError("Called %s multiple times" % self.open)
-        
+
         self._write = write
-        
+
         # try to open the lock file
         binary = getattr(os, 'O_BINARY', 0)
         lockmode =  os.O_WRONLY | os.O_CREAT | os.O_EXCL | binary
         try:
-            fd = os.open(self._lockfilepath(), lockmode, stat.S_IREAD|stat.S_IWRITE)
+            fd = os.open(self._lockfilepath(), lockmode, int("600", 8))
             if not write:
                 os.close(fd)
             else:
@@ -308,7 +307,7 @@ class LockedFD(object):
         except OSError:
             raise IOError("Lock at %r could not be obtained" % self._lockfilepath())
         # END handle lock retrieval
-        
+
         # open actual file if required
         if self._fd is None:
             # we could specify exlusive here, as we obtained the lock anyway
@@ -320,41 +319,41 @@ class LockedFD(object):
                 raise
             # END handle lockfile
         # END open descriptor for reading
-        
+
         if stream:
             # need delayed import
-            from stream import FDStream
+            from gitdb.stream import FDStream
             return FDStream(self._fd)
         else:
             return self._fd
         # END handle stream
-        
+
     def commit(self):
-        """When done writing, call this function to commit your changes into the 
-        actual file. 
+        """When done writing, call this function to commit your changes into the
+        actual file.
         The file descriptor will be closed, and the lockfile handled.
-        
+
         **Note** can be called multiple times"""
         self._end_writing(successful=True)
-        
+
     def rollback(self):
-        """Abort your operation without any changes. The file descriptor will be 
+        """Abort your operation without any changes. The file descriptor will be
         closed, and the lock released.
-        
+
         **Note** can be called multiple times"""
         self._end_writing(successful=False)
-        
+
     def _end_writing(self, successful=True):
         """Handle the lock according to the write mode """
         if self._write is None:
             raise AssertionError("Cannot end operation if it wasn't started yet")
-        
+
         if self._fd is None:
             return
-        
+
         os.close(self._fd)
         self._fd = None
-        
+
         lockfile = self._lockfilepath()
         if self._write and successful:
             # on windows, rename does not silently overwrite the existing one
@@ -364,11 +363,11 @@ class LockedFD(object):
                 # END remove if exists
             # END win32 special handling
             os.rename(lockfile, self._filepath)
-            
+
             # assure others can at least read the file - the tmpfile left it at rw--
             # We may also write that file, on windows that boils down to a remove-
             # protection as well
-            chmod(self._filepath, stat.S_IREAD|stat.S_IWRITE|stat.S_IRGRP|stat.S_IROTH)
+            chmod(self._filepath, int("644", 8))
         else:
             # just delete the file so far, we failed
             os.remove(lockfile)
