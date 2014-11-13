@@ -48,4 +48,3 @@ class TestGitDB(TestDBBase):
 
         # its possible to write objects
         self._assert_object_writing(gdb)
-        self._assert_object_writing_async(gdb)

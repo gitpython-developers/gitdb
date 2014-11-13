@@ -10,7 +10,7 @@ import os
 #{ Initialization
 def _init_externals():
     """Initialize external projects by putting them into the path"""
-    for module in ('async', 'smmap'):
+    for module in ('smmap',):
         sys.path.append(os.path.join(os.path.dirname(__file__), 'ext', module))
 
         try:
@@ -27,7 +27,7 @@ _init_externals()
 __author__ = "Sebastian Thiel"
 __contact__ = "byronimo@gmail.com"
 __homepage__ = "https://github.com/gitpython-developers/gitdb"
-version_info = (0, 5, 5)
+version_info = (0, 6, 0)
 __version__ = '.'.join(str(i) for i in version_info)
 
 

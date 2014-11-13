@@ -18,7 +18,6 @@ class TestLooseDB(TestDBBase):
 
         # write data
         self._assert_object_writing(ldb)
-        self._assert_object_writing_async(ldb)
 
         # verify sha iteration and size
         shas = list(ldb.sha_iter())

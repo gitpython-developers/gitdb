@@ -125,10 +125,6 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         inefficient"""
         raise UnsupportedOperation()
 
-    def store_async(self, reader):
-        # TODO: add ObjectDBRW before implementing this
-        raise NotImplementedError()
-
     #} END object db write
 
 

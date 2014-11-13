@@ -7,17 +7,8 @@ from lib import TestBigRepoR
 from gitdb.db import LooseObjectDB
 from gitdb.stream import IStream
 
-from gitdb.util import (
-    pool,
-    bin_to_hex
-)
-from gitdb.typ import str_blob_type
+from gitdb.util import bin_to_hex
 from gitdb.fun import chunk_size
-
-from async import ( 
-    IteratorReader, 
-    ChannelThreadTask,
-    )
 
 from time import time
 import os
@@ -43,15 +34,6 @@ def read_chunked_stream(stream):
     return stream
     
     
-class TestStreamReader(ChannelThreadTask):
-    """Expects input streams and reads them in chunks. It will read one at a time, 
-    requireing a queue chunk of size 1"""
-    def __init__(self, *args):
-        super(TestStreamReader, self).__init__(*args)
-        self.fun = read_chunked_stream
-        self.max_chunksize = 1
-    
-
 #} END utilities
 
 class TestObjDBPerformance(TestBigRepoR):
@@ -119,73 +101,3 @@ class TestObjDBPerformance(TestBigRepoR):
             # del db file so we keep something to do
             os.remove(db_file)
         # END for each randomization factor
-        
-        
-        # multi-threaded mode
-        # want two, should be supported by most of todays cpus
-        pool.set_size(2)
-        total_kib = 0
-        nsios = len(string_ios)
-        for stream in string_ios:
-            stream.seek(0)
-            total_kib += len(stream.getvalue()) / 1000
-        # END rewind
-        
-        def istream_iter():
-            for stream in string_ios:
-                stream.seek(0)
-                yield IStream(str_blob_type, len(stream.getvalue()), stream)
-            # END for each stream
-        # END util
-        
-        # write multiple objects at once, involving concurrent compression
-        reader = IteratorReader(istream_iter())
-        istream_reader = ldb.store_async(reader)
-        istream_reader.task().max_chunksize = 1
-        
-        st = time()
-        istreams = istream_reader.read(nsios)
-        assert len(istreams) == nsios
-        elapsed = time() - st
-        
-        print >> sys.stderr, "Threads(%i): Compressed %i KiB of data in loose odb in %f s ( %f Write KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed)
-        
-        # decompress multiple at once, by reading them
-        # chunk size is not important as the stream will not really be decompressed
-        
-        # until its read
-        istream_reader = IteratorReader(iter([ i.binsha for i in istreams ]))
-        ostream_reader = ldb.stream_async(istream_reader)
-        
-        chunk_task = TestStreamReader(ostream_reader, "chunker", None)
-        output_reader = pool.add_task(chunk_task)
-        output_reader.task().max_chunksize = 1
-        
-        st = time()
-        assert len(output_reader.read(nsios)) == nsios
-        elapsed = time() - st
-        
-        print >> sys.stderr, "Threads(%i): Decompressed %i KiB of data in loose odb in %f s ( %f Read KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed)
-        
-        # store the files, and read them back. For the reading, we use a task 
-        # as well which is chunked into one item per task. Reading all will
-        # very quickly result in two threads handling two bytestreams of 
-        # chained compression/decompression streams
-        reader = IteratorReader(istream_iter())
-        istream_reader = ldb.store_async(reader)
-        istream_reader.task().max_chunksize = 1
-        
-        istream_to_sha = lambda items: [ i.binsha for i in items ]
-        istream_reader.set_post_cb(istream_to_sha)
-        
-        ostream_reader = ldb.stream_async(istream_reader)
-        
-        chunk_task = TestStreamReader(ostream_reader, "chunker", None)
-        output_reader = pool.add_task(chunk_task)
-        output_reader.max_chunksize = 1
-        
-        st = time()
-        assert len(output_reader.read(nsios)) == nsios
-        elapsed = time() - st
-        
-        print >> sys.stderr, "Threads(%i): Compressed and decompressed and read %i KiB of data in loose odb in %f s ( %f Combined KiB / s)" % (pool.size(), total_kib, elapsed, total_kib / elapsed)

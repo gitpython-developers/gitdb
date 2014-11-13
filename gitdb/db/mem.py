@@ -32,10 +32,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
     """A memory database stores everything to memory, providing fast IO and object
     retrieval. It should be used to buffer results and obtain SHAs before writing
     it to the actual physical storage, as it allows to query whether object already
-    exists in the target storage before introducing actual IO
-
-    **Note:** memory is currently not threadsafe, hence the async methods cannot be used
-        for storing"""
+    exists in the target storage before introducing actual IO"""
 
     def __init__(self):
         super(MemoryDB, self).__init__()
@@ -61,9 +58,6 @@ class MemoryDB(ObjectDBR, ObjectDBW):
         self._cache[istream.binsha] = OStream(istream.binsha, istream.type, istream.size, decomp_stream)
 
         return istream
-
-    def store_async(self, reader):
-        raise UnsupportedOperation("MemoryDBs cannot currently be used for async write access")
 
     def has_object(self, sha):
         return sha in self._cache

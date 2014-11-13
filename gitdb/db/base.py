@@ -4,7 +4,6 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Contains implementations of database retrieveing objects"""
 from gitdb.util import (
-    pool,
     join,
     LazyMixin,
     hex_to_bin
@@ -13,10 +12,6 @@ from gitdb.util import (
 from gitdb.exc import (
     BadObject,
     AmbiguousObjectName
-)
-
-from async import (
-    ChannelThreadTask
 )
 
 from itertools import chain
@@ -41,46 +36,17 @@ class ObjectDBR(object):
             binary sha is contained in the database"""
         raise NotImplementedError("To be implemented in subclass")
 
-    def has_object_async(self, reader):
-        """Return a reader yielding information about the membership of objects
-        as identified by shas
-        :param reader: Reader yielding 20 byte shas.
-        :return: async.Reader yielding tuples of (sha, bool) pairs which indicate
-            whether the given sha exists in the database or not"""
-        task = ChannelThreadTask(reader, str(self.has_object_async), lambda sha: (sha, self.has_object(sha)))
-        return pool.add_task(task)
-
     def info(self, sha):
         """ :return: OInfo instance
         :param sha: bytes binary sha
         :raise BadObject:"""
         raise NotImplementedError("To be implemented in subclass")
 
-    def info_async(self, reader):
-        """Retrieve information of a multitude of objects asynchronously
-        :param reader: Channel yielding the sha's of the objects of interest
-        :return: async.Reader yielding OInfo|InvalidOInfo, in any order"""
-        task = ChannelThreadTask(reader, str(self.info_async), self.info)
-        return pool.add_task(task)
-
     def stream(self, sha):
         """:return: OStream instance
         :param sha: 20 bytes binary sha
         :raise BadObject:"""
         raise NotImplementedError("To be implemented in subclass")
-
-    def stream_async(self, reader):
-        """Retrieve the OStream of multiple objects
-        :param reader: see ``info``
-        :param max_threads: see ``ObjectDBW.store``
-        :return: async.Reader yielding OStream|InvalidOStream instances in any order
-
-        **Note:** depending on the system configuration, it might not be possible to
-            read all OStreams at once. Instead, read them individually using reader.read(x)
-            where x is small enough."""
-        # base implementation just uses the stream method repeatedly
-        task = ChannelThreadTask(reader, str(self.stream_async), self.stream)
-        return pool.add_task(task)
 
     def size(self):
         """:return: amount of objects in this database"""
@@ -128,27 +94,6 @@ class ObjectDBW(object):
             in which case the input stream is expected to be in object format ( header + contents ).
         :raise IOError: if data could not be written"""
         raise NotImplementedError("To be implemented in subclass")
-
-    def store_async(self, reader):
-        """
-        Create multiple new objects in the database asynchronously. The method will
-        return right away, returning an output channel which receives the results as
-        they are computed.
-
-        :return: Channel yielding your IStream which served as input, in any order.
-            The IStreams sha will be set to the sha it received during the process,
-            or its error attribute will be set to the exception informing about the error.
-
-        :param reader: async.Reader yielding IStream instances.
-            The same instances will be used in the output channel as were received
-            in by the Reader.
-
-        **Note:** As some ODB implementations implement this operation atomic, they might
-            abort the whole operation if one item could not be processed. Hence check how
-            many items have actually been produced."""
-        # base implementation uses store to perform the work
-        task = ChannelThreadTask(reader, str(self.store_async), self.store)
-        return pool.add_task(task)
 
     #} END edit interface
 

@@ -9,11 +9,8 @@ from gitdb.test.lib import (
 )
 from gitdb import IStream
 from gitdb.db import LooseObjectDB
-from gitdb.util import pool
 
 from io import BytesIO
-
-from async import IteratorReader
 
 class TestExamples(TestBase):
 
@@ -45,23 +42,3 @@ class TestExamples(TestBase):
         # now the sha is set
         assert len(istream.binsha) == 20
         assert ldb.has_object(istream.binsha)
-
-
-        # async operation
-        # Create a reader from an iterator
-        reader = IteratorReader(ldb.sha_iter())
-
-        # get reader for object streams
-        info_reader = ldb.stream_async(reader)
-
-        # read one
-        info = info_reader.read(1)[0]
-
-        # read all the rest until depletion
-        ostreams = info_reader.read()
-
-        # set the pool to use two threads
-        pool.set_size(2)
-
-        # synchronize the mode of operation
-        pool.set_size(0)

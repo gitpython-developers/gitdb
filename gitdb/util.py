@@ -10,7 +10,6 @@ import errno
 
 from io import StringIO
 
-from async import ThreadPool
 from smmap import (
         StaticWindowMapManager,
         SlidingWindowMapManager,
@@ -41,15 +40,6 @@ except ImportError:
         # END exception handling
         return unpack(fmt, data[offset : offset + size])
     # END own unpack_from implementation
-
-
-#{ Globals
-
-# A pool distributing tasks, initially with zero threads, hence everything
-# will be handled in the main thread
-pool = ThreadPool(0)
-
-#} END globals
 
 
 #{ Aliases
