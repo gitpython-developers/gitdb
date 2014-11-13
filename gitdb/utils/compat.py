@@ -4,8 +4,10 @@ PY3 = sys.version_info[0] == 3
 
 try:
     from itertools import izip
+    xrange = xrange
 except ImportError:
     izip = zip
+    xrange = range
 
 try:
     # Python 2
@@ -21,19 +23,7 @@ except NameError:
 
     memoryview = memoryview
 
-if PY3:
+try:
+    MAXSIZE = sys.maxint
+except AttributeError:
     MAXSIZE = sys.maxsize
-else:
-    # It's possible to have sizeof(long) != sizeof(Py_ssize_t).
-    class X(object):
-        def __len__(self):
-            return 1 << 31
-    try:
-        len(X())
-    except OverflowError:
-        # 32-bit
-        MAXSIZE = int((1 << 31) - 1)
-    else:
-        # 64-bit
-        MAXSIZE = int((1 << 63) - 1)
-    del X

@@ -18,6 +18,7 @@ from gitdb.exc import (
 )
 
 from gitdb.pack import PackEntity
+from gitdb.utils.compat import xrange
 
 from functools import reduce
 
@@ -106,7 +107,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         for entity in self.entities():
             index = entity.index()
             sha_by_index = index.sha
-            for index in range(index.size()):
+            for index in xrange(index.size()):
                 yield sha_by_index(index)
             # END for each index
         # END for each entity

@@ -122,13 +122,10 @@ def byte_ord(b):
 
 #{ Routines
 
-def make_sha(source=None):
+def make_sha(source=''.encode("ascii")):
     """A python2.4 workaround for the sha/hashlib module fiasco
 
     **Note** From the dulwich project """
-    if source is None:
-        source = "".encode("ascii")
-
     try:
         return hashlib.sha1(source)
     except NameError:

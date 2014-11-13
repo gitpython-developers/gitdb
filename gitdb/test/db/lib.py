@@ -22,6 +22,7 @@ from gitdb.base import (
 from gitdb.exc import BadObject
 from gitdb.typ import str_blob_type
 from gitdb.utils.encoding import force_bytes
+from gitdb.utils.compat import xrange
 
 from async import IteratorReader
 
@@ -43,7 +44,7 @@ class TestDBBase(TestBase):
         # write a bunch of objects and query their streams and info
         null_objs = db.size()
         ni = 250
-        for i in range(ni):
+        for i in xrange(ni):
             data = pack(">L", i)
             istream = IStream(str_blob_type, len(data), BytesIO(data))
             new_istream = db.store(istream)
@@ -131,7 +132,7 @@ class TestDBBase(TestBase):
         """Test generic object writing using asynchronous access"""
         ni = 5000
         def istream_generator(offset=0, ni=ni):
-            for data_src in range(ni):
+            for data_src in xrange(ni):
                 data = bytes(data_src + offset)
                 yield IStream(str_blob_type, len(data), BytesIO(data))
             # END for each item

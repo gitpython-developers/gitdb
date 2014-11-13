@@ -12,6 +12,7 @@ from gitdb.stream import (
 )
 
 from gitdb.util import zlib
+from gitdb.utils.compat import xrange
 
 import sys
 import random
@@ -110,7 +111,7 @@ def make_bytes(size_in_bytes, randomize=False):
     """:return: string with given size in bytes
     :param randomize: try to produce a very random stream"""
     actual_size = size_in_bytes // 4
-    producer = range(actual_size)
+    producer = xrange(actual_size)
     if randomize:
         producer = list(producer)
         random.shuffle(producer)
