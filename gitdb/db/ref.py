@@ -6,7 +6,6 @@ from gitdb.db.base import (
     CompoundDB,
 )
 
-import os
 __all__ = ('ReferenceDB', )
 
 class ReferenceDB(CompoundDB):

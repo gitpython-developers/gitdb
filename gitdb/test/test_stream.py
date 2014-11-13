@@ -7,17 +7,18 @@
 from gitdb.test.lib import (
     TestBase,
     DummyStream,
-    Sha1Writer,
     make_bytes,
     make_object,
     fixture_path
 )
 
-from gitdb import *
-from gitdb.util import (
-    NULL_HEX_SHA,
-    hex_to_bin
+from gitdb import (
+    DecompressMemMapReader,
+    FDCompressedSha1Writer,
+    LooseObjectDB,
+    Sha1Writer
 )
+from gitdb.util import hex_to_bin
 
 import zlib
 from gitdb.typ import (

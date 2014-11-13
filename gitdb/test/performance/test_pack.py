@@ -9,11 +9,11 @@ from lib import (
 
 from gitdb.exc import UnsupportedOperation
 from gitdb.db.pack import PackedDB
+from gitdb.utils.compat import xrange
 
 import sys
 import os
 from time import time
-import random
 
 from nose import SkipTest
 

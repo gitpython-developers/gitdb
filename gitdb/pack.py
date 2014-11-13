@@ -7,6 +7,7 @@ import zlib
 
 from gitdb.exc import (
     BadObject,
+    AmbiguousObjectName,
     UnsupportedOperation,
     ParseError
 )
@@ -57,11 +58,7 @@ from gitdb.stream import (
     FlexibleSha1Writer
 )
 
-from struct import (
-    pack,
-    unpack,
-)
-
+from struct import pack
 from binascii import crc32
 
 from gitdb.const import NULL_BYTE

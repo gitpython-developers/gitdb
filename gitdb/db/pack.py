@@ -103,7 +103,6 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         return entity.stream_at_index(index)
 
     def sha_iter(self):
-        sha_list = list()
         for entity in self.entities():
             index = entity.index()
             sha_by_index = index.sha

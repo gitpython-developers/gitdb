@@ -10,7 +10,6 @@ from gitdb.db.base import (
 
 
 from gitdb.exc import (
-    InvalidDBRoot,
     BadObject,
     AmbiguousObjectName
 )
@@ -55,8 +54,6 @@ from gitdb.utils.compat import MAXSIZE
 from gitdb.utils.encoding import force_bytes
 
 import tempfile
-import mmap
-import sys
 import os
 
 
@@ -149,11 +146,6 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                 raise BadObject(sha)
             # END handle error
         # END exception handling
-        try:
-            return mmap.mmap(fd, 0, access=mmap.ACCESS_READ)
-        finally:
-            os.close(fd)
-        # END assure file is closed
 
     def set_ostream(self, stream):
         """:raise TypeError: if the stream does not support the Sha1Writer interface"""

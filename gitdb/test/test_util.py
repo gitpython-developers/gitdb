@@ -5,7 +5,6 @@
 """Test for object db"""
 import tempfile
 import os
-import sys
 
 from gitdb.test.lib import TestBase
 from gitdb.util import (

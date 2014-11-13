@@ -2,9 +2,12 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from gitdb.test.db.lib import *
+from gitdb.test.db.lib import (
+    TestDBBase,
+    with_rw_directory,
+    with_packs_rw
+)
 from gitdb.db import PackedDB
-from gitdb.test.lib import fixture_path
 
 from gitdb.exc import BadObject, AmbiguousObjectName
 
@@ -46,8 +49,8 @@ class TestPackDB(TestDBBase):
         random.shuffle(sha_list)
 
         for sha in sha_list:
-            info = pdb.info(sha)
-            stream = pdb.stream(sha)
+            pdb.info(sha)
+            pdb.stream(sha)
         # END for each sha to query
 
 

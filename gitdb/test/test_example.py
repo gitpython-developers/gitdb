@@ -3,7 +3,10 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module with examples from the tutorial section of the docs"""
-from gitdb.test.lib import *
+from gitdb.test.lib import (
+    TestBase, 
+    fixture_path
+)
 from gitdb import IStream
 from gitdb.db import LooseObjectDB
 from gitdb.util import pool

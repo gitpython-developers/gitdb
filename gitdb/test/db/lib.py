@@ -6,12 +6,16 @@
 from gitdb.test.lib import (
     with_rw_directory,
     with_packs_rw,
-    ZippedStoreShaWriter,
     fixture_path,
     TestBase
 )
 
-from gitdb.stream import Sha1Writer
+
+
+from gitdb.stream import (
+    Sha1Writer,
+    ZippedStoreShaWriter
+)
 
 from gitdb.base import (
     IStream,

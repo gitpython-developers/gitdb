@@ -77,7 +77,10 @@ close = os.close
 fsync = os.fsync
 
 # Backwards compatibility imports
-from gitdb.const import NULL_BIN_SHA, NULL_HEX_SHA
+from gitdb.const import ( 
+    NULL_BIN_SHA, 
+    NULL_HEX_SHA
+)
 
 #} END Aliases
 
@@ -124,6 +127,7 @@ def make_sha(source=''.encode("ascii")):
     try:
         return hashlib.sha1(source)
     except NameError:
+        import sha
         sha1 = sha.sha(source)
         return sha1
 

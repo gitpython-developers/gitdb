@@ -9,7 +9,15 @@ from gitdb.test.lib import (
         DeriveTest,
     )
 
-from gitdb import *
+from gitdb import (
+    OInfo,
+    OPackInfo,
+    ODeltaPackInfo,
+    OStream,
+    OPackStream,
+    ODeltaPackStream,
+    IStream
+)
 from gitdb.util import (
     NULL_BIN_SHA
     )

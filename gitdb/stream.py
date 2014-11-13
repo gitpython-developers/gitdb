@@ -3,9 +3,8 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 
-from io import BytesIO, StringIO
+from io import BytesIO
 
-import errno
 import mmap
 import os
 import zlib
@@ -15,7 +14,6 @@ from gitdb.fun import (
     stream_copy,
     apply_delta_data,
     connect_deltas,
-    DeltaChunkList,
     delta_types
 )
 

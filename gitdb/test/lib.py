@@ -3,14 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Utilities used in ODB testing"""
-from gitdb import (
-    OStream,
-    )
-from gitdb.stream import (
-    Sha1Writer,
-    ZippedStoreShaWriter
-)
-
+from gitdb import OStream
 from gitdb.utils.compat import xrange
 
 import sys

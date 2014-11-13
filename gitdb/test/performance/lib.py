@@ -4,9 +4,7 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Contains library functions"""
 import os
-from gitdb.test.lib import *
-import shutil
-import tempfile
+from gitdb.test.lib import TestBase
 
 
 #{ Invvariants

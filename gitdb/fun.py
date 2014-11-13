@@ -6,18 +6,15 @@
 Keeping this code separate from the beginning makes it easier to out-source
 it into c later, if required"""
 
-from gitdb.exc import (
-    BadObjectType
-)
-
 import zlib
 from gitdb.util import byte_ord
 decompressobj = zlib.decompressobj
 
 import mmap
 from itertools import islice
+from functools import reduce
 
-from gitdb.utils.compat import izip
+from gitdb.utils.compat import izip, buffer, xrange
 from gitdb.typ import (
     str_blob_type,
     str_commit_type,
@@ -247,7 +244,6 @@ class DeltaChunkList(list):
         if slen < 2:
             return self
         i = 0
-        slen_orig = slen
 
         first_data_index = None
         while i < slen:
@@ -399,7 +395,6 @@ def loose_object_header_info(m):
         object as well as its uncompressed size in bytes.
     :param m: memory map from which to read the compressed object data"""
     from gitdb.const import NULL_BYTE
-    from gitdb.utils.encoding import force_text
 
     decompress_size = 8192      # is used in cgit as well
     hdr = decompressobj().decompress(m, decompress_size)
@@ -684,7 +679,7 @@ def is_equal_canonical_sha(canonical_length, match, sha1):
 
 
 try:
-    # raise ImportError; # DEBUG
+    # NOQA
     from _perf import connect_deltas
 except ImportError:
     pass

@@ -12,12 +12,7 @@ from gitdb.db.loose import LooseObjectDB
 from gitdb.db.pack import PackedDB
 from gitdb.db.ref import ReferenceDB
 
-from gitdb.util import LazyMixin
-from gitdb.exc import (
-    InvalidDBRoot,
-    BadObject,
-    AmbiguousObjectName
-)
+from gitdb.exc import InvalidDBRoot
 
 import os
 

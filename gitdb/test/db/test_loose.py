@@ -2,7 +2,10 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from gitdb.test.db.lib import *
+from gitdb.test.db.lib import (
+    TestDBBase, 
+    with_rw_directory
+)
 from gitdb.db import LooseObjectDB
 from gitdb.exc import BadObject
 from gitdb.util import bin_to_hex

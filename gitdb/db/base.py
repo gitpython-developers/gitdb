@@ -22,7 +22,6 @@ from async import (
 from itertools import chain
 from functools import reduce
 
-import sys
 
 
 __all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB')
@@ -206,7 +205,6 @@ def _databases_recursive(database, output):
     """Fill output list with database from db, in order. Deals with Loose, Packed
     and compound databases."""
     if isinstance(database, CompoundDB):
-        compounds = list()
         dbs = database.databases()
         output.extend(db for db in dbs if not isinstance(db, CompoundDB))
         for cdb in (db for db in dbs if isinstance(db, CompoundDB)):

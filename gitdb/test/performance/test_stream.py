@@ -4,13 +4,13 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Performance data streaming performance"""
 from lib import TestBigRepoR
-from gitdb.db import *
-from gitdb.base import *
-from gitdb.stream import *
+from gitdb.db import LooseObjectDB
+from gitdb.stream import IStream
+
 from gitdb.util import (
-                            pool,
-                            bin_to_hex
-                        )
+    pool,
+    bin_to_hex
+)
 from gitdb.typ import str_blob_type
 from gitdb.fun import chunk_size
 
@@ -19,19 +19,15 @@ from async import (
     ChannelThreadTask,
     )
 
-from cStringIO import StringIO
 from time import time
 import os
 import sys
-import stat
-import subprocess
 
 
 from lib import (
-    TestBigRepoR,
     make_memory_file,
     with_rw_directory
-    )
+)
 
 
 #{ Utilities

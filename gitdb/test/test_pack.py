@@ -6,7 +6,6 @@
 from gitdb.test.lib import (
     TestBase,
     with_rw_directory,
-    with_packs_rw,
     fixture_path
 )
 
@@ -27,7 +26,6 @@ from gitdb.fun import delta_types
 from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
 from gitdb.utils.compat import xrange
-from itertools import chain
 
 try:
     from itertools import izip
@@ -37,7 +35,6 @@ except ImportError:
 from nose import SkipTest
 
 import os
-import sys
 import tempfile
 
 
