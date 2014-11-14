@@ -3,9 +3,11 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Performance data streaming performance"""
-from lib import TestBigRepoR
+from __future__ import print_function
+
+from gitdb.test.performance.lib import TestBigRepoR
 from gitdb.db import LooseObjectDB
-from gitdb.stream import IStream
+from gitdb import IStream
 
 from gitdb.util import bin_to_hex
 from gitdb.fun import chunk_size
@@ -15,7 +17,7 @@ import os
 import sys
 
 
-from lib import (
+from gitdb.test.lib import (
     make_memory_file,
     with_rw_directory
 )
@@ -49,11 +51,11 @@ class TestObjDBPerformance(TestBigRepoR):
         # serial mode 
         for randomize in range(2):
             desc = (randomize and 'random ') or ''
-            print >> sys.stderr, "Creating %s data ..." % desc
+            print("Creating %s data ..." % desc, file=sys.stderr)
             st = time()
             size, stream = make_memory_file(self.large_data_size_bytes, randomize)
             elapsed = time() - st
-            print >> sys.stderr, "Done (in %f s)" % elapsed
+            print("Done (in %f s)" % elapsed, file=sys.stderr)
             string_ios.append(stream)
             
             # writing - due to the compression it will seem faster than it is 
@@ -66,7 +68,7 @@ class TestObjDBPerformance(TestBigRepoR):
             
             
             size_kib = size / 1000
-            print >> sys.stderr, "Added %i KiB (filesize = %i KiB) of %s data to loose odb in %f s ( %f Write KiB / s)" % (size_kib, fsize_kib, desc, elapsed_add, size_kib / elapsed_add)
+            print("Added %i KiB (filesize = %i KiB) of %s data to loose odb in %f s ( %f Write KiB / s)" % (size_kib, fsize_kib, desc, elapsed_add, size_kib / elapsed_add), file=sys.stderr)
             
             # reading all at once
             st = time()
@@ -76,7 +78,7 @@ class TestObjDBPerformance(TestBigRepoR):
             
             stream.seek(0)
             assert shadata == stream.getvalue()
-            print >> sys.stderr, "Read %i KiB of %s data at once from loose odb in %f s ( %f Read KiB / s)" % (size_kib, desc, elapsed_readall, size_kib / elapsed_readall)
+            print("Read %i KiB of %s data at once from loose odb in %f s ( %f Read KiB / s)" % (size_kib, desc, elapsed_readall, size_kib / elapsed_readall), file=sys.stderr)
             
             
             # reading in chunks of 1 MiB
@@ -93,10 +95,10 @@ class TestObjDBPerformance(TestBigRepoR):
             elapsed_readchunks = time() - st
             
             stream.seek(0)
-            assert ''.join(chunks) == stream.getvalue()
+            assert b''.join(chunks) == stream.getvalue()
             
             cs_kib = cs / 1000
-            print >> sys.stderr, "Read %i KiB of %s data in %i KiB chunks from loose odb in %f s ( %f Read KiB / s)" % (size_kib, desc, cs_kib, elapsed_readchunks, size_kib / elapsed_readchunks)
+            print("Read %i KiB of %s data in %i KiB chunks from loose odb in %f s ( %f Read KiB / s)" % (size_kib, desc, cs_kib, elapsed_readchunks, size_kib / elapsed_readchunks), file=sys.stderr)
             
             # del db file so we keep something to do
             os.remove(db_file)

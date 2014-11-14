@@ -10,7 +10,7 @@ import sys
 import random
 from array import array
 
-from io import StringIO
+from io import BytesIO
 
 import glob
 import unittest
@@ -120,7 +120,7 @@ def make_memory_file(size_in_bytes, randomize=False):
     """:return: tuple(size_of_stream, stream)
     :param randomize: try to produce a very random stream"""
     d = make_bytes(size_in_bytes, randomize)
-    return len(d), StringIO(d)
+    return len(d), BytesIO(d)
 
 #} END routines
 
