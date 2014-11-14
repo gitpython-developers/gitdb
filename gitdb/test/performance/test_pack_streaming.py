@@ -12,6 +12,7 @@ from gitdb.test.performance.lib import (
 from gitdb.db.pack import PackedDB
 from gitdb.stream import NullStream
 from gitdb.pack import PackEntity
+from gitdb.test.lib import skip_on_travis_ci
 
 import os
 import sys
@@ -31,6 +32,7 @@ class CountedNullStream(NullStream):
 
 class TestPackStreamingPerformance(TestBigRepoR):
     
+    @skip_on_travis_ci
     def test_pack_writing(self):
         # see how fast we can write a pack from object streams.
         # This will not be fast, as we take time for decompressing the streams as well
@@ -56,6 +58,7 @@ class TestPackStreamingPerformance(TestBigRepoR):
         print(sys.stderr, "PDB Streaming: Wrote pack of size %i kb in %f s (%f kb/s)" % (total_kb, elapsed, total_kb/elapsed), sys.stderr)
         
     
+    @skip_on_travis_ci
     def test_stream_reading(self):
         # raise SkipTest()
         pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))

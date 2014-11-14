@@ -12,13 +12,15 @@ from gitdb.test.performance.lib import (
 from gitdb.exc import UnsupportedOperation
 from gitdb.db.pack import PackedDB
 from gitdb.utils.compat import xrange
+from gitdb.test.lib import skip_on_travis_ci
 
 import sys
 import os
 from time import time
 
 class TestPackedDBPerformance(TestBigRepoR):
-    
+
+    @skip_on_travis_ci    
     def test_pack_random_access(self):
         pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
         
@@ -67,6 +69,7 @@ class TestPackedDBPerformance(TestBigRepoR):
         total_kib = total_size / 1000
         print("PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" % (max_items, total_kib, total_kib/elapsed , elapsed, max_items / elapsed), file=sys.stderr)
         
+    @skip_on_travis_ci
     def test_correctness(self):
         pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
         # disabled for now as it used to work perfectly, checking big repositories takes a long time

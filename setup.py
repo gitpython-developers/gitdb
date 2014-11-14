@@ -89,7 +89,7 @@ setup(cmdclass={'build_ext':build_ext_nofail},
       license = "BSD License",
       zip_safe=False,
       requires=('smmap (>=0.8.3)', ),
-      install_requires=('smmap >= 0.8.0'),
+      install_requires=('smmap >= 0.8.3'),
       long_description = """GitDB is a pure-Python git object database""",
       # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
       classifiers=[

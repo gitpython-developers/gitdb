@@ -18,6 +18,7 @@ import tempfile
 import shutil
 import os
 import gc
+from functools import wraps
 
 
 #{ Bases
@@ -29,6 +30,21 @@ class TestBase(unittest.TestCase):
 #} END bases
 
 #{ Decorators
+
+def skip_on_travis_ci(func):
+    """All tests decorated with this one will raise SkipTest when run on travis ci.
+    Use it to workaround difficult to solve issues
+    NOTE: copied from bcore (https://github.com/Byron/bcore)"""
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if 'TRAVIS' in os.environ:
+            import nose
+            raise nose.SkipTest("Cannot run on travis-ci")
+        # end check for travis ci
+        return func(self, *args, **kwargs)
+    # end wrapper
+    return wrapper
+
 
 def with_rw_directory(func):
     """Create a temporary directory which can be written to, remove it if the

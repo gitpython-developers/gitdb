@@ -7,7 +7,6 @@ python:
   # - "pypy" - won't work as smmap doesn't work (see smmap/.travis.yml for details)
 
 install:
-  - git submodule update --init --recursive
   - pip install coveralls
 script: 
   - nosetests

@@ -24,9 +24,11 @@ class TestGitDB(TestDBBase):
         gitdb_sha = hex_to_bin("5690fd0d3304f378754b23b098bd7cb5f4aa1976")
         assert isinstance(gdb.info(gitdb_sha), OInfo)
         assert isinstance(gdb.stream(gitdb_sha), OStream)
-        assert gdb.size() > 200
+        ni = 50
+        assert gdb.size() >= ni
         sha_list = list(gdb.sha_iter())
         assert len(sha_list) == gdb.size()
+        sha_list = sha_list[:ni] # speed up tests ... 
 
 
         # This is actually a test for compound functionality, but it doesn't
