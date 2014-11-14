@@ -7,6 +7,7 @@ from io import BytesIO
 
 import mmap
 import os
+import sys
 import zlib
 
 from gitdb.fun import (
@@ -30,6 +31,7 @@ from gitdb.utils.compat import buffer
 from gitdb.utils.encoding import force_bytes
 
 has_perf_mod = False
+PY26 = sys.version_info[:2] < (2, 7)
 try:
     from _perf import apply_delta as c_apply_delta
     has_perf_mod = True
@@ -275,10 +277,14 @@ class DecompressMemMapReader(LazyMixin):
         # We feed possibly overlapping chunks, which is why the unconsumed tail
         # has to be taken into consideration, as well as the unused data
         # if we hit the end of the stream
-        # NOTE: For some reason, the code worked for a long time with substracting unconsumed_tail
-        # Now, however, it really asks for unused_data, and I wonder whether unconsumed_tail still has to 
-        # be substracted. On the plus side, the tests work, so it seems to be ok for py 2.7 and 3.4
-        self._cbr += len(indata) - len(self._zip.unconsumed_tail) - len(self._zip.unused_data)
+        # NOTE: Behavior changed in PY2.7 onward, which requires special handling to make the tests work properly.
+        # They are thorough, and I assume it is truly working.
+        if PY26:
+            unused_datalen = len(self._zip.unconsumed_tail)
+        else:
+            unused_datalen = len(self._zip.unconsumed_tail) + len(self._zip.unused_data)
+        # end handle very special case ... 
+        self._cbr += len(indata) - unused_datalen
         self._br += len(dcompdat)
 
         if dat:
@@ -505,7 +511,6 @@ class DeltaApplyReader(LazyMixin):
         if stream_list[-1].type_id in delta_types:
             raise ValueError("Cannot resolve deltas if there is no base object stream, last one was type: %s" % stream_list[-1].type)
         # END check stream
-
         return cls(stream_list)
 
     #} END interface

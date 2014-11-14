@@ -27,8 +27,6 @@ from gitdb.typ import (
 
 import tempfile
 import os
-import sys
-from nose import SkipTest
 
 class TestStream(TestBase):
     """Test stream classes"""
@@ -71,16 +69,10 @@ class TestStream(TestBase):
         # END handle special type
 
     def test_decompress_reader(self):
-        cache = dict()
         for close_on_deletion in range(2):
             for with_size in range(2):
                 for ds in self.data_sizes:
-                    if ds in cache:
-                        cdata = cache[ds]
-                    else:
-                        cdata = make_bytes(ds, randomize=False)
-                        cache[ds] = cdata
-                    # end handle caching (maybe helps on py2.6 ?)
+                    cdata = make_bytes(ds, randomize=False)
 
                     # zdata = zipped actual data
                     # cdata = original content data
@@ -128,9 +120,6 @@ class TestStream(TestBase):
         assert writer.sha() != prev_sha
 
     def test_compressed_writer(self):
-        if sys.version_info[:2] < (2,7) and os.environ.get('TRAVIS'):
-            raise SkipTest("For some reason, this test STALLS on travis ci on py2.6, but works on my centos py2.6 interpreter")
-        # end special case ... 
         for ds in self.data_sizes:
             fd, path = tempfile.mkstemp()
             ostream = FDCompressedSha1Writer(fd)
