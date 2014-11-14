@@ -6,4 +6,11 @@ python:
   - "3.4"
   # - "pypy" - won't work as smmap doesn't work (see smmap/.travis.yml for details)
 
-script: nosetests
+install:
+  - git submodule update --init --recursive
+  - pip install coveralls
+script: 
+  - nosetests
+after_success:
+  - coveralls
+
