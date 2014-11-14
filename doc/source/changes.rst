@@ -3,6 +3,13 @@ Changelog
 #########
 
 *****
+0.6.0
+*****
+
+* Added support got python 3.X
+* Removed all `async` dependencies and all `*_async` versions of methods with it.
+
+*****
 0.5.4
 *****
 * Adjusted implementation to use the SlidingMemoryManager by default in python 2.6 for efficiency reasons. In Python 2.4, the StaticMemoryManager will be used instead.

@@ -11,9 +11,9 @@ Interfaces are used to describe the API, making it easy to provide alternate imp
 ================
 Installing GitDB
 ================
-Its easiest to install gitdb using the *easy_install*  program, which is part of the `setuptools`_::
+Its easiest to install gitdb using the *pip*  program::
     
-    $ easy_install gitdb
+    $ pip install gitdb
     
 As the command will install gitdb in your respective python distribution, you will most likely need root permissions to authorize the required changes.
 
@@ -31,10 +31,8 @@ Source Repository
 =================
 The latest source can be cloned using git from github:
 
- * git://github.com/gitpython-developers/gitdb.git
+ * https://github.com/gitpython-developers/gitdb
 
 License Information
 ===================
 *GitDB* is licensed under the New BSD License.
-
-.. _setuptools: http://peak.telecommunity.com/DevCenter/setuptools

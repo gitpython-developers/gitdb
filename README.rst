@@ -1,10 +1,7 @@
 GitDB
 =====
 
-GitDB allows you to access bare git repositories for reading and writing. It 
-aims at allowing full access to loose objects as well as packs with performance 
-and scalability in mind. It operates exclusively on streams, allowing to operate 
-on large objects with a small memory footprint.
+GitDB allows you to access bare git repositories for reading and writing. It aims at allowing full access to loose objects as well as packs with performance and scalability in mind. It operates exclusively on streams, allowing to handle large objects with a small memory footprint.
 
 Installation
 ============
@@ -23,13 +20,13 @@ From `PyPI <https://pypi.python.org/pypi/gitdb>`_
 REQUIREMENTS
 ============
 
-* Python Nose - for running the tests
+* Python  Nose - for running the tests
 
 SOURCE
 ======
 The source is available in a git repository at gitorious and github:
 
-git://github.com/gitpython-developers/gitdb.git
+https://github.com/gitpython-developers/gitdb
 
 Once the clone is complete, please be sure to initialize the submodules using
 
@@ -40,17 +37,25 @@ Run the tests with
  
  nosetests
 
-MAILING LIST
-============
-http://groups.google.com/group/git-python
-
-ISSUE TRACKER
-=============
+DEVELOPMENT
+===========
 
 .. image:: https://travis-ci.org/gitpython-developers/gitdb.svg?branch=master
     :target: https://travis-ci.org/gitpython-developers/gitdb
-    
-https://github.com/gitpython-developers/gitdb/issues
+
+.. image:: https://coveralls.io/repos/gitpython-developers/gitdb/badge.png
+	:target: https://coveralls.io/r/gitpython-developers/gitdb
+
+The library is considered mature, and not under active development. It's primary (known) use is in git-python.
+
+INFRASTRUCTURE
+==============
+
+* Mailing List
+	* http://groups.google.com/group/git-python
+
+* Issue Tracker
+	* https://github.com/gitpython-developers/gitdb/issues
 
 LICENSE
 =======

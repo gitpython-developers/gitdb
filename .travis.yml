@@ -3,6 +3,16 @@ python:
   - "2.6"
   - "2.7"
   - "3.3"
+  - "3.4"
   # - "pypy" - won't work as smmap doesn't work (see smmap/.travis.yml for details)
 
-script: nosetests
+git:
+  # a higher depth is needed for one of the tests - lets fet
+  depth: 1000
+install:
+  - pip install coveralls
+script: 
+  - nosetests -v
+after_success:
+  - coveralls
+

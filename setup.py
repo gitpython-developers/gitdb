@@ -73,7 +73,7 @@ if setuptools_build_py_module:
 __author__ = "Sebastian Thiel"
 __contact__ = "byronimo@gmail.com"
 __homepage__ = "https://github.com/gitpython-developers/gitdb"
-version_info = (0, 5, 4)
+version_info = (0, 6, 0)
 __version__ = '.'.join(str(i) for i in version_info)
 
 setup(cmdclass={'build_ext':build_ext_nofail},
@@ -83,20 +83,37 @@ setup(cmdclass={'build_ext':build_ext_nofail},
       author = __author__,
       author_email = __contact__,
       url = __homepage__,
-      packages = ('gitdb', 'gitdb.db'),
+      packages = ('gitdb', 'gitdb.db', 'gitdb.utils'),
       package_dir = {'gitdb':'gitdb'},
       ext_modules=[Extension('gitdb._perf', ['gitdb/_fun.c', 'gitdb/_delta_apply.c'], include_dirs=['gitdb'])],
       license = "BSD License",
       zip_safe=False,
-      requires=('async (>=0.6.1)', 'smmap (>=0.8.0)'),
-      install_requires=('async >= 0.6.1', 'smmap >= 0.8.0'),
+      requires=('smmap (>=0.8.3)', ),
+      install_requires=('smmap >= 0.8.3'),
       long_description = """GitDB is a pure-Python git object database""",
       # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
       classifiers=[
-          # Specify the Python versions you support here. In particular, ensure
-          # that you indicate whether you support Python 2, Python 3 or both.
-          'Programming Language :: Python :: 2',
-          'Programming Language :: Python :: 2.6',
-          'Programming Language :: Python :: 2.7',
-      ],
-      )
+          # Picked from
+        #    http://pypi.python.org/pypi?:action=list_classifiers
+        #"Development Status :: 1 - Planning",
+        #"Development Status :: 2 - Pre-Alpha",
+        #"Development Status :: 3 - Alpha",
+        # "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
+        #"Development Status :: 6 - Mature",
+        #"Development Status :: 7 - Inactive",
+        "Environment :: Console",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: BSD License",
+        "Operating System :: OS Independent",
+        "Operating System :: POSIX",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: MacOS :: MacOS X",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 2.6",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.3",
+        "Programming Language :: Python :: 3.4",
+      ],)
