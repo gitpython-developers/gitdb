@@ -275,7 +275,10 @@ class DecompressMemMapReader(LazyMixin):
         # We feed possibly overlapping chunks, which is why the unconsumed tail
         # has to be taken into consideration, as well as the unused data
         # if we hit the end of the stream
-        self._cbr += len(indata) - len(self._zip.unconsumed_tail)
+        # NOTE: For some reason, the code worked for a long time with substracting unconsumed_tail
+        # Now, however, it really asks for unused_data, and I wonder whether unconsumed_tail still has to 
+        # be substracted. On the plus side, the tests work, so it seems to be ok for py 2.7 and 3.4
+        self._cbr += len(indata) - len(self._zip.unconsumed_tail) - len(self._zip.unused_data)
         self._br += len(dcompdat)
 
         if dat:
