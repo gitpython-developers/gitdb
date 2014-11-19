@@ -12,6 +12,9 @@ Installation
 .. image:: https://pypip.in/py_versions/gitdb/badge.svg
     :target: https://pypi.python.org/pypi/gitdb/
     :alt: Supported Python versions
+.. image:: https://readthedocs.org/projects/gitdb/badge/?version=latest
+    :target: https://readthedocs.org/projects/gitdb/?badge=latest
+    :alt: Documentation Status
 
 From `PyPI <https://pypi.python.org/pypi/gitdb>`_
 
@@ -44,7 +47,7 @@ DEVELOPMENT
     :target: https://travis-ci.org/gitpython-developers/gitdb
 
 .. image:: https://coveralls.io/repos/gitpython-developers/gitdb/badge.png
-	:target: https://coveralls.io/r/gitpython-developers/gitdb
+    :target: https://coveralls.io/r/gitpython-developers/gitdb
 
 The library is considered mature, and not under active development. It's primary (known) use is in git-python.
 
@@ -52,10 +55,10 @@ INFRASTRUCTURE
 ==============
 
 * Mailing List
-	* http://groups.google.com/group/git-python
+    * http://groups.google.com/group/git-python
 
 * Issue Tracker
-	* https://github.com/gitpython-developers/gitdb/issues
+    * https://github.com/gitpython-developers/gitdb/issues
 
 LICENSE
 =======
