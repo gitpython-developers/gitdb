@@ -9,6 +9,11 @@ from gitdb.test.performance.lib import (
     TestBigRepoR 
 )
 
+from gitdb import (
+    MemoryDB,
+    IStream,
+)
+from gitdb.typ import str_blob_type
 from gitdb.exc import UnsupportedOperation
 from gitdb.db.pack import PackedDB
 from gitdb.utils.compat import xrange
@@ -70,6 +75,32 @@ class TestPackedDBPerformance(TestBigRepoR):
         total_kib = total_size / 1000
         print("PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" % (max_items, total_kib, total_kib/elapsed , elapsed, max_items / elapsed), file=sys.stderr)
         
+    @skip_on_travis_ci
+    def test_loose_correctness(self):
+        """based on the pack(s) of our packed object DB, we will just copy and verify all objects in the back
+        into the loose object db (memory).
+        This should help finding dormant issues like this one https://github.com/gitpython-developers/GitPython/issues/220
+        faster
+        :note: It doesn't seem this test can find the issue unless the given pack contains highly compressed
+        data files, like archives."""
+        pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
+        mdb = MemoryDB()
+        for c, sha in enumerate(pdb.sha_iter()):
+            ostream = pdb.stream(sha)
+            # the issue only showed on larger files which are hardly compressible ... 
+            if ostream.type != str_blob_type:
+                continue
+            istream = IStream(ostream.type, ostream.size, ostream.stream)
+            mdb.store(istream)
+            assert istream.binsha == sha
+            # this can fail ... sometimes, so the packs dataset should be huge
+            assert len(mdb.stream(sha).read()) == ostream.size
+
+            if c and c % 1000 == 0:
+                print("Verified %i loose object compression/decompression cycles" % c, file=sys.stderr)
+            mdb._cache.clear()
+        # end for each sha to copy 
+
     @skip_on_travis_ci
     def test_correctness(self):
         pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
