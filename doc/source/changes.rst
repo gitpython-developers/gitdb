@@ -3,6 +3,14 @@ Changelog
 #########
 
 *****
+0.6.1
+*****
+
+* Fixed possibly critical error, see https://github.com/gitpython-developers/GitPython/issues/220
+
+    - However, it only seems to occour on high-entropy data and didn't reoccour after the fix
+
+*****
 0.6.0
 *****
 
