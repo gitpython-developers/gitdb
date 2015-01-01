@@ -63,7 +63,8 @@ class TestPackedDBPerformance(TestBigRepoR):
         st = time()
         for sha in sha_list[:max_items]:
             stream = pdb_stream(sha)
-            stream.read()
+            read_len = len(stream.read())
+            assert read_len == stream.size
             total_size += stream.size
         elapsed = time() - st
         total_kib = total_size / 1000

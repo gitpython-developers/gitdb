@@ -100,7 +100,9 @@ class DecompressMemMapReader(LazyMixin):
 
         :return: parsed type_string, size"""
         # read header
-        maxb = 512              # should really be enough, cgit uses 8192 I believe
+        # should really be enough, cgit uses 8192 I believe
+        # And for good reason !! This needs to be that high for the header to be read correctly in all cases
+        maxb = 8192
         self._s = maxb
         hdr = self.read(maxb)
         hdrend = hdr.find(NULL_BYTE)
@@ -243,7 +245,7 @@ class DecompressMemMapReader(LazyMixin):
         # moving the window into the memory map along as we decompress, which keeps
         # the tail smaller than our chunk-size. This causes 'only' the chunk to be
         # copied once, and another copy of a part of it when it creates the unconsumed
-        # tail. We have to use it to hand in the appropriate amount of bytes durin g
+        # tail. We have to use it to hand in the appropriate amount of bytes during
         # the next read.
         tail = self._zip.unconsumed_tail
         if tail:
@@ -284,6 +286,7 @@ class DecompressMemMapReader(LazyMixin):
         else:
             unused_datalen = len(self._zip.unconsumed_tail) + len(self._zip.unused_data)
         # end handle very special case ... 
+
         self._cbr += len(indata) - unused_datalen
         self._br += len(dcompdat)
 
