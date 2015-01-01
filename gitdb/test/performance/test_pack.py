@@ -11,6 +11,7 @@ from gitdb.test.performance.lib import (
 
 from gitdb import (
     MemoryDB,
+    GitDB,
     IStream,
 )
 from gitdb.typ import str_blob_type
@@ -83,7 +84,8 @@ class TestPackedDBPerformance(TestBigRepoR):
         faster
         :note: It doesn't seem this test can find the issue unless the given pack contains highly compressed
         data files, like archives."""
-        pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
+        from gitdb.util import bin_to_hex
+        pdb = GitDB(os.path.join(self.gitrepopath, 'objects'))
         mdb = MemoryDB()
         for c, sha in enumerate(pdb.sha_iter()):
             ostream = pdb.stream(sha)
@@ -92,7 +94,7 @@ class TestPackedDBPerformance(TestBigRepoR):
                 continue
             istream = IStream(ostream.type, ostream.size, ostream.stream)
             mdb.store(istream)
-            assert istream.binsha == sha
+            assert istream.binsha == sha, "Failed on object %s" % bin_to_hex(sha).decode('ascii')
             # this can fail ... sometimes, so the packs dataset should be huge
             assert len(mdb.stream(sha).read()) == ostream.size
 
