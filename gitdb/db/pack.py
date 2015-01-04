@@ -31,6 +31,7 @@ __all__ = ('PackedDB', )
 
 
 class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
+
     """A database operating on a set of object packs"""
 
     # sort the priority list every N queries
@@ -113,7 +114,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 
     def size(self):
         sizes = [item[1].index().size() for item in self._entities]
-        return reduce(lambda x,y: x+y, sizes, 0)
+        return reduce(lambda x, y: x + y, sizes, 0)
 
     #} END object db read
 
@@ -126,7 +127,6 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         raise UnsupportedOperation()
 
     #} END object db write
-
 
     #{ Interface
 
@@ -177,7 +177,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 
     def entities(self):
         """:return: list of pack entities operated upon by this database"""
-        return [ item[1] for item in self._entities ]
+        return [item[1] for item in self._entities]
 
     def partial_to_complete_sha(self, partial_binsha, canonical_length):
         """:return: 20 byte sha as inferred by the given partial binary sha

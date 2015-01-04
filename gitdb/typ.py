@@ -4,7 +4,7 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module containing information about types known to the database"""
 
-str_blob_type   = b'blob'
+str_blob_type = b'blob'
 str_commit_type = b'commit'
-str_tree_type   = b'tree'
-str_tag_type    = b'tag'
+str_tree_type = b'tree'
+str_tag_type = b'tag'

@@ -6,7 +6,7 @@
 from __future__ import print_function
 
 from gitdb.test.performance.lib import (
-    TestBigRepoR 
+    TestBigRepoR
 )
 
 from gitdb import (
@@ -24,19 +24,20 @@ import sys
 import os
 from time import time
 
+
 class TestPackedDBPerformance(TestBigRepoR):
 
-    @skip_on_travis_ci    
+    @skip_on_travis_ci
     def test_pack_random_access(self):
         pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
-        
+
         # sha lookup
         st = time()
         sha_list = list(pdb.sha_iter())
         elapsed = time() - st
         ns = len(sha_list)
         print("PDB: looked up %i shas by index in %f s ( %f shas/s )" % (ns, elapsed, ns / elapsed), file=sys.stderr)
-        
+
         # sha lookup: best-case and worst case access
         pdb_pack_info = pdb._pack_info
         # END shuffle shas
@@ -45,13 +46,14 @@ class TestPackedDBPerformance(TestBigRepoR):
             pdb_pack_info(sha)
         # END for each sha to look up
         elapsed = time() - st
-        
+
         # discard cache
         del(pdb._entities)
         pdb.entities()
-        print("PDB: looked up %i sha in %i packs in %f s ( %f shas/s )" % (ns, len(pdb.entities()), elapsed, ns / elapsed), file=sys.stderr)
+        print("PDB: looked up %i sha in %i packs in %f s ( %f shas/s )" %
+              (ns, len(pdb.entities()), elapsed, ns / elapsed), file=sys.stderr)
         # END for each random mode
-        
+
         # query info and streams only
         max_items = 10000           # can wait longer when testing memory
         for pdb_fun in (pdb.info, pdb.stream):
@@ -59,9 +61,10 @@ class TestPackedDBPerformance(TestBigRepoR):
             for sha in sha_list[:max_items]:
                 pdb_fun(sha)
             elapsed = time() - st
-            print("PDB: Obtained %i object %s by sha in %f s ( %f items/s )" % (max_items, pdb_fun.__name__.upper(), elapsed, max_items / elapsed), file=sys.stderr)
+            print("PDB: Obtained %i object %s by sha in %f s ( %f items/s )" %
+                  (max_items, pdb_fun.__name__.upper(), elapsed, max_items / elapsed), file=sys.stderr)
         # END for each function
-        
+
         # retrieve stream and read all
         max_items = 5000
         pdb_stream = pdb.stream
@@ -74,8 +77,9 @@ class TestPackedDBPerformance(TestBigRepoR):
             total_size += stream.size
         elapsed = time() - st
         total_kib = total_size / 1000
-        print("PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" % (max_items, total_kib, total_kib/elapsed , elapsed, max_items / elapsed), file=sys.stderr)
-        
+        print("PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" %
+              (max_items, total_kib, total_kib / elapsed, elapsed, max_items / elapsed), file=sys.stderr)
+
     @skip_on_travis_ci
     def test_loose_correctness(self):
         """based on the pack(s) of our packed object DB, we will just copy and verify all objects in the back
@@ -89,7 +93,7 @@ class TestPackedDBPerformance(TestBigRepoR):
         mdb = MemoryDB()
         for c, sha in enumerate(pdb.sha_iter()):
             ostream = pdb.stream(sha)
-            # the issue only showed on larger files which are hardly compressible ... 
+            # the issue only showed on larger files which are hardly compressible ...
             if ostream.type != str_blob_type:
                 continue
             istream = IStream(ostream.type, ostream.size, ostream.stream)
@@ -101,7 +105,7 @@ class TestPackedDBPerformance(TestBigRepoR):
             if c and c % 1000 == 0:
                 print("Verified %i loose object compression/decompression cycles" % c, file=sys.stderr)
             mdb._cache.clear()
-        # end for each sha to copy 
+        # end for each sha to copy
 
     @skip_on_travis_ci
     def test_correctness(self):
@@ -124,6 +128,6 @@ class TestPackedDBPerformance(TestBigRepoR):
                 # END for each index
             # END for each entity
             elapsed = time() - st
-            print("PDB: verified %i objects (crc=%i) in %f s ( %f objects/s )" % (count, crc, elapsed, count / elapsed), file=sys.stderr)
+            print("PDB: verified %i objects (crc=%i) in %f s ( %f objects/s )" %
+                  (count, crc, elapsed, count / elapsed), file=sys.stderr)
         # END for each verify mode
-        

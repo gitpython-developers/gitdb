@@ -4,10 +4,10 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Test for object db"""
 from gitdb.test.lib import (
-        TestBase,
-        DummyStream,
-        DeriveTest,
-    )
+    TestBase,
+    DummyStream,
+    DeriveTest,
+)
 
 from gitdb import (
     OInfo,
@@ -20,11 +20,11 @@ from gitdb import (
 )
 from gitdb.util import (
     NULL_BIN_SHA
-    )
+)
 
 from gitdb.typ import (
     str_blob_type
-    )
+)
 
 
 class TestBaseTypes(TestBase):
@@ -54,7 +54,6 @@ class TestBaseTypes(TestBase):
         assert dpinfo.delta_info == sha
         assert dpinfo.pack_offset == 0
 
-
         # test ostream
         stream = DummyStream()
         ostream = OStream(*(info + (stream, )))
@@ -80,7 +79,7 @@ class TestBaseTypes(TestBase):
         assert stream.bytes == 5
 
         # derive with own args
-        DeriveTest(sha, str_blob_type, s, stream, 'mine',myarg = 3)._assert()
+        DeriveTest(sha, str_blob_type, s, stream, 'mine', myarg=3)._assert()
 
         # test istream
         istream = IStream(str_blob_type, s, stream)

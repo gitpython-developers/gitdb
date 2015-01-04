@@ -8,6 +8,8 @@ import sys
 import os
 
 #{ Initialization
+
+
 def _init_externals():
     """Initialize external projects by putting them into the path"""
     for module in ('smmap',):
@@ -17,8 +19,8 @@ def _init_externals():
             __import__(module)
         except ImportError:
             raise ImportError("'%s' could not be imported, assure it is located in your PYTHONPATH" % module)
-        #END verify import
-    #END handel imports
+        # END verify import
+    # END handel imports
 
 #} END initialization
 

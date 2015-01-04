@@ -24,7 +24,7 @@ except NameError:
             return obj[offset:]
         else:
             # return memoryview(obj)[offset:offset+size]
-            return obj[offset:offset+size]
+            return obj[offset:offset + size]
     # end buffer reimplementation
 
     memoryview = memoryview

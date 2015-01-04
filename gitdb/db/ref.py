@@ -8,7 +8,9 @@ from gitdb.db.base import (
 
 __all__ = ('ReferenceDB', )
 
+
 class ReferenceDB(CompoundDB):
+
     """A database consisting of database referred to in a file"""
 
     # Configuration

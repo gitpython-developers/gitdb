@@ -19,11 +19,11 @@ from itertools import chain
 from functools import reduce
 
 
-
 __all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB')
 
 
 class ObjectDBR(object):
+
     """Defines an interface for object database lookup.
     Objects are identified either by their 20 byte bin sha"""
 
@@ -61,6 +61,7 @@ class ObjectDBR(object):
 
 
 class ObjectDBW(object):
+
     """Defines an interface to create objects in the database"""
 
     def __init__(self, *args, **kwargs):
@@ -100,6 +101,7 @@ class ObjectDBW(object):
 
 
 class FileDBBase(object):
+
     """Provides basic facilities to retrieve files of interest, including
     caching facilities to help mapping hexsha's to objects"""
 
@@ -112,7 +114,6 @@ class FileDBBase(object):
             access."""
         super(FileDBBase, self).__init__()
         self._root_path = root_path
-
 
     #{ Interface
     def root_path(self):
@@ -128,6 +129,7 @@ class FileDBBase(object):
 
 
 class CachingDB(object):
+
     """A database which uses caches to speed-up access"""
 
     #{ Interface
@@ -141,8 +143,6 @@ class CachingDB(object):
         :return: True if an update was performed as something change indeed"""
 
     # END interface
-
-
 
 
 def _databases_recursive(database, output):
@@ -159,10 +159,12 @@ def _databases_recursive(database, output):
 
 
 class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
+
     """A database which delegates calls to sub-databases.
 
     Databases are stored in the lazy-loaded _dbs attribute.
     Define _set_cache_ to update it with your databases"""
+
     def _set_cache_(self, attr):
         if attr == '_dbs':
             self._dbs = list()
@@ -207,7 +209,7 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 
     def size(self):
         """:return: total size of all contained databases"""
-        return reduce(lambda x,y: x+y, (db.size() for db in self._dbs), 0)
+        return reduce(lambda x, y: x + y, (db.size() for db in self._dbs), 0)
 
     def sha_iter(self):
         return chain(*(db.sha_iter() for db in self._dbs))

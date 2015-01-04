@@ -7,6 +7,7 @@ else:
     string_types = (basestring, )
     text_type = unicode
 
+
 def force_bytes(data, encoding="ascii"):
     if isinstance(data, bytes):
         return data
@@ -15,6 +16,7 @@ def force_bytes(data, encoding="ascii"):
         return data.encode(encoding)
 
     return data
+
 
 def force_text(data, encoding="utf-8"):
     if isinstance(data, text_type):

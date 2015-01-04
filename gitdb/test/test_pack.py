@@ -43,6 +43,7 @@ def bin_sha_from_filename(filename):
     return to_bin_sha(os.path.splitext(os.path.basename(filename))[0][5:])
 #} END utilities
 
+
 class TestPack(TestBase):
 
     packindexfile_v1 = (fixture_path('packs/pack-c0438c19fb16422b6bbcce24387b3264416d485b.idx'), 1, 67)
@@ -50,8 +51,8 @@ class TestPack(TestBase):
     packindexfile_v2_3_ascii = (fixture_path('packs/pack-a2bf8e71d8c18879e499335762dd95119d93d9f1.idx'), 2, 42)
     packfile_v2_1 = (fixture_path('packs/pack-c0438c19fb16422b6bbcce24387b3264416d485b.pack'), 2, packindexfile_v1[2])
     packfile_v2_2 = (fixture_path('packs/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.pack'), 2, packindexfile_v2[2])
-    packfile_v2_3_ascii = (fixture_path('packs/pack-a2bf8e71d8c18879e499335762dd95119d93d9f1.pack'), 2, packindexfile_v2_3_ascii[2])
-
+    packfile_v2_3_ascii = (
+        fixture_path('packs/pack-a2bf8e71d8c18879e499335762dd95119d93d9f1.pack'), 2, packindexfile_v2_3_ascii[2])
 
     def _assert_index_file(self, index, version, size):
         assert index.packfile_checksum() != index.indexfile_checksum()
@@ -74,12 +75,11 @@ class TestPack(TestBase):
             assert entry[2] == index.crc(oidx)
 
             # verify partial sha
-            for l in (4,8,11,17,20):
-                assert index.partial_sha_to_index(sha[:l], l*2) == oidx
+            for l in (4, 8, 11, 17, 20):
+                assert index.partial_sha_to_index(sha[:l], l * 2) == oidx
 
         # END for each object index in indexfile
         self.failUnlessRaises(ValueError, index.partial_sha_to_index, "\0", 2)
-
 
     def _assert_pack_file(self, pack, version, size):
         assert pack.version() == 2
@@ -120,14 +120,12 @@ class TestPack(TestBase):
             dstream.seek(0)
             assert dstream.read() == data
 
-
             # read chunks
             # NOTE: the current implementation is safe, it basically transfers
             # all calls to the underlying memory map
 
         # END for each object
         assert num_obj == size
-
 
     def test_pack_index(self):
         # check version 1 and 2
@@ -146,9 +144,9 @@ class TestPack(TestBase):
     @with_rw_directory
     def test_pack_entity(self, rw_dir):
         pack_objs = list()
-        for packinfo, indexinfo in (    (self.packfile_v2_1, self.packindexfile_v1),
-                                        (self.packfile_v2_2, self.packindexfile_v2),
-                                        (self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):
+        for packinfo, indexinfo in ((self.packfile_v2_1, self.packindexfile_v1),
+                                    (self.packfile_v2_2, self.packindexfile_v2),
+                                    (self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):
             packfile, version, size = packinfo
             indexfile, version, size = indexinfo
             entity = PackEntity(packfile)
@@ -193,22 +191,23 @@ class TestPack(TestBase):
         pack_path = tempfile.mktemp('', "pack", rw_dir)
         index_path = tempfile.mktemp('', 'index', rw_dir)
         iteration = 0
+
         def rewind_streams():
             for obj in pack_objs:
                 obj.stream.seek(0)
-        #END utility
-        for ppath, ipath, num_obj in zip((pack_path, )*2, (index_path, None), (len(pack_objs), None)):
+        # END utility
+        for ppath, ipath, num_obj in zip((pack_path, ) * 2, (index_path, None), (len(pack_objs), None)):
             pfile = open(ppath, 'wb')
             iwrite = None
             if ipath:
                 ifile = open(ipath, 'wb')
                 iwrite = ifile.write
-            #END handle ip
+            # END handle ip
 
             # make sure we rewind the streams ... we work on the same objects over and over again
             if iteration > 0:
                 rewind_streams()
-            #END rewind streams
+            # END rewind streams
             iteration += 1
 
             pack_sha, index_sha = PackEntity.write_pack(pack_objs, pfile.write, iwrite, object_count=num_obj)
@@ -230,8 +229,8 @@ class TestPack(TestBase):
                 assert idx.packfile_checksum() == pack_sha
                 assert idx.indexfile_checksum() == index_sha
                 assert idx.size() == len(pack_objs)
-            #END verify files exist
-        #END for each packpath, indexpath pair
+            # END verify files exist
+        # END for each packpath, indexpath pair
 
         # verify the packs throughly
         rewind_streams()
@@ -242,9 +241,8 @@ class TestPack(TestBase):
             for use_crc in range(2):
                 assert entity.is_valid_stream(info.binsha, use_crc)
             # END for each crc mode
-        #END for each info
+        # END for each info
         assert count == len(pack_objs)
-
 
     def test_pack_64(self):
         # TODO: hex-edit a pack helping us to verify that we can handle 64 byte offsets

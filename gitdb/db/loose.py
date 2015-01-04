@@ -57,10 +57,11 @@ import tempfile
 import os
 
 
-__all__ = ( 'LooseObjectDB', )
+__all__ = ('LooseObjectDB', )
 
 
 class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
+
     """A database which operates on loose object files"""
 
     # CONFIGURATION
@@ -72,7 +73,6 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
     new_objects_mode = int("444", 8)
     if os.name == 'nt':
         new_objects_mode = int("644", 8)
-
 
     def __init__(self, root_path):
         super(LooseObjectDB, self).__init__(root_path)
@@ -164,7 +164,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 
     def stream(self, sha):
         m = self._map_loose_object(sha)
-        type, size, stream = DecompressMemMapReader.new(m, close_on_deletion = True)
+        type, size, stream = DecompressMemMapReader.new(m, close_on_deletion=True)
         return OStream(sha, type, size, stream)
 
     def has_object(self, sha):
@@ -199,7 +199,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                 else:
                     # write object with header, we have to make a new one
                     write_object(istream.type, istream.size, istream.read, writer.write,
-                                    chunk_size=self.stream_chunk_size)
+                                 chunk_size=self.stream_chunk_size)
                 # END handle direct stream copies
             finally:
                 if tmp_path:

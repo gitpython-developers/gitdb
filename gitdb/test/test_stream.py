@@ -31,10 +31,12 @@ import tempfile
 import os
 from io import BytesIO
 
+
 class TestStream(TestBase):
+
     """Test stream classes"""
 
-    data_sizes = (15, 10000, 1000*1024+512)
+    data_sizes = (15, 10000, 1000 * 1024 + 512)
 
     def _assert_stream_reader(self, stream, cdata, rewind_stream=lambda s: None):
         """Make stream tests - the orig_stream is seekable, allowing it to be
@@ -43,13 +45,13 @@ class TestStream(TestBase):
         :param rewind_stream: function called to rewind the stream to make it ready
             for reuse"""
         ns = 10
-        assert len(cdata) > ns-1, "Data must be larger than %i, was %i" % (ns, len(cdata))
+        assert len(cdata) > ns - 1, "Data must be larger than %i, was %i" % (ns, len(cdata))
 
         # read in small steps
         ss = len(cdata) // ns
         for i in range(ns):
             data = stream.read(ss)
-            chunk = cdata[i*ss:(i+1)*ss]
+            chunk = cdata[i * ss:(i + 1) * ss]
             assert data == chunk
         # END for each step
         rest = stream.read()
@@ -136,7 +138,7 @@ class TestStream(TestBase):
             self.failUnlessRaises(OSError, os.close, fd)
 
             # read everything back, compare to data we zip
-            fd = os.open(path, os.O_RDONLY|getattr(os, 'O_BINARY', 0))
+            fd = os.open(path, os.O_RDONLY | getattr(os, 'O_BINARY', 0))
             written_data = os.read(fd, os.path.getsize(path))
             assert len(written_data) == os.path.getsize(path)
             os.close(fd)
@@ -156,7 +158,7 @@ class TestStream(TestBase):
             data = ostream.read()
             assert len(data) == ostream.size
 
-            # Putting it back in should yield nothing new - after all, we have 
+            # Putting it back in should yield nothing new - after all, we have
             dump = mdb.store(IStream(ostream.type, ostream.size, BytesIO(data)))
             assert dump.hexsha == sha
         # end for each loose object sha to test

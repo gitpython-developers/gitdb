@@ -4,13 +4,14 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module with examples from the tutorial section of the docs"""
 from gitdb.test.lib import (
-    TestBase, 
+    TestBase,
     fixture_path
 )
 from gitdb import IStream
 from gitdb.db import LooseObjectDB
 
 from io import BytesIO
+
 
 class TestExamples(TestBase):
 

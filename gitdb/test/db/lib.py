@@ -32,7 +32,9 @@ from struct import pack
 
 __all__ = ('TestDBBase', 'with_rw_directory', 'with_packs_rw', 'fixture_path')
 
+
 class TestDBBase(TestBase):
+
     """Base class providing testing routines on databases"""
 
     # data
@@ -64,7 +66,6 @@ class TestDBBase(TestBase):
         shas = list(db.sha_iter())
         assert len(shas) == db.size()
         assert len(shas[0]) == 20
-
 
     def _assert_object_writing(self, db):
         """General tests to verify object writing, compatible to ObjectDBW
@@ -126,4 +127,3 @@ class TestDBBase(TestBase):
                     assert ostream.getvalue() == new_ostream.getvalue()
             # END for each data set
         # END for each dry_run mode
-

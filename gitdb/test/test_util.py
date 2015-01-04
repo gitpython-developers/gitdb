@@ -16,6 +16,7 @@ from gitdb.util import (
 
 
 class TestUtils(TestBase):
+
     def test_basics(self):
         assert to_hex_sha(NULL_HEX_SHA) == NULL_HEX_SHA
         assert len(to_bin_sha(NULL_HEX_SHA)) == 20
@@ -72,7 +73,6 @@ class TestUtils(TestBase):
             # deletion rolls back
             del(lfd)
             assert not os.path.isfile(lockfilepath)
-
 
             # write data - concurrently
             lfd = LockedFD(my_file)

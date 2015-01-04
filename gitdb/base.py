@@ -11,12 +11,14 @@ from gitdb.fun import (
 )
 
 __all__ = ('OInfo', 'OPackInfo', 'ODeltaPackInfo',
-            'OStream', 'OPackStream', 'ODeltaPackStream',
-            'IStream', 'InvalidOInfo', 'InvalidOStream' )
+           'OStream', 'OPackStream', 'ODeltaPackStream',
+           'IStream', 'InvalidOInfo', 'InvalidOStream')
 
 #{ ODB Bases
 
+
 class OInfo(tuple):
+
     """Carries information about an object in an ODB, provding information
     about the binary sha of the object, the type_string as well as the uncompressed size
     in bytes.
@@ -62,6 +64,7 @@ class OInfo(tuple):
 
 
 class OPackInfo(tuple):
+
     """As OInfo, but provides a type_id property to retrieve the numerical type id, and
     does not include a sha.
 
@@ -71,7 +74,7 @@ class OPackInfo(tuple):
     __slots__ = tuple()
 
     def __new__(cls, packoffset, type, size):
-        return tuple.__new__(cls, (packoffset,type, size))
+        return tuple.__new__(cls, (packoffset, type, size))
 
     def __init__(self, *args):
         tuple.__init__(self)
@@ -98,6 +101,7 @@ class OPackInfo(tuple):
 
 
 class ODeltaPackInfo(OPackInfo):
+
     """Adds delta specific information,
     Either the 20 byte sha which points to some object in the database,
     or the negative offset from the pack_offset, so that pack_offset - delta_info yields
@@ -115,6 +119,7 @@ class ODeltaPackInfo(OPackInfo):
 
 
 class OStream(OInfo):
+
     """Base for object streams retrieved from the database, providing additional
     information about the stream.
     Generally, ODB streams are read-only as objects are immutable"""
@@ -123,7 +128,6 @@ class OStream(OInfo):
     def __new__(cls, sha, type, size, stream, *args, **kwargs):
         """Helps with the initialization of subclasses"""
         return tuple.__new__(cls, (sha, type, size, stream))
-
 
     def __init__(self, *args, **kwargs):
         tuple.__init__(self)
@@ -141,6 +145,7 @@ class OStream(OInfo):
 
 
 class ODeltaStream(OStream):
+
     """Uses size info of its stream, delaying reads"""
 
     def __new__(cls, sha, type, size, stream, *args, **kwargs):
@@ -157,6 +162,7 @@ class ODeltaStream(OStream):
 
 
 class OPackStream(OPackInfo):
+
     """Next to pack object information, a stream outputting an undeltified base object
     is provided"""
     __slots__ = tuple()
@@ -176,12 +182,12 @@ class OPackStream(OPackInfo):
 
 
 class ODeltaPackStream(ODeltaPackInfo):
+
     """Provides a stream outputting the uncompressed offset delta information"""
     __slots__ = tuple()
 
     def __new__(cls, packoffset, type, size, delta_info, stream):
         return tuple.__new__(cls, (packoffset, type, size, delta_info, stream))
-
 
     #{ Stream Reader Interface
     def read(self, size=-1):
@@ -194,6 +200,7 @@ class ODeltaPackStream(ODeltaPackInfo):
 
 
 class IStream(list):
+
     """Represents an input content stream to be fed into the ODB. It is mutable to allow
     the ODB to record information about the operations outcome right in this instance.
 
@@ -246,7 +253,6 @@ class IStream(list):
 
     binsha = property(_binsha, _set_binsha)
 
-
     def _type(self):
         return self[1]
 
@@ -275,6 +281,7 @@ class IStream(list):
 
 
 class InvalidOInfo(tuple):
+
     """Carries information about a sha identifying an object which is invalid in
     the queried database. The exception attribute provides more information about
     the cause of the issue"""
@@ -301,6 +308,7 @@ class InvalidOInfo(tuple):
 
 
 class InvalidOStream(InvalidOInfo):
+
     """Carries information about an invalid ODB stream"""
     __slots__ = tuple()
 

@@ -11,10 +11,10 @@ import errno
 from io import StringIO
 
 from smmap import (
-        StaticWindowMapManager,
-        SlidingWindowMapManager,
-        SlidingWindowMapBuffer
-    )
+    StaticWindowMapManager,
+    SlidingWindowMapManager,
+    SlidingWindowMapBuffer
+)
 
 # initialize our global memory manager instance
 # Use it to free cached (and unused) resources.
@@ -22,7 +22,7 @@ if sys.version_info[1] < 6:
     mman = StaticWindowMapManager()
 else:
     mman = SlidingWindowMapManager()
-#END handle mman
+# END handle mman
 
 import hashlib
 
@@ -31,6 +31,7 @@ try:
 except ImportError:
     from struct import unpack, calcsize
     __calcsize_cache = dict()
+
     def unpack_from(fmt, data, offset=0):
         try:
             size = __calcsize_cache[fmt]
@@ -38,7 +39,7 @@ except ImportError:
             size = calcsize(fmt)
             __calcsize_cache[fmt] = size
         # END exception handling
-        return unpack(fmt, data[offset : offset + size])
+        return unpack(fmt, data[offset: offset + size])
     # END own unpack_from implementation
 
 
@@ -67,8 +68,8 @@ close = os.close
 fsync = os.fsync
 
 # Backwards compatibility imports
-from gitdb.const import ( 
-    NULL_BIN_SHA, 
+from gitdb.const import (
+    NULL_BIN_SHA,
     NULL_HEX_SHA
 )
 
@@ -76,7 +77,9 @@ from gitdb.const import (
 
 #{ compatibility stuff ...
 
+
 class _RandomAccessStringIO(object):
+
     """Wrapper to provide required functionality in case memory maps cannot or may
     not be used. This is only really required in python 2.4"""
     __slots__ = '_sio'
@@ -96,6 +99,7 @@ class _RandomAccessStringIO(object):
     def __getslice__(self, start, end):
         return self.getvalue()[start:end]
 
+
 def byte_ord(b):
     """
     Return the integer representation of the byte string.  This supports Python
@@ -110,6 +114,7 @@ def byte_ord(b):
 
 #{ Routines
 
+
 def make_sha(source=''.encode("ascii")):
     """A python2.4 workaround for the sha/hashlib module fiasco
 
@@ -120,6 +125,7 @@ def make_sha(source=''.encode("ascii")):
         import sha
         sha1 = sha.sha(source)
         return sha1
+
 
 def allocate_memory(size):
     """:return: a file-protocol accessible memory block of the given size"""
@@ -134,7 +140,7 @@ def allocate_memory(size):
         # this of course may fail if the amount of memory is not available in
         # one chunk - would only be the case in python 2.4, being more likely on
         # 32 bit systems.
-        return _RandomAccessStringIO("\0"*size)
+        return _RandomAccessStringIO("\0" * size)
     # END handle memory allocation
 
 
@@ -166,6 +172,7 @@ def file_contents_ro(fd, stream=False, allow_mmap=True):
         return _RandomAccessStringIO(contents)
     return contents
 
+
 def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
     """Get the file contents at filepath as fast as possible
 
@@ -178,12 +185,13 @@ def file_contents_ro_filepath(filepath, stream=False, allow_mmap=True, flags=0):
     **Note** for now we don't try to use O_NOATIME directly as the right value needs to be
     shared per database in fact. It only makes a real difference for loose object
     databases anyway, and they use it with the help of the ``flags`` parameter"""
-    fd = os.open(filepath, os.O_RDONLY|getattr(os, 'O_BINARY', 0)|flags)
+    fd = os.open(filepath, os.O_RDONLY | getattr(os, 'O_BINARY', 0) | flags)
     try:
         return file_contents_ro(fd, stream, allow_mmap)
     finally:
         close(fd)
     # END assure file is closed
+
 
 def sliding_ro_buffer(filepath, flags=0):
     """
@@ -191,11 +199,13 @@ def sliding_ro_buffer(filepath, flags=0):
         ready to read the whole given filepath"""
     return SlidingWindowMapBuffer(mman.make_cursor(filepath), flags=flags)
 
+
 def to_hex_sha(sha):
     """:return: hexified version  of sha"""
     if len(sha) == 40:
         return sha
     return bin_to_hex(sha)
+
 
 def to_bin_sha(sha):
     if len(sha) == 20:
@@ -209,6 +219,7 @@ def to_bin_sha(sha):
 #{ Utilities
 
 class LazyMixin(object):
+
     """
     Base class providing an interface to lazily retrieve attribute values upon
     first access. If slots are used, memory will only be reserved once the attribute
@@ -240,6 +251,7 @@ class LazyMixin(object):
 
 
 class LockedFD(object):
+
     """
     This class facilitates a safe read and write operation to a file on disk.
     If we write to 'file', we obtain a lock file at 'file.lock' and write to
@@ -290,7 +302,7 @@ class LockedFD(object):
 
         # try to open the lock file
         binary = getattr(os, 'O_BINARY', 0)
-        lockmode =  os.O_WRONLY | os.O_CREAT | os.O_EXCL | binary
+        lockmode = os.O_WRONLY | os.O_CREAT | os.O_EXCL | binary
         try:
             fd = os.open(self._lockfilepath(), lockmode, int("600", 8))
             if not write:

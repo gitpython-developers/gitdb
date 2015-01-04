@@ -11,6 +11,7 @@ from gitdb.db import (
     LooseObjectDB
 )
 
+
 class TestMemoryDB(TestDBBase):
 
     @with_rw_directory

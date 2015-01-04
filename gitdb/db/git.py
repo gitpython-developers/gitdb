@@ -20,6 +20,7 @@ __all__ = ('GitDB', )
 
 
 class GitDB(FileDBBase, ObjectDBW, CompoundDB):
+
     """A git-style object database, which contains all objects in the 'objects'
     subdirectory"""
     # Configuration
@@ -41,8 +42,8 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
             self._dbs = list()
             loose_db = None
             for subpath, dbcls in ((self.packs_dir, self.PackDBCls),
-                                    (self.loose_dir, self.LooseDBCls),
-                                    (self.alternates_dir, self.ReferenceDBCls)):
+                                   (self.loose_dir, self.LooseDBCls),
+                                   (self.alternates_dir, self.ReferenceDBCls)):
                 path = self.db_path(subpath)
                 if os.path.exists(path):
                     self._dbs.append(dbcls(path))

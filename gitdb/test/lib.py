@@ -24,6 +24,7 @@ from functools import wraps
 #{ Bases
 
 class TestBase(unittest.TestCase):
+
     """Base class for all tests"""
 
 
@@ -49,6 +50,7 @@ def skip_on_travis_ci(func):
 def with_rw_directory(func):
     """Create a temporary directory which can be written to, remove it if the
     test suceeds, but leave it otherwise to aid additional debugging"""
+
     def wrapper(self):
         path = tempfile.mktemp(prefix=func.__name__)
         os.mkdir(path)
@@ -78,6 +80,7 @@ def with_rw_directory(func):
 def with_packs_rw(func):
     """Function that provides a path into which the packs for testing should be
     copied. Will pass on the path to the actual function afterwards"""
+
     def wrapper(self, path):
         src_pack_glob = fixture_path('packs/*')
         copy_files_globbed(src_pack_glob, path, hard_link_ok=True)
@@ -91,11 +94,13 @@ def with_packs_rw(func):
 
 #{ Routines
 
+
 def fixture_path(relapath=''):
     """:return: absolute path into the fixture directory
     :param relapath: relative path into the fixtures directory, or ''
         to obtain the fixture directory itself"""
     return os.path.join(os.path.dirname(__file__), 'fixtures', relapath)
+
 
 def copy_files_globbed(source_glob, target_dir, hard_link_ok=False):
     """Copy all files found according to the given source glob into the target directory
@@ -127,10 +132,12 @@ def make_bytes(size_in_bytes, randomize=False):
     a = array('i', producer)
     return a.tostring()
 
+
 def make_object(type, data):
     """:return: bytes resembling an uncompressed object"""
     odata = "blob %i\0" % len(data)
     return odata.encode("ascii") + data
+
 
 def make_memory_file(size_in_bytes, randomize=False):
     """:return: tuple(size_of_stream, stream)
@@ -142,24 +149,27 @@ def make_memory_file(size_in_bytes, randomize=False):
 
 #{ Stream Utilities
 
+
 class DummyStream(object):
-        def __init__(self):
-            self.was_read = False
-            self.bytes = 0
-            self.closed = False
 
-        def read(self, size):
-            self.was_read = True
-            self.bytes = size
+    def __init__(self):
+        self.was_read = False
+        self.bytes = 0
+        self.closed = False
 
-        def close(self):
-            self.closed = True
+    def read(self, size):
+        self.was_read = True
+        self.bytes = size
 
-        def _assert(self):
-            assert self.was_read
+    def close(self):
+        self.closed = True
+
+    def _assert(self):
+        assert self.was_read
 
 
 class DeriveTest(OStream):
+
     def __init__(self, sha, type, size, stream, *args, **kwargs):
         self.myarg = kwargs.pop('myarg')
         self.args = args

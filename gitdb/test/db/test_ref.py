@@ -3,8 +3,8 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from gitdb.test.db.lib import (
-    TestDBBase, 
-    with_rw_directory, 
+    TestDBBase,
+    with_rw_directory,
     fixture_path
 )
 from gitdb.db import ReferenceDB
@@ -15,6 +15,7 @@ from gitdb.util import (
 )
 
 import os
+
 
 class TestReferenceDB(TestDBBase):
 

@@ -28,7 +28,9 @@ from io import BytesIO
 
 __all__ = ("MemoryDB", )
 
+
 class MemoryDB(ObjectDBR, ObjectDBW):
+
     """A memory database stores everything to memory, providing fast IO and object
     retrieval. It should be used to buffer results and obtain SHAs before writing
     it to the actual physical storage, as it allows to query whether object already
@@ -84,7 +86,6 @@ class MemoryDB(ObjectDBR, ObjectDBW):
             return self._cache.iterkeys()
         except AttributeError:
             return self._cache.keys()
-
 
     #{ Interface
     def stream_copy(self, sha_iter, odb):

@@ -14,6 +14,7 @@ from gitdb.exc import BadObject, AmbiguousObjectName
 import os
 import random
 
+
 class TestPackDB(TestDBBase):
 
     @with_rw_directory
@@ -53,7 +54,6 @@ class TestPackDB(TestDBBase):
             pdb.stream(sha)
         # END for each sha to query
 
-
         # test short finding - be a bit more brutal here
         max_bytes = 19
         min_bytes = 2
@@ -61,10 +61,10 @@ class TestPackDB(TestDBBase):
         for i, sha in enumerate(sha_list):
             short_sha = sha[:max((i % max_bytes), min_bytes)]
             try:
-                assert pdb.partial_to_complete_sha(short_sha, len(short_sha)*2) == sha
+                assert pdb.partial_to_complete_sha(short_sha, len(short_sha) * 2) == sha
             except AmbiguousObjectName:
                 num_ambiguous += 1
-                pass # valid, we can have short objects
+                pass  # valid, we can have short objects
             # END exception handling
         # END for each sha to find
 

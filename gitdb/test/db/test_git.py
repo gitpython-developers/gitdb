@@ -3,7 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 from gitdb.test.db.lib import (
-    TestDBBase, 
+    TestDBBase,
     fixture_path,
     with_rw_directory
 )
@@ -11,6 +11,7 @@ from gitdb.exc import BadObject
 from gitdb.db import GitDB
 from gitdb.base import OStream, OInfo
 from gitdb.util import hex_to_bin, bin_to_hex
+
 
 class TestGitDB(TestDBBase):
 
@@ -28,8 +29,7 @@ class TestGitDB(TestDBBase):
         assert gdb.size() >= ni
         sha_list = list(gdb.sha_iter())
         assert len(sha_list) == gdb.size()
-        sha_list = sha_list[:ni] # speed up tests ... 
-
+        sha_list = sha_list[:ni]  # speed up tests ...
 
         # This is actually a test for compound functionality, but it doesn't
         # have a separate test module
@@ -39,7 +39,7 @@ class TestGitDB(TestDBBase):
 
         # mix even/uneven hexshas
         for i, binsha in enumerate(sha_list):
-            assert gdb.partial_to_complete_sha_hex(bin_to_hex(binsha)[:8-(i%2)]) == binsha
+            assert gdb.partial_to_complete_sha_hex(bin_to_hex(binsha)[:8 - (i % 2)]) == binsha
         # END for each sha
 
         self.failUnlessRaises(BadObject, gdb.partial_to_complete_sha_hex, "0000")
