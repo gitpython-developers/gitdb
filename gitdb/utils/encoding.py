@@ -22,7 +22,7 @@ def force_text(data, encoding="utf-8"):
     if isinstance(data, text_type):
         return data
 
-    if isinstance(data, string_types):
+    if isinstance(data, bytes):
         return data.decode(encoding)
 
     if compat.PY3:
