@@ -77,7 +77,7 @@ if setuptools_build_py_module:
 __author__ = "Sebastian Thiel"
 __contact__ = "byronimo@gmail.com"
 __homepage__ = "https://github.com/gitpython-developers/gitdb"
-version_info = (0, 6, 1)
+version_info = (0, 6, 2)
 __version__ = '.'.join(str(i) for i in version_info)
 
 setup(cmdclass={'build_ext': build_ext_nofail},
@@ -92,8 +92,8 @@ setup(cmdclass={'build_ext': build_ext_nofail},
       ext_modules=[Extension('gitdb._perf', ['gitdb/_fun.c', 'gitdb/_delta_apply.c'], include_dirs=['gitdb'])],
       license = "BSD License",
       zip_safe=False,
-      requires=('smmap (>=0.8.3)', ),
-      install_requires=('smmap >= 0.8.3'),
+      requires=('smmap (>=0.8.5)', ),
+      install_requires=('smmap >= 0.8.5'),
       long_description = """GitDB is a pure-Python git object database""",
       # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
       classifiers=[

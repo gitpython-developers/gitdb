@@ -8,7 +8,7 @@ import mmap
 import sys
 import errno
 
-from io import StringIO
+from io import BytesIO
 
 from smmap import (
     StaticWindowMapManager,
@@ -78,14 +78,14 @@ from gitdb.const import (
 #{ compatibility stuff ...
 
 
-class _RandomAccessStringIO(object):
+class _RandomAccessBytesIO(object):
 
     """Wrapper to provide required functionality in case memory maps cannot or may
     not be used. This is only really required in python 2.4"""
     __slots__ = '_sio'
 
     def __init__(self, buf=''):
-        self._sio = StringIO(buf)
+        self._sio = BytesIO(buf)
 
     def __getattr__(self, attr):
         return getattr(self._sio, attr)
@@ -130,7 +130,7 @@ def make_sha(source=''.encode("ascii")):
 def allocate_memory(size):
     """:return: a file-protocol accessible memory block of the given size"""
     if size == 0:
-        return _RandomAccessStringIO('')
+        return _RandomAccessBytesIO(b'')
     # END handle empty chunks gracefully
 
     try:
@@ -140,7 +140,7 @@ def allocate_memory(size):
         # this of course may fail if the amount of memory is not available in
         # one chunk - would only be the case in python 2.4, being more likely on
         # 32 bit systems.
-        return _RandomAccessStringIO("\0" * size)
+        return _RandomAccessBytesIO(b"\0" * size)
     # END handle memory allocation
 
 
@@ -169,7 +169,7 @@ def file_contents_ro(fd, stream=False, allow_mmap=True):
     # read manully
     contents = os.read(fd, os.fstat(fd).st_size)
     if stream:
-        return _RandomAccessStringIO(contents)
+        return _RandomAccessBytesIO(contents)
     return contents
 
 
