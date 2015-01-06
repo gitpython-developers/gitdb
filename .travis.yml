@@ -12,7 +12,7 @@ git:
 install:
   - pip install coveralls
 script: 
-  - nosetests -v
+  - nosetests -v --with-coverage
 after_success:
   - coveralls
 

@@ -15,7 +15,10 @@
 			"folder_exclude_patterns" : [
 				".git",
 				"cover",
-				"gitdb/ext"
+				"gitdb/ext",
+				"dist",
+				"doc/build",
+				".tox"
 			]
 		},
 		// SMMAP
@@ -32,22 +35,9 @@
 			"folder_exclude_patterns" : [
 				".git",
 				"cover",
-			]
-		},
-		// ASYNC
-		////////
-		{
-			"follow_symlinks": true,
-			"path": "../../gitdb/ext/async",
-			"file_exclude_patterns" : [
-				"*.sublime-workspace",
-				".git",
-				".noseids",
-				".coverage"
-			],
-			"folder_exclude_patterns" : [
-				".git",
-				"cover",
+				"dist",
+				"doc/build",
+				".tox"
 			]
 		},
 	]

@@ -1,0 +1,11 @@
+[run]
+source = gitdb
+
+; to make nosetests happy
+[report]
+omit = 
+	*/smmap/*
+	*/yaml*
+	*/tests/*
+    */python?.?/*
+    */site-packages/nose/*
