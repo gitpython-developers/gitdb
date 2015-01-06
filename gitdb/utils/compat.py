@@ -15,6 +15,9 @@ try:
     # Python 2
     buffer = buffer
     memoryview = buffer
+    # Assume no memory view ...
+    def to_bytes(i):
+        return i
 except NameError:
     # Python 3 has no `buffer`; only `memoryview`
     # However, it's faster to just slice the object directly, maybe it keeps a view internally
@@ -26,6 +29,11 @@ except NameError:
             # return memoryview(obj)[offset:offset+size]
             return obj[offset:offset + size]
     # end buffer reimplementation
+    # smmap can return memory view objects, which can't be compared as buffers/bytes can ... 
+    def to_bytes(i):
+        if isinstance(i, memoryview):
+            return i.tobytes()
+        return i
 
     memoryview = memoryview
 
