@@ -91,9 +91,7 @@ class DecompressMemMapReader(LazyMixin):
         self._parse_header_info()
 
     def __del__(self):
-        if self._close:
-            self._m.close()
-        # END handle resource freeing
+        self.close()
 
     def _parse_header_info(self):
         """If this stream contains object data, parse the header info and skip the
@@ -140,6 +138,16 @@ class DecompressMemMapReader(LazyMixin):
     def data(self):
         """:return: random access compatible data we are working on"""
         return self._m
+
+    def close(self):
+        """Close our underlying stream of compressed bytes if this was allowed during initialization
+        :return: True if we closed the underlying stream
+        :note: can be called safely 
+        """
+        if self._close:
+            self._m.close()
+            self._close = False
+        # END handle resource freeing
 
     def compressed_bytes_read(self):
         """
