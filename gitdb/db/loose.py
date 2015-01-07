@@ -159,7 +159,8 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
             typ, size = loose_object_header_info(m)
             return OInfo(sha, typ, size)
         finally:
-            m.close()
+            if hasattr(m, 'close'):
+                m.close()
         # END assure release of system resources
 
     def stream(self, sha):

@@ -145,7 +145,8 @@ class DecompressMemMapReader(LazyMixin):
         :note: can be called safely 
         """
         if self._close:
-            self._m.close()
+            if hasattr(self._m, 'close'):
+                self._m.close()
             self._close = False
         # END handle resource freeing
 
