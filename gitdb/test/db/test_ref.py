@@ -5,7 +5,6 @@
 from gitdb.test.db.lib import (
     TestDBBase,
     with_rw_directory,
-    fixture_path
 )
 from gitdb.db import ReferenceDB
 

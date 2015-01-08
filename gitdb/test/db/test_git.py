@@ -5,7 +5,6 @@
 import os
 from gitdb.test.db.lib import (
     TestDBBase,
-    fixture_path,
     with_rw_directory
 )
 from gitdb.exc import BadObject
