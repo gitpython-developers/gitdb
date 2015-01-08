@@ -45,7 +45,7 @@ class TestReferenceDB(TestDBBase):
         assert len(rdb.databases()) == 1
 
         # we should now find a default revision of ours
-        gitdb_sha = hex_to_bin("5690fd0d3304f378754b23b098bd7cb5f4aa1976")
+        gitdb_sha = next(rdb.sha_iter())
         assert rdb.has_object(gitdb_sha)
 
         # remove valid

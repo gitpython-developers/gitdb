@@ -10,7 +10,7 @@ from gitdb.test.db.lib import (
 from gitdb.exc import BadObject
 from gitdb.db import GitDB
 from gitdb.base import OStream, OInfo
-from gitdb.util import hex_to_bin, bin_to_hex
+from gitdb.util import bin_to_hex
 
 
 class TestGitDB(TestDBBase):
@@ -22,7 +22,7 @@ class TestGitDB(TestDBBase):
         assert 1 < len(gdb.databases()) < 4
 
         # access should be possible
-        gitdb_sha = hex_to_bin("5690fd0d3304f378754b23b098bd7cb5f4aa1976")
+        gitdb_sha = next(gdb.sha_iter())
         assert isinstance(gdb.info(gitdb_sha), OInfo)
         assert isinstance(gdb.stream(gitdb_sha), OStream)
         ni = 50
@@ -35,7 +35,8 @@ class TestGitDB(TestDBBase):
         # have a separate test module
         # test partial shas
         # this one as uneven and quite short
-        assert gdb.partial_to_complete_sha_hex('155b6') == hex_to_bin("155b62a9af0aa7677078331e111d0f7aa6eb4afc")
+        gitdb_sha_hex = bin_to_hex(gitdb_sha)
+        assert gdb.partial_to_complete_sha_hex(gitdb_sha_hex[:5]) == gitdb_sha
 
         # mix even/uneven hexshas
         for i, binsha in enumerate(sha_list):
