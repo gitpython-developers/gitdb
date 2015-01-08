@@ -62,7 +62,7 @@ class DecompressMemMapReader(LazyMixin):
         hence we try to find a good tradeoff between allocation time and number of
         times we actually allocate. An own zlib implementation would be good here
         to better support streamed reading - it would only need to keep the mmap
-        and decompress it into chunks, thats all ... """
+        and decompress it into chunks, that's all ... """
     __slots__ = ('_m', '_zip', '_buf', '_buflen', '_br', '_cws', '_cwe', '_s', '_close',
                  '_cbr', '_phi')
 
@@ -128,7 +128,7 @@ class DecompressMemMapReader(LazyMixin):
         This method parses the object header from m and returns the parsed
         type and size, as well as the created stream instance.
 
-        :param m: memory map on which to oparate. It must be object data ( header + contents )
+        :param m: memory map on which to operate. It must be object data ( header + contents )
         :param close_on_deletion: if True, the memory map will be closed once we are
             being deleted"""
         inst = DecompressMemMapReader(m, close_on_deletion, 0)
@@ -175,7 +175,7 @@ class DecompressMemMapReader(LazyMixin):
         # Only scrub the stream forward if we are officially done with the
         # bytes we were to have.
         if self._br == self._s and not self._zip.unused_data:
-            # manipulate the bytes-read to allow our own read method to coninute
+            # manipulate the bytes-read to allow our own read method to continue
             # but keep the window at its current position
             self._br = 0
             if hasattr(self._zip, 'status'):
