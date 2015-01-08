@@ -3,10 +3,8 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module with examples from the tutorial section of the docs"""
-from gitdb.test.lib import (
-    TestBase,
-    fixture_path
-)
+import os
+from gitdb.test.lib import TestBase
 from gitdb import IStream
 from gitdb.db import LooseObjectDB
 
@@ -16,7 +14,7 @@ from io import BytesIO
 class TestExamples(TestBase):
 
     def test_base(self):
-        ldb = LooseObjectDB(fixture_path("../../../.git/objects"))
+        ldb = LooseObjectDB(os.path.join(self.gitrepopath, 'objects'))
 
         for sha1 in ldb.sha_iter():
             oinfo = ldb.info(sha1)

@@ -12,12 +12,10 @@ class ODBError(Exception):
 
 
 class InvalidDBRoot(ODBError):
-
     """Thrown if an object database cannot be initialized at the given path"""
 
 
 class BadObject(ODBError):
-
     """The object with the given SHA does not exist. Instantiate with the
     failed sha"""
 
@@ -25,19 +23,23 @@ class BadObject(ODBError):
         return "BadObject: %s" % to_hex_sha(self.args[0])
 
 
-class ParseError(ODBError):
+class BadName(ODBError):
+    """A name provided to rev_parse wasn't understood"""
 
+    def __str__(self):
+        return "Ref '%s' did not resolve to an object" % self.args[0]
+
+
+class ParseError(ODBError):
     """Thrown if the parsing of a file failed due to an invalid format"""
 
 
 class AmbiguousObjectName(ODBError):
-
     """Thrown if a possibly shortened name does not uniquely represent a single object
     in the database"""
 
 
 class BadObjectType(ODBError):
-
     """The object had an unsupported type"""
 
 

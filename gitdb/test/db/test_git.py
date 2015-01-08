@@ -2,6 +2,7 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
+import os
 from gitdb.test.db.lib import (
     TestDBBase,
     fixture_path,
@@ -16,7 +17,7 @@ from gitdb.util import hex_to_bin, bin_to_hex
 class TestGitDB(TestDBBase):
 
     def test_reading(self):
-        gdb = GitDB(fixture_path('../../../.git/objects'))
+        gdb = GitDB(os.path.join(self.gitrepopath, 'objects'))
 
         # we have packs and loose objects, alternates doesn't necessarily exist
         assert 1 < len(gdb.databases()) < 4

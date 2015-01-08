@@ -18,14 +18,41 @@ import tempfile
 import shutil
 import os
 import gc
+import logging
 from functools import wraps
 
 
 #{ Bases
 
 class TestBase(unittest.TestCase):
+    """Base class for all tests
 
-    """Base class for all tests"""
+    TestCase providing access to readonly repositories using the following member variables.
+
+    * gitrepopath
+
+     * read-only base path of the git source repository, i.e. .../git/.git
+    """
+
+    #{ Invvariants
+    k_env_git_repo = "GITDB_TEST_GIT_REPO_BASE"
+    #} END invariants
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            super(TestBase, cls).setUpClass()
+        except AttributeError:
+            pass
+
+        cls.gitrepopath = os.environ.get(cls.k_env_git_repo)
+        if not cls.gitrepopath:
+            logging.info(
+                "You can set the %s environment variable to a .git repository of your choice - defaulting to the gitdb repository", cls.k_env_git_repo)
+            ospd = os.path.dirname
+            cls.gitrepopath = os.path.join(ospd(ospd(ospd(__file__))), '.git')
+        # end assure gitrepo is set
+        assert cls.gitrepopath.endswith('.git')
 
 
 #} END bases
