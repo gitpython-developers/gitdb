@@ -7,7 +7,6 @@ from gitdb.util import to_hex_sha
 
 
 class ODBError(Exception):
-
     """All errors thrown by the object database"""
 
 
@@ -44,5 +43,4 @@ class BadObjectType(ODBError):
 
 
 class UnsupportedOperation(ODBError):
-
     """Thrown if the given operation cannot be supported by the object database"""

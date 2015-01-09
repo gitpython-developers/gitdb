@@ -19,7 +19,7 @@ __all__ = ('OInfo', 'OPackInfo', 'ODeltaPackInfo',
 
 class OInfo(tuple):
 
-    """Carries information about an object in an ODB, provding information
+    """Carries information about an object in an ODB, providing information
     about the binary sha of the object, the type_string as well as the uncompressed size
     in bytes.
 
@@ -29,7 +29,7 @@ class OInfo(tuple):
         assert dbi[1] == dbi.type
         assert dbi[2] == dbi.size
 
-    The type is designed to be as lighteight as possible."""
+    The type is designed to be as lightweight as possible."""
     __slots__ = tuple()
 
     def __new__(cls, sha, type, size):
@@ -69,7 +69,7 @@ class OPackInfo(tuple):
     does not include a sha.
 
     Additionally, the pack_offset is the absolute offset into the packfile at which
-    all object information is located. The data_offset property points to the abosolute
+    all object information is located. The data_offset property points to the absolute
     location in the pack at which that actual data stream can be found."""
     __slots__ = tuple()
 

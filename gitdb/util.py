@@ -18,7 +18,7 @@ from smmap import (
 
 # initialize our global memory manager instance
 # Use it to free cached (and unused) resources.
-if sys.version_info[1] < 6:
+if sys.version_info < (2, 6):
     mman = StaticWindowMapManager()
 else:
     mman = SlidingWindowMapManager()
