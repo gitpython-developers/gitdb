@@ -77,7 +77,7 @@ if setuptools_build_py_module:
 __author__ = "Sebastian Thiel"
 __contact__ = "byronimo@gmail.com"
 __homepage__ = "https://github.com/gitpython-developers/gitdb"
-version_info = (0, 6, 3)
+version_info = (0, 6, 4)
 __version__ = '.'.join(str(i) for i in version_info)
 
 setup(cmdclass={'build_ext': build_ext_nofail},
