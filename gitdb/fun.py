@@ -426,7 +426,7 @@ def pack_object_header_info(data):
     s = 4                           # starting bit-shift size
     if PY3:
         while c & 0x80:
-            c = data[i]
+            c = byte_ord(data[i])
             i += 1
             size += (c & 0x7f) << s
             s += 7

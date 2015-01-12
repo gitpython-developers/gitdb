@@ -289,11 +289,18 @@ class DecompressMemMapReader(LazyMixin):
         # if we hit the end of the stream
         # NOTE: Behavior changed in PY2.7 onward, which requires special handling to make the tests work properly.
         # They are thorough, and I assume it is truly working.
-        if PY26:
+        # Why is this logic as convoluted as it is ? Please look at the table in 
+        # https://github.com/gitpython-developers/gitdb/issues/19 to learn about the test-results.
+        # Bascially, on py2.6, you want to use branch 1, whereas on all other python version, the second branch
+        # will be the one that works. 
+        # However, the zlib VERSIONs as well as the platform check is used to further match the entries in the 
+        # table in the github issue. This is it ... it was the only way I could make this work everywhere.
+        # IT's CERTAINLY GOING TO BITE US IN THE FUTURE ... .
+        if PY26 or ((zlib.ZLIB_VERSION == '1.2.7' or zlib.ZLIB_VERSION == '1.2.5') and not sys.platform == 'darwin'):
             unused_datalen = len(self._zip.unconsumed_tail)
         else:
             unused_datalen = len(self._zip.unconsumed_tail) + len(self._zip.unused_data)
-        # end handle very special case ...
+        # # end handle very special case ...
 
         self._cbr += len(indata) - unused_datalen
         self._br += len(dcompdat)
@@ -374,7 +381,6 @@ class DeltaApplyReader(LazyMixin):
         # Aggregate all deltas into one delta in reverse order. Hence we take
         # the last delta, and reverse-merge its ancestor delta, until we receive
         # the final delta data stream.
-        # print "Handling %i delta streams, sizes: %s" % (len(self._dstreams), [ds.size for ds in self._dstreams])
         dcl = connect_deltas(self._dstreams)
 
         # call len directly, as the (optional) c version doesn't implement the sequence

@@ -552,6 +552,7 @@ class PackFile(LazyMixin):
             # the amount of compressed bytes we need to get to the next offset
 
             stream_copy(ostream.read, null.write, ostream.size, chunk_size)
+            assert ostream.stream._br == ostream.size
             cur_offset += (data_offset - ostream.pack_offset) + ostream.stream.compressed_bytes_read()
 
             # if a stream is requested, reset it beforehand
