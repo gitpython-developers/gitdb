@@ -413,7 +413,7 @@ uint DIV_info_rbound(const DeltaInfoVector* vec, const DeltaInfo* di)
 
 // return size of the given delta info item
 inline
-uint DIV_info_size2(const DeltaInfoVector* vec, const DeltaInfo* di, const DeltaInfo const* veclast)
+uint DIV_info_size2(const DeltaInfoVector* vec, const DeltaInfo* di, const DeltaInfo* const veclast)
 {
 	if (veclast == di){
 		return vec->di_last_size;
@@ -534,7 +534,7 @@ uint DIV_count_slice_bytes(const DeltaInfoVector* src, uint ofs, uint size)
 		}
 	}
 	
-	const DeltaInfo const* vecend = DIV_end(src);
+	const DeltaInfo* const vecend = DIV_end(src);
 	const uchar* nstream;
 	for( ;cdi < vecend; ++cdi){
 		nstream = next_delta_info(src->dstream + cdi->dso, &dc);
@@ -753,7 +753,7 @@ PyObject* DCL_apply(DeltaChunkList* self, PyObject* args)
 	PyObject* tmpargs = PyTuple_New(1);
 	
 	const uchar* data = TSI_first(&self->istream);
-	const uchar const* dend = TSI_end(&self->istream);
+	const uchar* const dend = TSI_end(&self->istream);
 	
 	DeltaChunk dc;
 	DC_init(&dc, 0, 0, 0, NULL);
@@ -979,8 +979,8 @@ PyObject* connect_deltas(PyObject *self, PyObject *dstreams)
 		const uchar* data;
 		Py_ssize_t dlen;
 		PyObject_AsReadBuffer(db, (const void**)&data, &dlen);
-		const uchar const* dstart = data;
-		const uchar const* dend = data + dlen;
+		const uchar* const dstart = data;
+		const uchar* const dend = data + dlen;
 		div.dstream = dstart;
 		
 		if (dlen > pow(2, 32)){
