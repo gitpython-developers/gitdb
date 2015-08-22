@@ -22,7 +22,11 @@ __all__ = ('GitDB', )
 class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 
     """A git-style object database, which contains all objects in the 'objects'
-    subdirectory"""
+    subdirectory
+
+    ``IMPORTANT``: The usage of this implementation is highly discouraged as it fails to release file-handles.
+    This can be a problem with long-running processes and/or big repositories.
+    """
     # Configuration
     PackDBCls = PackedDB
     LooseDBCls = LooseObjectDB
