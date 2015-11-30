@@ -1,2 +1,1 @@
-gitdb
 smmap>=0.8.3
