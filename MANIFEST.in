@@ -3,6 +3,7 @@ include LICENSE
 include CHANGES
 include AUTHORS
 include README
+include MANIFEST.in
 
 include gitdb/_fun.c
 include gitdb/_delta_apply.c
