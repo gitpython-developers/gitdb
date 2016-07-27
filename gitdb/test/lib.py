@@ -76,7 +76,7 @@ def skip_on_travis_ci(func):
 
 def with_rw_directory(func):
     """Create a temporary directory which can be written to, remove it if the
-    test suceeds, but leave it otherwise to aid additional debugging"""
+    test succeeds, but leave it otherwise to aid additional debugging"""
 
     def wrapper(self):
         path = tempfile.mktemp(prefix=func.__name__)

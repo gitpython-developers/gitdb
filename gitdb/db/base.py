@@ -177,7 +177,7 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
         """:return: database containing the given 20 byte sha
         :raise BadObject:"""
         # most databases use binary representations, prevent converting
-        # it everytime a database is being queried
+        # it every time a database is being queried
         try:
             return self._db_cache[sha]
         except KeyError:

@@ -85,7 +85,7 @@ def pack_object_at(cursor, offset, as_stream):
         an object of the correct type according to the type_id  of the object.
         If as_stream is True, the object will contain a stream, allowing  the
         data to be read decompressed.
-    :param data: random accessable data containing all required information
+    :param data: random accessible data containing all required information
     :parma offset: offset in to the data at which the object information is located
     :param as_stream: if True, a stream object will be returned that can read
         the data, otherwise you receive an info object only"""
@@ -447,7 +447,7 @@ class PackIndexFile(LazyMixin):
         :return: index as in `sha_to_index` or None if the sha was not found in this
             index file
         :param partial_bin_sha: an at least two bytes of a partial binary sha as bytes
-        :param canonical_length: lenght of the original hexadecimal representation of the
+        :param canonical_length: length of the original hexadecimal representation of the
             given partial binary sha
         :raise AmbiguousObjectName:"""
         if len(partial_bin_sha) < 2:

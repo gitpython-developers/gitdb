@@ -174,7 +174,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
             return True
         except BadObject:
             return False
-        # END check existance
+        # END check existence
 
     def store(self, istream):
         """note: The sha we produce will be hex by nature"""

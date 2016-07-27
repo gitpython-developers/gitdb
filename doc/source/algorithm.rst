@@ -92,6 +92,6 @@ Future work
 
 Another very promising option is that streaming of delta data is indeed possible. Depending on the configuration of the copy-from-base operations, different optimizations could be applied to reduce the amount of memory required for the final processed delta stream. Some configurations may even allow it to stream data from the base buffer, instead of pre-loading it for random access.
 
-The ability to stream files at reduced memory costs would only be feasible for big files, and would have to be payed with extra pre-processing time.
+The ability to stream files at reduced memory costs would only be feasible for big files, and would have to be paid with extra pre-processing time.
 
 A very first and simple implementation could avoid memory peaks by streaming the TDS in conjunction with a base buffer, instead of writing everything into a fully allocated target buffer.

@@ -98,7 +98,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
         for sha in sha_iter:
             if odb.has_object(sha):
                 continue
-            # END check object existance
+            # END check object existence
 
             ostream = self.stream(sha)
             # compressed data including header

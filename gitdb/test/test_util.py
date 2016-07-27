@@ -60,7 +60,7 @@ class TestUtils(TestBase):
             self._cmp_contents(my_file, orig_data)
             assert not os.path.isfile(lockfilepath)
 
-            # additional call doesnt fail
+            # additional call doesn't fail
             lfd.commit()
             lfd.rollback()
 

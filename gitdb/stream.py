@@ -660,7 +660,7 @@ class FDCompressedSha1Writer(Sha1Writer):
 
     def write(self, data):
         """:raise IOError: If not all bytes could be written
-        :return: lenght of incoming data"""
+        :return: length of incoming data"""
         self.sha1.update(data)
         cdata = self.zip.compress(data)
         bytes_written = write(self.fd, cdata)

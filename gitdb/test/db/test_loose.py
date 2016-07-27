@@ -33,4 +33,4 @@ class TestLooseDB(TestDBBase):
         # END for each sha
 
         self.failUnlessRaises(BadObject, ldb.partial_to_complete_sha_hex, '0000')
-        # raises if no object could be foudn
+        # raises if no object could be found
