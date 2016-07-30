@@ -197,7 +197,6 @@ class TestPack(TestBase):
                 obj.stream.seek(0)
         # END utility
         for ppath, ipath, num_obj in zip((pack_path, ) * 2, (index_path, None), (len(pack_objs), None)):
-            pfile = open(ppath, 'wb')
             iwrite = None
             if ipath:
                 ifile = open(ipath, 'wb')
@@ -210,8 +209,8 @@ class TestPack(TestBase):
             # END rewind streams
             iteration += 1
 
-            pack_sha, index_sha = PackEntity.write_pack(pack_objs, pfile.write, iwrite, object_count=num_obj)
-            pfile.close()
+            with open(ppath, 'wb') as pfile:
+                pack_sha, index_sha = PackEntity.write_pack(pack_objs, pfile.write, iwrite, object_count=num_obj)
             assert os.path.getsize(ppath) > 100
 
             # verify pack

@@ -21,10 +21,9 @@ class TestReferenceDB(TestDBBase):
     def make_alt_file(self, alt_path, alt_list):
         """Create an alternates file which contains the given alternates.
         The list can be empty"""
-        alt_file = open(alt_path, "wb")
-        for alt in alt_list:
-            alt_file.write(alt.encode("utf-8") + "\n".encode("ascii"))
-        alt_file.close()
+        with open(alt_path, "wb") as alt_file:
+            for alt in alt_list:
+                alt_file.write(alt.encode("utf-8") + "\n".encode("ascii"))
 
     @with_rw_directory
     def test_writing(self, path):
