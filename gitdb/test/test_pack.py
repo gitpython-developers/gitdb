@@ -232,7 +232,7 @@ class TestPack(TestBase):
             # END verify files exist
         # END for each packpath, indexpath pair
 
-        # verify the packs throughly
+        # verify the packs thoroughly
         rewind_streams()
         entity = PackEntity.create(pack_objs, rw_dir)
         count = 0
