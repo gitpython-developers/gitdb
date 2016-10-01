@@ -139,9 +139,11 @@ class TestStream(TestBase):
 
             # read everything back, compare to data we zip
             fd = os.open(path, os.O_RDONLY | getattr(os, 'O_BINARY', 0))
-            written_data = os.read(fd, os.path.getsize(path))
-            assert len(written_data) == os.path.getsize(path)
-            os.close(fd)
+            try:
+                written_data = os.read(fd, os.path.getsize(path))
+                assert len(written_data) == os.path.getsize(path)
+            finally:
+                os.close(fd)
             assert written_data == zlib.compress(data, 1)   # best speed
 
             os.remove(path)

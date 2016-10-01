@@ -24,6 +24,9 @@ from functools import wraps
 
 #{ Bases
 
+log = logging.getLogger(__name__)
+
+
 class TestBase(unittest.TestCase):
     """Base class for all tests
 
@@ -47,8 +50,8 @@ class TestBase(unittest.TestCase):
 
         cls.gitrepopath = os.environ.get(cls.k_env_git_repo)
         if not cls.gitrepopath:
-            logging.info(
-                "You can set the %s environment variable to a .git repository of your choice - defaulting to the gitdb repository", cls.k_env_git_repo)
+            log.info("You can set the %s environment variable to a .git repository of your choice"
+                     " - defaulting to the gitdb repository", cls.k_env_git_repo)
             ospd = os.path.dirname
             cls.gitrepopath = os.path.join(ospd(ospd(ospd(__file__))), '.git')
         # end assure gitrepo is set

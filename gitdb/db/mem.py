@@ -100,13 +100,12 @@ class MemoryDB(ObjectDBR, ObjectDBW):
                 continue
             # END check object existence
 
-            ostream = self.stream(sha)
-            # compressed data including header
-            sio = BytesIO(ostream.stream.data())
-            istream = IStream(ostream.type, ostream.size, sio, sha)
-
-            odb.store(istream)
-            count += 1
+            with self.stream(sha) as ostream:
+                # compressed data including header
+                sio = BytesIO(ostream.stream.data())
+                with IStream(ostream.type, ostream.size, sio, sha) as istream:
+                    odb.store(istream)
+                    count += 1
         # END for each sha
         return count
     #} END interface

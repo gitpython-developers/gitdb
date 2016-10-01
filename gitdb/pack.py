@@ -63,8 +63,8 @@ from binascii import crc32
 
 from gitdb.const import NULL_BYTE
 from gitdb.utils.compat import (
-    izip, 
-    buffer, 
+    izip,
+    buffer,
     xrange,
     to_bytes
 )
@@ -184,7 +184,7 @@ class IndexWriter(object):
     __slots__ = '_objs'
 
     def __init__(self):
-        self._objs = list()
+        self._objs = []
 
     def append(self, binsha, crc, offset):
         """Append one piece of object information"""
@@ -223,7 +223,7 @@ class IndexWriter(object):
             sha_write(pack('>L', t[1] & 0xffffffff))
         # END for each crc
 
-        tmplist = list()
+        tmplist = []
         # offset 32
         for t in self._objs:
             ofs = t[2]
@@ -370,7 +370,7 @@ class PackIndexFile(LazyMixin):
     def _read_fanout(self, byte_offset):
         """Generate a fanout table from our data"""
         d = self._cursor.map()
-        out = list()
+        out = []
         append = out.append
         for i in xrange(256):
             append(unpack_from('>L', d, byte_offset + i * 4)[0])
@@ -601,7 +601,7 @@ class PackFile(LazyMixin):
             delta chain.
             If the object at offset is no delta, the size of the list is 1.
         :param offset: specifies the first byte of the object within this pack"""
-        out = list()
+        out = []
         c = self._cursor
         while True:
             ostream = pack_object_at(c, offset, True)[1]

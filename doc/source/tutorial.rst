@@ -35,29 +35,28 @@ Databases support query and/or addition of objects using simple interfaces. They
 Both have two sets of methods, one of which allows interacting with single objects, the other one allowing to handle a stream of objects simultaneously and asynchronously.
 
 Acquiring information about an object from a database is easy if you have a SHA1 to refer to the object::
-    
-    
+
+
     ldb = LooseObjectDB(fixture_path("../../../.git/objects"))
-    
+
     for sha1 in ldb.sha_iter():
         oinfo = ldb.info(sha1)
-        ostream = ldb.stream(sha1)
-        assert oinfo[:3] == ostream[:3]
-        
-        assert len(ostream.read()) == ostream.size
-    # END for each sha in database
-    
+        with =ldb.stream(sha1) as ostream:
+            assert oinfo[:3] == ostream[:3]
+
+            assert len(ostream.read()) == ostream.size
+
 To store information, you prepare an *IStream* object with the required information. The provided stream will be read and converted into an object, and the respective 20 byte SHA1 identifier is stored in the IStream object::
-    
+
     data = "my data"
-    istream = IStream("blob", len(data), StringIO(data))
-    
-    # the object does not yet have a sha
-    assert istream.binsha is None
-    ldb.store(istream)
-    # now the sha is set
-    assert len(istream.binsha) == 20
-    assert ldb.has_object(istream.binsha)
+    with IStream("blob", len(data), StringIO(data)) as istream:
+
+        # the object does not yet have a sha
+        assert istream.binsha is None
+        ldb.store(istream)
+        # now the sha is set
+        assert len(istream.binsha) == 20
+        assert ldb.has_object(istream.binsha)
 
 **********************
 Asynchronous Operation
@@ -67,33 +66,33 @@ For each read or write method that allows a single-object to be handled, an *_as
 Using asynchronous operations is easy, but chaining multiple operations together to form a complex one would require you to read the docs of the *async* package. At the current time, due to the *GIL*, the *GitDB* can only achieve true concurrency during zlib compression and decompression if big objects, if the respective c modules where compiled in *async*.
 
 Asynchronous operations are scheduled by a *ThreadPool* which resides in the *gitdb.util* module::
-    
+
     from gitdb.util import pool
-    
+
     # set the pool to use two threads
     pool.set_size(2)
-    
+
     # synchronize the mode of operation
     pool.set_size(0)
-    
-    
+
+
 Use async methods with readers, which supply items to be processed. The result is given through readers as well::
-    
+
     from async import IteratorReader
-    
+
     # Create a reader from an iterator
     reader = IteratorReader(ldb.sha_iter())
-    
+
     # get reader for object streams
     info_reader = ldb.stream_async(reader)
-    
+
     # read one
     info = info_reader.read(1)[0]
-    
+
     # read all the rest until depletion
     ostreams = info_reader.read()
-    
-    
+
+
 
 *********
 Databases

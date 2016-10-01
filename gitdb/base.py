@@ -3,7 +3,7 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module with basic data structures - they are designed to be lightweight and fast"""
-from gitdb.util import bin_to_hex
+from gitdb.util import bin_to_hex, suppress
 
 from gitdb.fun import (
     type_id_to_type_map,
@@ -134,8 +134,15 @@ class OStream(OInfo):
 
     #{ Stream Reader Interface
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        with suppress():
+            self.stream.close()
+
     def read(self, size=-1):
-        return self[3].read(size)
+        return self.stream.read(size)
 
     @property
     def stream(self):
@@ -171,9 +178,16 @@ class OPackStream(OPackInfo):
         """Helps with the initialization of subclasses"""
         return tuple.__new__(cls, (packoffset, type, size, stream))
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        with suppress():
+            self.stream.close()
+
     #{ Stream Reader Interface
     def read(self, size=-1):
-        return self[3].read(size)
+        return self.stream.read(size)
 
     @property
     def stream(self):
@@ -189,9 +203,16 @@ class ODeltaPackStream(ODeltaPackInfo):
     def __new__(cls, packoffset, type, size, delta_info, stream):
         return tuple.__new__(cls, (packoffset, type, size, delta_info, stream))
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        with suppress():
+            self.stream.close()
+
     #{ Stream Reader Interface
     def read(self, size=-1):
-        return self[4].read(size)
+        return self.stream.read(size)
 
     @property
     def stream(self):
@@ -216,6 +237,13 @@ class IStream(list):
     def __init__(self, type, size, stream, sha=None):
         list.__init__(self, (sha, type, size, stream, None))
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        with suppress():
+            self._stream().close()
+
     #{ Interface
     @property
     def hexsha(self):
@@ -239,7 +267,7 @@ class IStream(list):
     def read(self, size=-1):
         """Implements a simple stream reader interface, passing the read call on
             to our internal stream"""
-        return self[3].read(size)
+        return self._stream().read(size)
 
     #} END stream reader interface
 
@@ -311,5 +339,11 @@ class InvalidOStream(InvalidOInfo):
 
     """Carries information about an invalid ODB stream"""
     __slots__ = tuple()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
 
 #} END ODB Bases

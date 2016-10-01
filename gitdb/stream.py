@@ -24,6 +24,7 @@ from gitdb.util import (
     make_sha,
     write,
     close,
+    suppress,
 )
 
 from gitdb.const import NULL_BYTE, BYTE_SPACE
@@ -142,7 +143,7 @@ class DecompressMemMapReader(LazyMixin):
     def close(self):
         """Close our underlying stream of compressed bytes if this was allowed during initialization
         :return: True if we closed the underlying stream
-        :note: can be called safely 
+        :note: can be called safely
         """
         if self._close:
             if hasattr(self._m, 'close'):
@@ -289,11 +290,11 @@ class DecompressMemMapReader(LazyMixin):
         # if we hit the end of the stream
         # NOTE: Behavior changed in PY2.7 onward, which requires special handling to make the tests work properly.
         # They are thorough, and I assume it is truly working.
-        # Why is this logic as convoluted as it is ? Please look at the table in 
+        # Why is this logic as convoluted as it is ? Please look at the table in
         # https://github.com/gitpython-developers/gitdb/issues/19 to learn about the test-results.
         # Bascially, on py2.6, you want to use branch 1, whereas on all other python version, the second branch
-        # will be the one that works. 
-        # However, the zlib VERSIONs as well as the platform check is used to further match the entries in the 
+        # will be the one that works.
+        # However, the zlib VERSIONs as well as the platform check is used to further match the entries in the
         # table in the github issue. This is it ... it was the only way I could make this work everywhere.
         # IT's CERTAINLY GOING TO BITE US IN THE FUTURE ... .
         if PY26 or ((zlib.ZLIB_VERSION == '1.2.7' or zlib.ZLIB_VERSION == '1.2.5') and not sys.platform == 'darwin'):
@@ -566,6 +567,12 @@ class Sha1Writer(object):
 
     #{ Stream Interface
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
     def write(self, data):
         """:raise IOError: If not all bytes could be written
         :param data: byte object
@@ -593,11 +600,20 @@ class FlexibleSha1Writer(Sha1Writer):
 
     """Writer producing a sha1 while passing on the written bytes to the given
     write function"""
-    __slots__ = 'writer'
+    __slots__ = ('writer', '_no_close_writer')
 
-    def __init__(self, writer):
+    def __init__(self, writer, no_close_writer=False):
         Sha1Writer.__init__(self)
         self.writer = writer
+        self._no_close_writer = no_close_writer
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if not self._no_close_writer:
+            with suppress():
+                self.writer.close()
 
     def write(self, data):
         Sha1Writer.write(self, data)
@@ -613,6 +629,13 @@ class ZippedStoreShaWriter(Sha1Writer):
         Sha1Writer.__init__(self)
         self.buf = BytesIO()
         self.zip = zlib.compressobj(zlib.Z_BEST_SPEED)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        with suppress():
+            self.close()
 
     def __getattr__(self, attr):
         return getattr(self.buf, attr)
@@ -658,6 +681,13 @@ class FDCompressedSha1Writer(Sha1Writer):
 
     #{ Stream Interface
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        with suppress():
+            self.close()
+
     def write(self, data):
         """:raise IOError: If not all bytes could be written
         :return: length of incoming data"""
@@ -690,6 +720,13 @@ class FDStream(object):
         self._fd = fd
         self._pos = 0
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        with suppress():
+            self.close()
+
     def write(self, data):
         self._pos += len(data)
         os.write(self._fd, data)
@@ -718,6 +755,12 @@ class NullStream(object):
     """A stream that does nothing but providing a stream interface.
     Use it like /dev/null"""
     __slots__ = tuple()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
 
     def read(self, size=0):
         return ''
