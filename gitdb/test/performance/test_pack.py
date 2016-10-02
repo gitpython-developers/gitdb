@@ -92,19 +92,20 @@ class TestPackedDBPerformance(TestBigRepoR):
         pdb = GitDB(os.path.join(self.gitrepopath, 'objects'))
         mdb = MemoryDB()
         for c, sha in enumerate(pdb.sha_iter()):
-            ostream = pdb.stream(sha)
-            # the issue only showed on larger files which are hardly compressible ...
-            if ostream.type != str_blob_type:
-                continue
-            istream = IStream(ostream.type, ostream.size, ostream.stream)
-            mdb.store(istream)
-            assert istream.binsha == sha, "Failed on object %s" % bin_to_hex(sha).decode('ascii')
-            # this can fail ... sometimes, so the packs dataset should be huge
-            assert len(mdb.stream(sha).read()) == ostream.size
+            with pdb.stream(sha) as ostream:
+                # the issue only showed on larger files which are hardly compressible ...
+                if ostream.type != str_blob_type:
+                    continue
+                istream = IStream(ostream.type, ostream.size, ostream.stream)
+                mdb.store(istream)
+                assert istream.binsha == sha, "Failed on object %s" % bin_to_hex(sha).decode('ascii')
+                # this can fail ... sometimes, so the packs dataset should be huge
+                with mdb.stream(sha) as ost2:
+                    assert len(ost2.read()) == ostream.size
 
-            if c and c % 1000 == 0:
-                print("Verified %i loose object compression/decompression cycles" % c, file=sys.stderr)
-            mdb._cache.clear()
+                if c and c % 1000 == 0:
+                    print("Verified %i loose object compression/decompression cycles" % c, file=sys.stderr)
+                mdb._cache.clear()
         # end for each sha to copy
 
     @skip_on_travis_ci
@@ -116,14 +117,16 @@ class TestPackedDBPerformance(TestBigRepoR):
             count = 0
             st = time()
             for entity in pdb.entities():
-                pack_verify = entity.is_valid_stream
-                sha_by_index = entity.index().sha
-                for index in xrange(entity.index().size()):
-                    try:
-                        assert pack_verify(sha_by_index(index), use_crc=crc)
-                        count += 1
-                    except UnsupportedOperation:
-                        pass
+                with entity:
+                    pack_verify = entity.is_valid_stream
+                    idx = entity.index()
+                    sha_by_index = idx.sha
+                    for index in xrange(idx.size()):
+                        try:
+                            assert pack_verify(sha_by_index(index), use_crc=crc)
+                            count += 1
+                        except UnsupportedOperation:
+                            pass
                     # END ignore old indices
                 # END for each index
             # END for each entity

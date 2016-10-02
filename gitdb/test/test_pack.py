@@ -112,13 +112,14 @@ class TestPack(TestBase):
                 continue
             # END get deltastream
 
-            # read all
-            data = dstream.read()
-            assert len(data) == dstream.size
+            with dstream:
+                # read all
+                data = dstream.read()
+                assert len(data) == dstream.size
 
-            # test seek
-            dstream.seek(0)
-            assert dstream.read() == data
+                # test seek
+                dstream.seek(0)
+                assert dstream.read() == data
 
             # read chunks
             # NOTE: the current implementation is safe, it basically transfers
@@ -130,15 +131,15 @@ class TestPack(TestBase):
     def test_pack_index(self):
         # check version 1 and 2
         for indexfile, version, size in (self.packindexfile_v1, self.packindexfile_v2):
-            index = PackIndexFile(indexfile)
-            self._assert_index_file(index, version, size)
+            with PackIndexFile(indexfile) as index:
+                self._assert_index_file(index, version, size)
         # END run tests
 
     def test_pack(self):
         # there is this special version 3, but apparently its like 2 ...
         for packfile, version, size in (self.packfile_v2_3_ascii, self.packfile_v2_1, self.packfile_v2_2):
-            pack = PackFile(packfile)
-            self._assert_pack_file(pack, version, size)
+            with PackFile(packfile) as pack:
+                self._assert_pack_file(pack, version, size)
         # END for each pack to test
 
     @with_rw_directory
@@ -147,42 +148,43 @@ class TestPack(TestBase):
         for packinfo, indexinfo in ((self.packfile_v2_1, self.packindexfile_v1),
                                     (self.packfile_v2_2, self.packindexfile_v2),
                                     (self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):
-            packfile, version, size = packinfo
-            indexfile, version, size = indexinfo
-            entity = PackEntity(packfile)
-            assert entity.pack().path() == packfile
-            assert entity.index().path() == indexfile
-            pack_objs.extend(entity.stream_iter())
+            packfile, version, size = packinfo      # @UnusedVariable
+            indexfile, version, size = indexinfo    # @UnusedVariable
+            with PackEntity(packfile) as entity:
+                assert entity.pack().path() == packfile
+                assert entity.index().path() == indexfile
+                pack_objs.extend(entity.stream_iter())
 
-            count = 0
-            for info, stream in izip(entity.info_iter(), entity.stream_iter()):
-                count += 1
-                assert info.binsha == stream.binsha
-                assert len(info.binsha) == 20
-                assert info.type_id == stream.type_id
-                assert info.size == stream.size
+                count = 0
+                for info, stream in izip(entity.info_iter(), entity.stream_iter()):
+                    with stream:
+                        count += 1
+                        assert info.binsha == stream.binsha
+                        assert len(info.binsha) == 20
+                        assert info.type_id == stream.type_id
+                        assert info.size == stream.size
 
-                # we return fully resolved items, which is implied by the sha centric access
-                assert not info.type_id in delta_types
+                        # we return fully resolved items, which is implied by the sha centric access
+                        assert info.type_id not in delta_types
 
-                # try all calls
-                assert len(entity.collect_streams(info.binsha))
-                oinfo = entity.info(info.binsha)
-                assert isinstance(oinfo, OInfo)
-                assert oinfo.binsha is not None
-                ostream = entity.stream(info.binsha)
-                assert isinstance(ostream, OStream)
-                assert ostream.binsha is not None
+                        # try all calls
+                        assert len(entity.collect_streams(info.binsha))
+                        oinfo = entity.info(info.binsha)
+                        assert isinstance(oinfo, OInfo)
+                        assert oinfo.binsha is not None
+                        with entity.stream(info.binsha) as ostream:
+                            assert isinstance(ostream, OStream)
+                            assert ostream.binsha is not None
 
-                # verify the stream
-                try:
-                    assert entity.is_valid_stream(info.binsha, use_crc=True)
-                except UnsupportedOperation:
-                    pass
-                # END ignore version issues
-                assert entity.is_valid_stream(info.binsha, use_crc=False)
-            # END for each info, stream tuple
-            assert count == size
+                        # verify the stream
+                        try:
+                            assert entity.is_valid_stream(info.binsha, use_crc=True)
+                        except UnsupportedOperation:
+                            pass
+                        # END ignore version issues
+                        assert entity.is_valid_stream(info.binsha, use_crc=False)
+                # END for each info, stream tuple
+                assert count == size
 
         # END for each entity
 
@@ -217,33 +219,30 @@ class TestPack(TestBase):
             assert os.path.getsize(ppath) > 100
 
             # verify pack
-            pf = PackFile(ppath)  # FIXME: Leaks file-pointer(s)!
-            assert pf.size() == len(pack_objs)
-            assert pf.version() == PackFile.pack_version_default
-            assert pf.checksum() == pack_sha
-
+            with PackFile(ppath) as pf:  # FIXME: Leaks file-pointer(s)!
+                assert pf.size() == len(pack_objs)
+                assert pf.version() == PackFile.pack_version_default
+                assert pf.checksum() == pack_sha
             # verify index
             if ipath is not None:
                 ifile.close()
                 assert os.path.getsize(ipath) > 100
-                idx = PackIndexFile(ipath)
-                assert idx.version() == PackIndexFile.index_version_default
-                assert idx.packfile_checksum() == pack_sha
-                assert idx.indexfile_checksum() == index_sha
-                assert idx.size() == len(pack_objs)
+                with PackIndexFile(ipath) as idx:
+                    assert idx.version() == PackIndexFile.index_version_default
+                    assert idx.packfile_checksum() == pack_sha
+                    assert idx.indexfile_checksum() == index_sha
+                    assert idx.size() == len(pack_objs)
             # END verify files exist
         # END for each packpath, indexpath pair
 
         # verify the packs thoroughly
         rewind_streams()
-        entity = PackEntity.create(pack_objs, rw_dir)
-        count = 0
-        for info in entity.info_iter():
-            count += 1
-            for use_crc in range(2):
-                assert entity.is_valid_stream(info.binsha, use_crc)
-            # END for each crc mode
-        # END for each info
+        with PackEntity.create(pack_objs, rw_dir) as entity:
+            count = 0
+            for info in entity.info_iter():
+                count += 1
+                for use_crc in range(2):
+                    assert entity.is_valid_stream(info.binsha, use_crc)
         assert count == len(pack_objs)
 
     def test_pack_64(self):

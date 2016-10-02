@@ -138,8 +138,11 @@ class OStream(OInfo):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        with suppress():
-            self.stream.close()
+        with suppress(Exception):
+            self.close()
+
+    def close(self):
+        self.stream.close()
 
     def read(self, size=-1):
         return self.stream.read(size)
@@ -182,8 +185,11 @@ class OPackStream(OPackInfo):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        with suppress():
-            self.stream.close()
+        with suppress(Exception):
+            self.close()
+
+    def close(self):
+        self.stream.close()
 
     #{ Stream Reader Interface
     def read(self, size=-1):
@@ -207,8 +213,11 @@ class ODeltaPackStream(ODeltaPackInfo):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        with suppress():
-            self.stream.close()
+        with suppress(Exception):
+            self.close()
+
+    def close(self):
+        self.stream.close()
 
     #{ Stream Reader Interface
     def read(self, size=-1):
@@ -241,8 +250,11 @@ class IStream(list):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        with suppress():
-            self._stream().close()
+        with suppress(Exception):
+            self.close()
+
+    def close(self):
+        self._stream().close()
 
     #{ Interface
     @property
@@ -344,6 +356,9 @@ class InvalidOStream(InvalidOInfo):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+    def close(self):
         pass
 
 #} END ODB Bases

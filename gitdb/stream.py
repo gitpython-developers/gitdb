@@ -29,7 +29,6 @@ from gitdb.util import (
 
 from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.utils.compat import buffer
-from gitdb.utils.encoding import force_bytes
 
 has_perf_mod = False
 PY26 = sys.version_info[:2] < (2, 7)
@@ -65,7 +64,7 @@ class DecompressMemMapReader(LazyMixin):
         to better support streamed reading - it would only need to keep the mmap
         and decompress it into chunks, that's all ... """
     __slots__ = ('_m', '_zip', '_buf', '_buflen', '_br', '_cws', '_cwe', '_s', '_close',
-                 '_cbr', '_phi')
+                 '_cbr', '_phi', '_entered')
 
     max_read_size = 512 * 1024        # currently unused
 
@@ -93,6 +92,18 @@ class DecompressMemMapReader(LazyMixin):
 
     def __del__(self):
         self.close()
+
+    def __enter__(self):
+        if getattr(self, '_entered', None):
+            raise ValueError('Re-entered!')
+        self._entered = True
+
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        #with suppress():
+        self.close()
+        del self._entered
 
     def _parse_header_info(self):
         """If this stream contains object data, parse the header info and skip the
@@ -138,6 +149,8 @@ class DecompressMemMapReader(LazyMixin):
 
     def data(self):
         """:return: random access compatible data we are working on"""
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
         return self._m
 
     def close(self):
@@ -172,6 +185,8 @@ class DecompressMemMapReader(LazyMixin):
         # We are using a custom zlib module for this, if its not present,
         # we try to put in additional bytes up for decompression if feasible
         # and check for the unused_data.
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
 
         # Only scrub the stream forward if we are officially done with the
         # bytes we were to have.
@@ -203,6 +218,9 @@ class DecompressMemMapReader(LazyMixin):
     def seek(self, offset, whence=getattr(os, 'SEEK_SET', 0)):
         """Allows to reset the stream to restart reading
         :raise ValueError: If offset and whence are not 0"""
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
+
         if offset != 0 or whence != getattr(os, 'SEEK_SET', 0):
             raise ValueError("Can only seek to position 0")
         # END handle offset
@@ -215,6 +233,9 @@ class DecompressMemMapReader(LazyMixin):
         # END skip header
 
     def read(self, size=-1):
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
+
         if size < 1:
             size = self._s - self._br
         else:
@@ -353,7 +374,8 @@ class DeltaApplyReader(LazyMixin):
         "_dstreams",            # tuple of delta stream readers
         "_mm_target",           # memory map of the delta-applied data
         "_size",                # actual number of bytes in _mm_target
-        "_br"                   # number of bytes read
+        "_br",                  # number of bytes read
+        "_entered",
     )
 
     #{ Configuration
@@ -369,6 +391,22 @@ class DeltaApplyReader(LazyMixin):
         self._bstream = stream_list[-1]
         self._dstreams = tuple(stream_list[:-1])
         self._br = 0
+
+    def __enter__(self):
+        if getattr(self, '_entered', None):
+            raise ValueError('Re-entered!')
+        self._entered = True
+
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        del self._entered
+
+    def close(self):
+        self._bstream.close()
+        for s in self._dstreams:
+            s.close()
 
     def _set_cache_too_slow_without_c(self, attr):
         # the direct algorithm is fastest and most direct if there is only one
@@ -487,6 +525,9 @@ class DeltaApplyReader(LazyMixin):
     #} END configuration
 
     def read(self, count=0):
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
+
         bl = self._size - self._br      # bytes left
         if count < 1 or count > bl:
             count = bl
@@ -500,6 +541,9 @@ class DeltaApplyReader(LazyMixin):
         """Allows to reset the stream to restart reading
 
         :raise ValueError: If offset and whence are not 0"""
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
+
         if offset != 0 or whence != getattr(os, 'SEEK_SET', 0):
             raise ValueError("Can only seek to position 0")
         # END handle offset
@@ -560,7 +604,10 @@ class Sha1Writer(object):
 
     """Simple stream writer which produces a sha whenever you like as it degests
     everything it is supposed to write"""
-    __slots__ = "sha1"
+    __slots__ = (
+        'sha1',
+        '_entered',
+    )
 
     def __init__(self):
         self.sha1 = make_sha()
@@ -568,15 +615,25 @@ class Sha1Writer(object):
     #{ Stream Interface
 
     def __enter__(self):
+        if getattr(self, '_entered', None):
+            raise ValueError('Re-entered!')
+        self._entered = True
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        del self._entered
+
+    def close(self):
         pass
 
     def write(self, data):
         """:raise IOError: If not all bytes could be written
         :param data: byte object
         :return: length of incoming data"""
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
 
         self.sha1.update(data)
 
@@ -600,22 +657,20 @@ class FlexibleSha1Writer(Sha1Writer):
 
     """Writer producing a sha1 while passing on the written bytes to the given
     write function"""
-    __slots__ = ('writer', '_no_close_writer')
+    __slots__ = ('writer')
 
-    def __init__(self, writer, no_close_writer=False):
+    def __init__(self, writer):
         Sha1Writer.__init__(self)
         self.writer = writer
-        self._no_close_writer = no_close_writer
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if not self._no_close_writer:
-            with suppress():
-                self.writer.close()
+    def close(self):
+        with suppress(Exception):
+            self.writer.close()
 
     def write(self, data):
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
+
         Sha1Writer.write(self, data)
         self.writer(data)
 
@@ -630,17 +685,13 @@ class ZippedStoreShaWriter(Sha1Writer):
         self.buf = BytesIO()
         self.zip = zlib.compressobj(zlib.Z_BEST_SPEED)
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        with suppress():
-            self.close()
-
     def __getattr__(self, attr):
         return getattr(self.buf, attr)
 
     def write(self, data):
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
+
         alen = Sha1Writer.write(self, data)
         self.buf.write(self.zip.compress(data))
 
@@ -681,13 +732,6 @@ class FDCompressedSha1Writer(Sha1Writer):
 
     #{ Stream Interface
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        with suppress():
-            self.close()
-
     def write(self, data):
         """:raise IOError: If not all bytes could be written
         :return: length of incoming data"""
@@ -714,24 +758,37 @@ class FDStream(object):
     """A simple wrapper providing the most basic functions on a file descriptor
     with the fileobject interface. Cannot use os.fdopen as the resulting stream
     takes ownership"""
-    __slots__ = ("_fd", '_pos')
+    __slots__ = ('_fd',
+                 '_pos',
+                 '_entered',
+    )
 
     def __init__(self, fd):
         self._fd = fd
         self._pos = 0
 
     def __enter__(self):
+        if getattr(self, '_entered', None):
+            raise ValueError('Re-entered!')
+        self._entered = True
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         with suppress():
             self.close()
+        del self._entered
 
     def write(self, data):
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
+
         self._pos += len(data)
         os.write(self._fd, data)
 
     def read(self, count=0):
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
+
         if count == 0:
             count = os.path.getsize(self._filepath)
         # END handle read everything
@@ -754,21 +811,29 @@ class NullStream(object):
 
     """A stream that does nothing but providing a stream interface.
     Use it like /dev/null"""
-    __slots__ = tuple()
+    __slots__ = tuple('_entered')
 
     def __enter__(self):
+        if getattr(self, '_entered', None):
+            raise ValueError('Re-entered!')
+        self._entered = True
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        pass
+        del self._entered
 
     def read(self, size=0):
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
         return ''
 
     def close(self):
         pass
 
     def write(self, data):
+        # if not getattr(self, '_entered', None):
+        #     raise ValueError('Not entered!')
         return len(data)
 
 

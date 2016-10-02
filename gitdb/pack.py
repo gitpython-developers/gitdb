@@ -247,7 +247,7 @@ class IndexWriter(object):
         return sha
 
 
-class PackIndexFile(LazyMixin):
+class PackIndexFile(object):
 
     """A pack index provides offsets into the corresponding pack, allowing to find
     locations for offsets faster."""
@@ -261,54 +261,65 @@ class PackIndexFile(LazyMixin):
     _sha_list_offset = 8 + 1024
     index_v2_signature = b'\xfftOc'
     index_version_default = 2
+    _entered = 0
 
     def __init__(self, indexpath):
-        super(PackIndexFile, self).__init__()
         self._indexpath = indexpath
 
-    def _set_cache_(self, attr):
-        if attr == "_packfile_checksum":
-            self._packfile_checksum = self._cursor.map()[-40:-20]
-        elif attr == "_packfile_checksum":
-            self._packfile_checksum = self._cursor.map()[-20:]
-        elif attr == "_cursor":
-            # Note: We don't lock the file when reading as we cannot be sure
-            # that we can actually write to the location - it could be a read-only
-            # alternate for instance
-            self._cursor = mman.make_cursor(self._indexpath).use_region()
-            # We will assume that the index will always fully fit into memory !
-            if mman.window_size() > 0 and self._cursor.file_size() > mman.window_size():
-                raise AssertionError("The index file at %s is too large to fit into a mapped window (%i > %i). This is a limitation of the implementation" % (
-                    self._indexpath, self._cursor.file_size(), mman.window_size()))
-            # END assert window size
-        else:
-            # now its time to initialize everything - if we are here, someone wants
-            # to access the fanout table or related properties
+    def __enter__(self):
+        if not hasattr(self, '_cursor'):
+            assert self._entered == 0, (self, self._indexpath)
+            self._prepare_enter()
+        self._entered += 1
 
-            # CHECK VERSION
-            mmap = self._cursor.map()
-            self._version = (mmap[:4] == self.index_v2_signature and 2) or 1
-            if self._version == 2:
-                version_id = unpack_from(">L", mmap, 4)[0]
-                assert version_id == self._version, "Unsupported index version: %i" % version_id
-            # END assert version
+        return self
 
-            # SETUP FUNCTIONS
-            # setup our functions according to the actual version
-            for fname in ('entry', 'offset', 'sha', 'crc'):
-                setattr(self, fname, getattr(self, "_%s_v%i" % (fname, self._version)))
-            # END for each function to initialize
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._entered -= 1
+        assert self._entered >= 0, (self, self._indexpath)
+        if self._entered == 0:
+            self._cursor._destroy()
+            del self._cursor
+            del self._fanout_table
 
-            # INITIALIZE DATA
-            # byte offset is 8 if version is 2, 0 otherwise
-            self._initialize()
+    def _prepare_enter(self):
+        # Note: We don't lock the file when reading as we cannot be sure
+        # that we can actually write to the location - it could be a read-only
+        # alternate for instance
+        self._cursor = mman.make_cursor(self._indexpath).use_region()
+        # We will assume that the index will always fully fit into memory !
+        if mman.window_size() > 0 and self._cursor.file_size() > mman.window_size():
+            raise AssertionError("The index file at %s is too large to fit into a mapped window (%i > %i). This is a limitation of the implementation" % (
+                self._indexpath, self._cursor.file_size(), mman.window_size()))
+        # END assert window size
+
+        # now its time to initialize everything - if we are here, someone wants
+        # to access the fanout table or related properties
+
+        # CHECK VERSION
+        mmap = self._cursor.map()
+        self._version = (mmap[:4] == self.index_v2_signature and 2) or 1
+        if self._version == 2:
+            version_id = unpack_from(">L", mmap, 4)[0]
+            assert version_id == self._version, "Unsupported index version: %i" % version_id
+        # END assert version
+
+        # SETUP FUNCTIONS
+        # setup our functions according to the actual version
+        for fname in ('entry', 'offset', 'sha', 'crc'):
+            setattr(self, fname, getattr(self, "_%s_v%i" % (fname, self._version)))
+        # END for each function to initialize
+
+        # INITIALIZE DATA
+        # byte offset is 8 if version is 2, 0 otherwise
+        self._initialize()
         # END handle attributes
 
     #{ Access V1
 
     def _entry_v1(self, i):
         """:return: tuple(offset, binsha, 0)"""
-        return unpack_from(">L20s", self._cursor.map(), 1024 + i * 24) + (0, )
+        return unpack_from(">L20s", self._cursor.map(), 1024 + i * 24) + (0,)
 
     def _offset_v1(self, i):
         """see ``_offset_v2``"""
@@ -423,7 +434,7 @@ class PackIndexFile(LazyMixin):
         :param sha: 20 byte sha to lookup"""
         first_byte = byte_ord(sha[0])
         get_sha = self.sha
-        lo = 0                  # lower index, the left bound of the bisection
+        lo = 0
         if first_byte != 0:
             lo = self._fanout_table[first_byte - 1]
         hi = self._fanout_table[first_byte]     # the upper, right bound of the bisection
@@ -503,7 +514,7 @@ class PackIndexFile(LazyMixin):
     #} END properties
 
 
-class PackFile(LazyMixin):
+class PackFile(object):
 
     """A pack is a file written according to the Version 2 for git packs
 
@@ -516,7 +527,12 @@ class PackFile(LazyMixin):
     for some reason - one clearly doesn't want to read 10GB at once in that
     case"""
 
-    __slots__ = ('_packpath', '_cursor', '_size', '_version')
+    __slots__ = ('_packpath',
+                 '_cursor',
+                 '_size',
+                 '_version',
+                 '_entered',
+    )
     pack_signature = 0x5041434b     # 'PACK'
     pack_version_default = 2
 
@@ -526,8 +542,24 @@ class PackFile(LazyMixin):
 
     def __init__(self, packpath):
         self._packpath = packpath
+        self._entered = 0
 
-    def _set_cache_(self, attr):
+    def __enter__(self):
+        if not hasattr(self, '_cursor'):
+            assert self._entered == 0, (self, self._packpath)
+            self._prepare_enter()
+        self._entered += 1
+
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._entered -= 1
+        assert self._entered >= 0, (self, self._indexpath)
+        if self._entered == 0:
+            self._cursor._destroy()
+            del self._cursor
+
+    def _prepare_enter(self):
         # we fill the whole cache, whichever attribute gets queried first
         self._cursor = mman.make_cursor(self._packpath).use_region()
 
@@ -649,14 +681,16 @@ class PackFile(LazyMixin):
     #} END Read-Database like Interface
 
 
-class PackEntity(LazyMixin):
+class PackEntity(object):
 
     """Combines the PackIndexFile and the PackFile into one, allowing the
     actual objects to be resolved and iterated"""
 
-    __slots__ = ('_index',           # our index file
+    __slots__ = ('_basename',
+                 '_index',           # our index file
                  '_pack',            # our pack file
-                 '_offset_map'       # on demand dict mapping one offset to the next consecutive one
+                 '_offset_map',      # on demand dict mapping one offset to the next consecutive one
+                 '_entered',
                  )
 
     IndexFileCls = PackIndexFile
@@ -664,34 +698,56 @@ class PackEntity(LazyMixin):
 
     def __init__(self, pack_or_index_path):
         """Initialize ourselves with the path to the respective pack or index file"""
-        basename, ext = os.path.splitext(pack_or_index_path)
-        self._index = self.IndexFileCls("%s.idx" % basename)            # PackIndexFile instance
-        self._pack = self.PackFileCls("%s.pack" % basename)         # corresponding PackFile instance
+        basename, ext = os.path.splitext(pack_or_index_path)  # @UnusedVariable
+        self._index = self.IndexFileCls("%s.idx" % basename)
+        self._pack = self.PackFileCls("%s.pack" % basename)
+        self._entered = False
 
-    def _set_cache_(self, attr):
-        # currently this can only be _offset_map
-        # TODO: make this a simple sorted offset array which can be bisected
-        # to find the respective entry, from which we can take a +1 easily
-        # This might be slower, but should also be much lighter in memory !
-        offsets_sorted = sorted(self._index.offsets())
-        last_offset = len(self._pack.data()) - self._pack.footer_size
-        assert offsets_sorted, "Cannot handle empty indices"
+    def __enter__(self):
+        if self._entered:
+            raise ValueError('Re-entered!')
+        self._index.__enter__()
+        self._pack.__enter__()
+        self._entered = True
 
-        offset_map = None
-        if len(offsets_sorted) == 1:
-            offset_map = {offsets_sorted[0]: last_offset}
-        else:
-            iter_offsets = iter(offsets_sorted)
-            iter_offsets_plus_one = iter(offsets_sorted)
-            next(iter_offsets_plus_one)
-            consecutive = izip(iter_offsets, iter_offsets_plus_one)
+        return self
 
-            offset_map = dict(consecutive)
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self._index:
+            self._index.__exit__(exc_type, exc_value, traceback)
+        if self._pack:
+            self._pack.__exit__(exc_type, exc_value, traceback)
+        self._entered = False
 
-            # the last offset is not yet set
-            offset_map[offsets_sorted[-1]] = last_offset
-        # END handle offset amount
-        self._offset_map = offset_map
+    @property
+    def offset_map(self):
+        if not hasattr(self, '_offset_map'):
+            # currently this can only be _offset_map
+            # TODO: make this a simple sorted offset array which can be bisected
+            # to find the respective entry, from which we can take a +1 easily
+            # This might be slower, but should also be much lighter in memory !
+            offsets_sorted = sorted(self._index.offsets())
+            last_offset = len(self._pack.data()) - self._pack.footer_size
+            assert offsets_sorted, "Cannot handle empty indices"
+
+            offset_map = None
+            if len(offsets_sorted) == 1:
+                offset_map = {offsets_sorted[0]: last_offset}
+            else:
+                iter_offsets = iter(offsets_sorted)
+                iter_offsets_plus_one = iter(offsets_sorted)
+                next(iter_offsets_plus_one)
+                consecutive = izip(iter_offsets, iter_offsets_plus_one)
+
+                offset_map = dict(consecutive)
+
+                # the last offset is not yet set
+                offset_map[offsets_sorted[-1]] = last_offset
+            # END handle offset amount
+
+            self._offset_map = offset_map
+
+        return self._offset_map
 
     def _sha_to_index(self, sha):
         """:return: index for the given sha, or raise"""
@@ -814,7 +870,7 @@ class PackEntity(LazyMixin):
 
             index = self._sha_to_index(sha)
             offset = self._index.offset(index)
-            next_offset = self._offset_map[offset]
+            next_offset = self.offset_map[offset]
             crc_value = self._index.crc(index)
 
             # create the current crc value, on the compressed object data
@@ -835,9 +891,9 @@ class PackEntity(LazyMixin):
             return (this_crc_value & 0xffffffff) == crc_value
         else:
             shawriter = Sha1Writer()
-            stream = self._object(sha, as_stream=True)
-            # write a loose object, which is the basis for the sha
-            write_object(stream.type, stream.size, stream.read, shawriter.write)
+            with self._object(sha, as_stream=True) as stream:
+                # write a loose object, which is the basis for the sha
+                write_object(stream.type, stream.size, stream.read, shawriter.write)
 
             assert shawriter.sha(as_hex=False) == sha
             return shawriter.sha(as_hex=False) == sha
@@ -932,59 +988,59 @@ class PackEntity(LazyMixin):
             object_count = len(objs)
         # END handle object
 
-        pack_writer = FlexibleSha1Writer(pack_write)
-        pwrite = pack_writer.write
-        ofs = 0                                         # current offset into the pack file
-        index = None
-        wants_index = index_write is not None
+        with FlexibleSha1Writer(pack_write) as pack_writer:
+            pwrite = pack_writer.write
+            ofs = 0                                         # current offset into the pack file
+            index = None
+            wants_index = index_write is not None
 
-        # write header
-        pwrite(pack('>LLL', PackFile.pack_signature, PackFile.pack_version_default, object_count))
-        ofs += 12
+            # write header
+            pwrite(pack('>LLL', PackFile.pack_signature, PackFile.pack_version_default, object_count))
+            ofs += 12
 
-        if wants_index:
-            index = IndexWriter()
-        # END handle index header
-
-        actual_count = 0
-        for obj in objs:
-            actual_count += 1
-            crc = 0
-
-            # object header
-            hdr = create_pack_object_header(obj.type_id, obj.size)
-            if index_write:
-                crc = crc32(hdr)
-            else:
-                crc = None
-            # END handle crc
-            pwrite(hdr)
-
-            # data stream
-            zstream = zlib.compressobj(zlib_compression)
-            ostream = obj.stream
-            br, bw, crc = write_stream_to_pack(ostream.read, pwrite, zstream, base_crc=crc)
-            assert(br == obj.size)
             if wants_index:
-                index.append(obj.binsha, crc, ofs)
-            # END handle index
+                index = IndexWriter()
+            # END handle index header
 
-            ofs += len(hdr) + bw
-            if actual_count == object_count:
-                break
-            # END abort once we are done
-        # END for each object
+            actual_count = 0
+            for obj in objs:
+                actual_count += 1
+                crc = 0
 
-        if actual_count != object_count:
-            raise ValueError(
-                "Expected to write %i objects into pack, but received only %i from iterators" % (object_count, actual_count))
-        # END count assertion
+                # object header
+                hdr = create_pack_object_header(obj.type_id, obj.size)
+                if index_write:
+                    crc = crc32(hdr)
+                else:
+                    crc = None
+                # END handle crc
+                pwrite(hdr)
 
-        # write footer
-        pack_sha = pack_writer.sha(as_hex=False)
-        assert len(pack_sha) == 20
-        pack_write(pack_sha)
-        ofs += len(pack_sha)                            # just for completeness ;)
+                # data stream
+                zstream = zlib.compressobj(zlib_compression)
+                ostream = obj.stream
+                br, bw, crc = write_stream_to_pack(ostream.read, pwrite, zstream, base_crc=crc)
+                assert(br == obj.size)
+                if wants_index:
+                    index.append(obj.binsha, crc, ofs)
+                # END handle index
+
+                ofs += len(hdr) + bw
+                if actual_count == object_count:
+                    break
+                # END abort once we are done
+            # END for each object
+
+            if actual_count != object_count:
+                raise ValueError(
+                    "Expected to write %i objects into pack, but received only %i from iterators" % (object_count, actual_count))
+            # END count assertion
+
+            # write footer
+            pack_sha = pack_writer.sha(as_hex=False)
+            assert len(pack_sha) == 20
+            pack_write(pack_sha)
+            ofs += len(pack_sha)                            # just for completeness ;)
 
         index_sha = None
         if wants_index:

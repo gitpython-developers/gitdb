@@ -16,6 +16,8 @@ from smmap import (
     SlidingWindowMapBuffer
 )
 import logging
+import stat
+import shutil
 
 # initialize our global memory manager instance
 # Use it to free cached (and unused) resources.
@@ -116,6 +118,24 @@ def byte_ord(b):
 #} END compatibility stuff ...
 
 #{ Routines
+
+
+def rmtree(path):
+    """Remove the given recursively.
+
+    :note: we use shutil rmtree but adjust its behaviour to see whether files that
+        couldn't be deleted are read-only. Windows will not remove them in that case"""
+
+    def onerror(func, path, exc_info):
+        # Is the error an access error ?
+        os.chmod(path, stat.S_IWUSR)
+
+        try:
+            func(path)  # Will scream if still not possible to delete.
+        except Exception as ex:
+            raise
+
+    return shutil.rmtree(path, False, onerror)
 
 
 def make_sha(source=''.encode("ascii")):

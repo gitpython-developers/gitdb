@@ -23,7 +23,7 @@ from gitdb.utils.compat import xrange
 import os
 import glob
 
-__all__ = ('PackedDB', )
+__all__ = ('PackedDB',)
 
 #{ Utilities
 
@@ -70,7 +70,9 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         # END update sorting
 
         for item in self._entities:
-            index = item[2](sha)
+            ent = item[1]
+            with ent.index() as index:
+                index = index.sha_to_index(sha)
             if index is not None:
                 item[0] += 1            # one hit for you
                 self._hit_count += 1    # general hit count
@@ -95,24 +97,27 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
 
     def info(self, sha):
         entity, index = self._pack_info(sha)
-        return entity.info_at_index(index)
+        with entity:
+            return entity.info_at_index(index)
 
     def stream(self, sha):
         entity, index = self._pack_info(sha)
-        return entity.stream_at_index(index)
+        with entity:
+            return entity.stream_at_index(index)
 
     def sha_iter(self):
         for entity in self.entities():
-            index = entity.index()
-            sha_by_index = index.sha
-            for index in xrange(index.size()):
-                yield sha_by_index(index)
-            # END for each index
-        # END for each entity
+            with entity.index() as index:
+                sha_by_index = index.sha
+                for index in xrange(index.size()):
+                    yield sha_by_index(index)
 
     def size(self):
-        sizes = [item[1].index().size() for item in self._entities]
-        return reduce(lambda x, y: x + y, sizes, 0)
+        sz = 0
+        for entity in self.entities():
+            with entity.index() as idx:
+                sz += idx.size()
+        return sz
 
     #} END object db read
 
@@ -152,8 +157,8 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         for pack_file in (pack_files - our_pack_files):
             # init the hit-counter/priority with the size, a good measure for hit-
             # probability. Its implemented so that only 12 bytes will be read
-            entity = PackEntity(pack_file)
-            self._entities.append([entity.pack().size(), entity, entity.index().sha_to_index])
+            with PackEntity(pack_file) as entity:
+                self._entities.append([entity.pack().size(), entity, entity.index().sha_to_index])
         # END for each new packfile
 
         # removed packs
@@ -187,12 +192,13 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         :raise BadObject: """
         candidate = None
         for item in self._entities:
-            item_index = item[1].index().partial_sha_to_index(partial_binsha, canonical_length)
-            if item_index is not None:
-                sha = item[1].index().sha(item_index)
-                if candidate and candidate != sha:
-                    raise AmbiguousObjectName(partial_binsha)
-                candidate = sha
+            with item[1] as entity:
+                item_index = entity.index().partial_sha_to_index(partial_binsha, canonical_length)
+                if item_index is not None:
+                    sha = entity.index().sha(item_index)
+                    if candidate and candidate != sha:
+                        raise AmbiguousObjectName(partial_binsha)
+                    candidate = sha
             # END handle full sha could be found
         # END for each entity
 

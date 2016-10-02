@@ -51,7 +51,8 @@ class TestPackDB(TestDBBase):
 
         for sha in sha_list:
             pdb.info(sha)
-            pdb.stream(sha)
+            with pdb.stream(sha):
+                pass
         # END for each sha to query
 
         # test short finding - be a bit more brutal here

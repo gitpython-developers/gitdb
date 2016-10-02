@@ -3,27 +3,25 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Utilities used in ODB testing"""
-from gitdb import OStream
-from gitdb.utils.compat import xrange
-
-import sys
-import random
 from array import array
-
-from io import BytesIO
-
-import glob
-import unittest
-import tempfile
-import shutil
-import os
-import gc
-import logging
 from functools import wraps
+import gc
+import glob
+from io import BytesIO
+import logging
+import os
+import random
+import shutil
+import sys
+import tempfile
+import unittest
+
+from gitdb import OStream
+from gitdb.util import rmtree
+from gitdb.utils.compat import xrange
 
 
 #{ Bases
-
 log = logging.getLogger(__name__)
 
 
@@ -99,7 +97,7 @@ def with_rw_directory(func):
             # though this is not the case here unless we collect explicitly.
             if not keep:
                 gc.collect()
-                shutil.rmtree(path)
+                rmtree(path)
         # END handle exception
     # END wrapper
 

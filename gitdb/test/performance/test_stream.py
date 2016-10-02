@@ -74,9 +74,9 @@ class TestObjDBPerformance(TestBigRepoR):
 
             # reading all at once
             st = time()
-            ostream = ldb.stream(sha)
-            shadata = ostream.read()
-            elapsed_readall = time() - st
+            with ldb.stream(sha) as ostream:
+                shadata = ostream.read()
+                elapsed_readall = time() - st
 
             stream.seek(0)
             assert shadata == stream.getvalue()
@@ -87,12 +87,12 @@ class TestObjDBPerformance(TestBigRepoR):
             cs = 512 * 1000
             chunks = list()
             st = time()
-            ostream = ldb.stream(sha)
-            while True:
-                data = ostream.read(cs)
-                chunks.append(data)
-                if len(data) < cs:
-                    break
+            with ldb.stream(sha) as ostream:
+                while True:
+                    data = ostream.read(cs)
+                    chunks.append(data)
+                    if len(data) < cs:
+                        break
             # END read in chunks
             elapsed_readchunks = time() - st
 
