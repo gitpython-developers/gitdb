@@ -35,7 +35,7 @@ from gitdb.fun import (
 )
 
 try:
-    from _perf import PackIndexFile_sha_to_index
+    from gitdb_speedups._perf import PackIndexFile_sha_to_index
 except ImportError:
     pass
 # END try c module

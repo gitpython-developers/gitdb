@@ -20,6 +20,13 @@ From `PyPI <https://pypi.python.org/pypi/gitdb>`_
 
  pip install gitdb
 
+SPEEDUPS
+========
+
+If you want to go up to 20% faster, you can install gitdb-speedups with:
+
+ pip install gitdb-speedups
+
 REQUIREMENTS
 ============
 
