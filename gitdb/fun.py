@@ -776,6 +776,6 @@ def is_equal_canonical_sha(canonical_length, match, sha1):
 
 
 try:
-    from _perf import connect_deltas
+    from gitdb_speedups._perf import connect_deltas
 except ImportError:
     pass
