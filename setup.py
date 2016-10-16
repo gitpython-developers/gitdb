@@ -7,11 +7,11 @@ from setuptools import setup
 __author__ = "Sebastian Thiel"
 __contact__ = "byronimo@gmail.com"
 __homepage__ = "https://github.com/gitpython-developers/gitdb"
-version_info = (0, 6, 4)
+version_info = (2, 0, 0)
 __version__ = '.'.join(str(i) for i in version_info)
 
 setup(
-    name="gitdb",
+    name="gitdb2",
     version=__version__,
     description="Git Object Database",
     author=__author__,
@@ -20,7 +20,7 @@ setup(
     packages=('gitdb', 'gitdb.db', 'gitdb.utils', 'gitdb.test'),
     license="BSD License",
     zip_safe=False,
-    install_requires=['smmap >= 0.8.5'],
+    install_requires=['smmap2 >= 2.0.0'],
     long_description="""GitDB is a pure-Python git object database""",
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
