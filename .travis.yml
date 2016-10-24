@@ -12,7 +12,7 @@ git:
   depth: 1000
 install:
   - pip install coveralls
-  - pip install -I git+https://github.com/ankostis/smmap.git@leaks
+  - pip install -I git+https://github.com/ankostis/smmap.git@v2.1.0.dev0
 script: 
   - ulimit -n 48
   - ulimit -n

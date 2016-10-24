@@ -10,7 +10,7 @@ import os
 __author__ = "Sebastian Thiel"
 __contact__ = "byronimo@gmail.com"
 __homepage__ = "https://github.com/gitpython-developers/gitdb"
-version_info = (2, 0, 0)
+version_info = (2, 1, 0, 'dev0')
 __version__ = '.'.join(str(i) for i in version_info)
 
 

@@ -38,7 +38,7 @@ install:
         git config --global user.name "Travis Runner"
 
     - pip install -e .
-    - pip install -I git+https://github.com/ankostis/smmap.git@leaks
+    - pip install -I git+https://github.com/ankostis/smmap.git@v2.1.0.dev0
 
 build: false
 
