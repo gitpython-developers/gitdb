@@ -46,7 +46,8 @@ class TestPackStreamingPerformance(TestBigRepoR):
         st = time()
         for sha in pdb.sha_iter():
             count += 1
-            pdb.stream(sha)
+            with pdb.stream(sha):
+                pass
             if count == ni:
                 break
         # END gather objects for pack-writing
@@ -55,6 +56,8 @@ class TestPackStreamingPerformance(TestBigRepoR):
               (ni, elapsed, ni / (elapsed or 1)), file=sys.stderr)
 
         st = time()
+        ## We are leaking files here, but we don't care...
+        #  and we need a `contextlib.ExitStack` to safely close them.
         PackEntity.write_pack((pdb.stream(sha) for sha in pdb.sha_iter()), ostream.write, object_count=ni)
         elapsed = time() - st
         total_kb = ostream.bytes_written() / 1000

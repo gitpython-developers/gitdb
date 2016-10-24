@@ -24,7 +24,8 @@ class TestGitDB(TestDBBase):
         # access should be possible
         gitdb_sha = next(gdb.sha_iter())
         assert isinstance(gdb.info(gitdb_sha), OInfo)
-        assert isinstance(gdb.stream(gitdb_sha), OStream)
+        with gdb.stream(gitdb_sha) as stream:
+            assert isinstance(gdb.stream(gitdb_sha), OStream)
         ni = 50
         assert gdb.size() >= ni
         sha_list = list(gdb.sha_iter())

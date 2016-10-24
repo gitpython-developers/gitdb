@@ -154,13 +154,12 @@ class TestStream(TestBase):
         mdb = MemoryDB()
         for sha in (b'888401851f15db0eed60eb1bc29dec5ddcace911',
                     b'7bb839852ed5e3a069966281bb08d50012fb309b',):
-            ostream = odb.stream(hex_to_bin(sha))
+            with odb.stream(hex_to_bin(sha)) as ostream:
+                # if there is a bug, we will be missing one byte exactly !
+                data = ostream.read()
+                assert len(data) == ostream.size
 
-            # if there is a bug, we will be missing one byte exactly !
-            data = ostream.read()
-            assert len(data) == ostream.size
-
-            # Putting it back in should yield nothing new - after all, we have
-            dump = mdb.store(IStream(ostream.type, ostream.size, BytesIO(data)))
-            assert dump.hexsha == sha
+                # Putting it back in should yield nothing new - after all, we have
+                dump = mdb.store(IStream(ostream.type, ostream.size, BytesIO(data)))
+                assert dump.hexsha == sha
         # end for each loose object sha to test

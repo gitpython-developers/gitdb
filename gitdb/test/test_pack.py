@@ -88,42 +88,42 @@ class TestPack(TestBase):
 
         num_obj = 0
         for obj in pack.stream_iter():
-            num_obj += 1
-            info = pack.info(obj.pack_offset)
-            stream = pack.stream(obj.pack_offset)
+            with obj:
+                num_obj += 1
+                info = pack.info(obj.pack_offset)
+                with pack.stream(obj.pack_offset) as stream:
+                    assert info.pack_offset == stream.pack_offset
+                    assert info.type_id == stream.type_id
+                    assert hasattr(stream, 'read')
 
-            assert info.pack_offset == stream.pack_offset
-            assert info.type_id == stream.type_id
-            assert hasattr(stream, 'read')
+                    # it should be possible to read from both streams
+                    assert obj.read() == stream.read()
 
-            # it should be possible to read from both streams
-            assert obj.read() == stream.read()
+                streams = pack.collect_streams(obj.pack_offset)
+                assert streams
 
-            streams = pack.collect_streams(obj.pack_offset)
-            assert streams
+                # read the stream
+                try:
+                    dstream = DeltaApplyReader.new(streams)
+                except ValueError:
+                    # ignore these, old git versions use only ref deltas,
+                    # which we havent resolved ( as we are without an index )
+                    # Also ignore non-delta streams
+                    continue
+                # END get deltastream
 
-            # read the stream
-            try:
-                dstream = DeltaApplyReader.new(streams)
-            except ValueError:
-                # ignore these, old git versions use only ref deltas,
-                # which we havent resolved ( as we are without an index )
-                # Also ignore non-delta streams
-                continue
-            # END get deltastream
+                with dstream:
+                    # read all
+                    data = dstream.read()
+                    assert len(data) == dstream.size
 
-            with dstream:
-                # read all
-                data = dstream.read()
-                assert len(data) == dstream.size
+                    # test seek
+                    dstream.seek(0)
+                    assert dstream.read() == data
 
-                # test seek
-                dstream.seek(0)
-                assert dstream.read() == data
-
-            # read chunks
-            # NOTE: the current implementation is safe, it basically transfers
-            # all calls to the underlying memory map
+                # read chunks
+                # NOTE: the current implementation is safe, it basically transfers
+                # all calls to the underlying memory map
 
         # END for each object
         assert num_obj == size
@@ -142,6 +142,11 @@ class TestPack(TestBase):
                 self._assert_pack_file(pack, version, size)
         # END for each pack to test
 
+    ## Unless HIDE_WINDOWS_KNOWN_ERRORS, on Windows fails with:
+    # File "D:\Work\gitdb.git\gitdb\util.py", line 141, in onerror
+    #     func(path)  # Will scream if still not possible to delete.
+    # PermissionError: [WinError 32] The process cannot access the file
+    #    because it is being used by another process: 'sss\\index_cc_wll5'
     @with_rw_directory
     def test_pack_entity(self, rw_dir):
         pack_objs = list()

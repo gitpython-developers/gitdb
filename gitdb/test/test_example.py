@@ -18,26 +18,19 @@ class TestExamples(TestBase):
 
         for sha1 in ldb.sha_iter():
             oinfo = ldb.info(sha1)
-            ostream = ldb.stream(sha1)
-            assert oinfo[:3] == ostream[:3]
+            with ldb.stream(sha1) as ostream:
+                assert oinfo[:3] == ostream[:3]
 
-            assert len(ostream.read()) == ostream.size
+                assert len(ostream.read()) == ostream.size
             assert ldb.has_object(oinfo.binsha)
         # END for each sha in database
-        # assure we close all files
-        try:
-            del(ostream)
-            del(oinfo)
-        except UnboundLocalError:
-            pass
-        # END ignore exception if there are no loose objects
 
         data = "my data".encode("ascii")
         istream = IStream("blob", len(data), BytesIO(data))
 
         # the object does not yet have a sha
         assert istream.binsha is None
-        ldb.store(istream)
-        # now the sha is set
-        assert len(istream.binsha) == 20
-        assert ldb.has_object(istream.binsha)
+        with ldb.store(istream):
+            # now the sha is set
+            assert len(istream.binsha) == 20
+            assert ldb.has_object(istream.binsha)

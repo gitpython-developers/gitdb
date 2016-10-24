@@ -40,7 +40,7 @@ except ImportError:
     pass
 # END try c module
 
-from gitdb.base import (  # Amazing !
+from gitdb.base import (
     OInfo,
     OStream,
     OPackInfo,

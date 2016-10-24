@@ -40,7 +40,8 @@ from gitdb.util import (
     rename,
     dirname,
     basename,
-    join
+    join,
+    is_win,
 )
 
 from gitdb.fun import (
@@ -71,7 +72,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
     # On windows we need to keep it writable, otherwise it cannot be removed
     # either
     new_objects_mode = int("444", 8)
-    if os.name == 'nt':
+    if is_win:
         new_objects_mode = int("644", 8)
 
     def __init__(self, root_path):
@@ -226,7 +227,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                 mkdir(obj_dir)
             # END handle destination directory
             # rename onto existing doesn't work on windows
-            if os.name == 'nt':
+            if is_win:
                 if isfile(obj_path):
                     remove(tmp_path)
                 else:

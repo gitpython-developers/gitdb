@@ -25,6 +25,7 @@ from gitdb.util import (
     write,
     close,
     suppress,
+    is_darwin,
 )
 
 from gitdb.const import NULL_BYTE, BYTE_SPACE
@@ -318,7 +319,7 @@ class DecompressMemMapReader(LazyMixin):
         # However, the zlib VERSIONs as well as the platform check is used to further match the entries in the
         # table in the github issue. This is it ... it was the only way I could make this work everywhere.
         # IT's CERTAINLY GOING TO BITE US IN THE FUTURE ... .
-        if PY26 or ((zlib.ZLIB_VERSION == '1.2.7' or zlib.ZLIB_VERSION == '1.2.5') and not sys.platform == 'darwin'):
+        if PY26 or ((zlib.ZLIB_VERSION == '1.2.7' or zlib.ZLIB_VERSION == '1.2.5') and not is_darwin):
             unused_datalen = len(self._zip.unconsumed_tail)
         else:
             unused_datalen = len(self._zip.unconsumed_tail) + len(self._zip.unused_data)
@@ -447,7 +448,7 @@ class DeltaApplyReader(LazyMixin):
         # TODO: There should be a special case if there is only one stream
         # Then the default-git algorithm should perform a tad faster, as the
         # delta is not peaked into, causing less overhead.
-        buffer_info_list = list()
+        buffer_info_list = []
         max_target_size = 0
         for dstream in self._dstreams:
             buf = dstream.read(512)         # read the header information + X

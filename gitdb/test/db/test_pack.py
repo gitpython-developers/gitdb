@@ -13,10 +13,16 @@ from gitdb.exc import BadObject, AmbiguousObjectName
 
 import os
 import random
+from gitdb.util import mman, HIDE_WINDOWS_KNOWN_ERRORS
 
 
 class TestPackDB(TestDBBase):
 
+    ## Unless HIDE_WINDOWS_KNOWN_ERRORS, on Windows fails with:
+    # File "D:\Work\gitdb.git\gitdb\test\db\test_pack.py", line 41, in test_writing
+    #    os.rename(pack_path, new_pack_path)
+    # PermissionError: [WinError 32] The process cannot access the file
+    #    because it is being used by another process: 'pack-c0438c19fb16422b6bbcce24387b3264416d485b.packrenamed'
     @with_rw_directory
     @with_packs_rw
     def test_writing(self, path):
@@ -30,6 +36,10 @@ class TestPackDB(TestDBBase):
         # packs removed - rename a file, should affect the glob
         pack_path = pdb.entities()[0].pack().path()
         new_pack_path = pack_path + "renamed"
+        ## FIXME: Had to manually collect leaked files!!
+        if HIDE_WINDOWS_KNOWN_ERRORS:
+            leaked_mmaps = mman.collect()
+            self.assertEqual(leaked_mmaps, 6)
         os.rename(pack_path, new_pack_path)
 
         pdb.update_cache(force=True)

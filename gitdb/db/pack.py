@@ -43,13 +43,13 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         # * hits - number of times the pack was hit with a request
         # * entity - Pack entity instance
         # * sha_to_index - PackIndexFile.sha_to_index method for direct cache query
-        # self._entities = list()       # lazy loaded list
+        # self._entities = []       # lazy loaded list
         self._hit_count = 0             # amount of hits
         self._st_mtime = 0              # last modification data of our root path
 
     def _set_cache_(self, attr):
         if attr == '_entities':
-            self._entities = list()
+            self._entities = []
             self.update_cache(force=True)
         # END handle entities initialization
 

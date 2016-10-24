@@ -3,21 +3,27 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 import binascii
-import os
-import mmap
-import sys
 import errno
-
+import hashlib
 from io import BytesIO
+import logging
+import mmap
+import os
+import shutil
+import stat
+import sys
 
 from smmap import (
     StaticWindowMapManager,
     SlidingWindowMapManager,
     SlidingWindowMapBuffer
 )
-import logging
-import stat
-import shutil
+
+from gitdb.const import (
+    NULL_BIN_SHA,
+    NULL_HEX_SHA
+)
+
 
 # initialize our global memory manager instance
 # Use it to free cached (and unused) resources.
@@ -27,7 +33,6 @@ else:
     mman = SlidingWindowMapManager()
 # END handle mman
 
-import hashlib
 
 try:
     from struct import unpack_from
@@ -70,15 +75,19 @@ write = os.write
 close = os.close
 fsync = os.fsync
 
+is_win = (os.name == 'nt')
+is_darwin = (os.name == 'darwin')
+
 # Backwards compatibility imports
-from gitdb.const import (
-    NULL_BIN_SHA,
-    NULL_HEX_SHA
-)
 
 #} END Aliases
 
 log = logging.getLogger(__name__)
+
+#: We need an easy way to see if Appveyor TCs start failing,
+#: so the errors marked with this var are considered "acknowledged" ones, awaiting remedy,
+#: till then, we wish to hide them.
+HIDE_WINDOWS_KNOWN_ERRORS = is_win and os.environ.get('HIDE_WINDOWS_KNOWN_ERRORS', True)
 
 #{ compatibility stuff ...
 
@@ -420,7 +429,7 @@ class LockedFD(object):
         lockfile = self._lockfilepath()
         if self._write and successful:
             # on windows, rename does not silently overwrite the existing one
-            if sys.platform == "win32":
+            if is_win:
                 if isfile(self._filepath):
                     os.remove(self._filepath)
                 # END remove if exists

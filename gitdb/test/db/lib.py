@@ -39,7 +39,7 @@ class TestDBBase(TestBase):
 
     # data
     two_lines = b'1234\nhello world'
-    all_data = (two_lines, )
+    all_data = (two_lines,)
 
     def _assert_object_writing_simple(self, db):
         # write a bunch of objects and query their streams and info
@@ -56,10 +56,10 @@ class TestDBBase(TestBase):
             assert isinstance(info, OInfo)
             assert info.type == istream.type and info.size == istream.size
 
-            stream = db.stream(istream.binsha)
-            assert isinstance(stream, OStream)
-            assert stream.binsha == info.binsha and stream.type == info.type
-            assert stream.read() == data
+            with db.stream(istream.binsha) as stream:
+                assert isinstance(stream, OStream)
+                assert stream.binsha == info.binsha and stream.type == info.type
+                assert stream.read() == data
         # END for each item
 
         assert db.size() == null_objs + ni
