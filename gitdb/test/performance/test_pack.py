@@ -36,7 +36,7 @@ class TestPackedDBPerformance(TestBigRepoR):
         sha_list = list(pdb.sha_iter())
         elapsed = time() - st
         ns = len(sha_list)
-        print("PDB: looked up %i shas by index in %f s ( %f shas/s )" % (ns, elapsed, ns / elapsed), file=sys.stderr)
+        print("PDB: looked up %i shas by index in %f s ( %f shas/s )" % (ns, elapsed, ns / (elapsed or 1)), file=sys.stderr)
 
         # sha lookup: best-case and worst case access
         pdb_pack_info = pdb._pack_info
@@ -51,7 +51,7 @@ class TestPackedDBPerformance(TestBigRepoR):
         del(pdb._entities)
         pdb.entities()
         print("PDB: looked up %i sha in %i packs in %f s ( %f shas/s )" %
-              (ns, len(pdb.entities()), elapsed, ns / elapsed), file=sys.stderr)
+              (ns, len(pdb.entities()), elapsed, ns / (elapsed or 1)), file=sys.stderr)
         # END for each random mode
 
         # query info and streams only
@@ -62,7 +62,7 @@ class TestPackedDBPerformance(TestBigRepoR):
                 pdb_fun(sha)
             elapsed = time() - st
             print("PDB: Obtained %i object %s by sha in %f s ( %f items/s )" %
-                  (max_items, pdb_fun.__name__.upper(), elapsed, max_items / elapsed), file=sys.stderr)
+                  (max_items, pdb_fun.__name__.upper(), elapsed, max_items / (elapsed or 1)), file=sys.stderr)
         # END for each function
 
         # retrieve stream and read all
@@ -78,7 +78,7 @@ class TestPackedDBPerformance(TestBigRepoR):
         elapsed = time() - st
         total_kib = total_size / 1000
         print("PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" %
-              (max_items, total_kib, total_kib / elapsed, elapsed, max_items / elapsed), file=sys.stderr)
+              (max_items, total_kib, total_kib / (elapsed or 1), elapsed, max_items / (elapsed or 1)), file=sys.stderr)
 
     @skip_on_travis_ci
     def test_loose_correctness(self):
@@ -129,5 +129,5 @@ class TestPackedDBPerformance(TestBigRepoR):
             # END for each entity
             elapsed = time() - st
             print("PDB: verified %i objects (crc=%i) in %f s ( %f objects/s )" %
-                  (count, crc, elapsed, count / elapsed), file=sys.stderr)
+                  (count, crc, elapsed, count / (elapsed or 1)), file=sys.stderr)
         # END for each verify mode

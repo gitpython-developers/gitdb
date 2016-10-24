@@ -70,7 +70,7 @@ class TestObjDBPerformance(TestBigRepoR):
 
             size_kib = size / 1000
             print("Added %i KiB (filesize = %i KiB) of %s data to loose odb in %f s ( %f Write KiB / s)" %
-                  (size_kib, fsize_kib, desc, elapsed_add, size_kib / elapsed_add), file=sys.stderr)
+                  (size_kib, fsize_kib, desc, elapsed_add, size_kib / (elapsed_add or 1)), file=sys.stderr)
 
             # reading all at once
             st = time()
@@ -81,7 +81,7 @@ class TestObjDBPerformance(TestBigRepoR):
             stream.seek(0)
             assert shadata == stream.getvalue()
             print("Read %i KiB of %s data at once from loose odb in %f s ( %f Read KiB / s)" %
-                  (size_kib, desc, elapsed_readall, size_kib / elapsed_readall), file=sys.stderr)
+                  (size_kib, desc, elapsed_readall, size_kib / (elapsed_readall or 1)), file=sys.stderr)
 
             # reading in chunks of 1 MiB
             cs = 512 * 1000
@@ -101,7 +101,7 @@ class TestObjDBPerformance(TestBigRepoR):
 
             cs_kib = cs / 1000
             print("Read %i KiB of %s data in %i KiB chunks from loose odb in %f s ( %f Read KiB / s)" %
-                  (size_kib, desc, cs_kib, elapsed_readchunks, size_kib / elapsed_readchunks), file=sys.stderr)
+                  (size_kib, desc, cs_kib, elapsed_readchunks, size_kib / (elapsed_readchunks or 1)), file=sys.stderr)
 
             # del db file so we keep something to do
             os.remove(db_file)

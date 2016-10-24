@@ -43,8 +43,8 @@ Once the clone is complete, please be sure to initialize the submodules using
  cd gitdb
  git submodule update --init
 
-Run the tests with 
- 
+Run the tests with
+
  nosetests
 
 DEVELOPMENT
@@ -52,13 +52,12 @@ DEVELOPMENT
 
 .. image:: https://travis-ci.org/gitpython-developers/gitdb.svg?branch=master
     :target: https://travis-ci.org/gitpython-developers/gitdb
-
+.. image:: https://ci.appveyor.com/api/projects/status/2qa4km4ln7bfv76r/branch/master?svg=true&passingText=windows%20OK&failingText=windows%20failed
+    :target: https://ci.appveyor.com/project/ankostis/gitpython/branch/master)
 .. image:: https://coveralls.io/repos/gitpython-developers/gitdb/badge.png
     :target: https://coveralls.io/r/gitpython-developers/gitdb
-
 .. image:: http://www.issuestats.com/github/gitpython-developers/gitdb/badge/pr
     :target: http://www.issuestats.com/github/gitpython-developers/gitdb
-
 .. image:: http://www.issuestats.com/github/gitpython-developers/gitdb/badge/issue
     :target: http://www.issuestats.com/github/gitpython-developers/gitdb
 
