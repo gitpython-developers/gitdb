@@ -12,7 +12,6 @@ decompressobj = zlib.decompressobj
 
 import mmap
 from itertools import islice
-from functools import reduce
 
 from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.utils.encoding import force_text
@@ -296,7 +295,7 @@ class DeltaChunkList(list):
         :raise AssertionError: if the size doen't match"""
         if target_size > -1:
             assert self[-1].rbound() == target_size
-            assert reduce(lambda x, y: x + y, (d.ts for d in self), 0) == target_size
+            assert sum(d.ts for d in self) == target_size
         # END target size verification
 
         if len(self) < 2:

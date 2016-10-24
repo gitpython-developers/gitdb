@@ -57,7 +57,7 @@ import tempfile
 import os
 
 
-__all__ = ('LooseObjectDB', )
+__all__ = ('LooseObjectDB',)
 
 
 class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
@@ -150,7 +150,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
     def set_ostream(self, stream):
         """:raise TypeError: if the stream does not support the Sha1Writer interface"""
         if stream is not None and not isinstance(stream, Sha1Writer):
-            raise TypeError("Output stream musst support the %s interface" % Sha1Writer.__name__)
+            raise TypeError("Output stream must support the %s interface" % Sha1Writer)
         return super(LooseObjectDB, self).set_ostream(stream)
 
     def info(self, sha):

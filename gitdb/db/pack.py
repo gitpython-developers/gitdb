@@ -20,8 +20,6 @@ from gitdb.exc import (
 from gitdb.pack import PackEntity
 from gitdb.utils.compat import xrange
 
-from functools import reduce
-
 import os
 import glob
 

@@ -16,7 +16,6 @@ from gitdb.exc import (
 )
 
 from itertools import chain
-from functools import reduce
 
 
 __all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB')
@@ -209,7 +208,7 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 
     def size(self):
         """:return: total size of all contained databases"""
-        return reduce(lambda x, y: x + y, (db.size() for db in self._dbs), 0)
+        return sum(db.size() for db in self._dbs)
 
     def sha_iter(self):
         return chain(*(db.sha_iter() for db in self._dbs))
