@@ -43,7 +43,7 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 
     def _set_cache_(self, attr):
         if attr == '_dbs' or attr == '_loose_db':
-            self._dbs = list()
+            self._dbs = []
             loose_db = None
             for subpath, dbcls in ((self.packs_dir, self.PackDBCls),
                                    (self.loose_dir, self.LooseDBCls),

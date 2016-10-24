@@ -166,7 +166,7 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
 
     def _set_cache_(self, attr):
         if attr == '_dbs':
-            self._dbs = list()
+            self._dbs = []
         elif attr == '_db_cache':
             self._db_cache = dict()
         else:
@@ -237,7 +237,7 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
         :return: 20 byte binary sha1 from the given less-than-40 byte hexsha (bytes or str)
         :param partial_hexsha: hexsha with less than 40 byte
         :raise AmbiguousObjectName: """
-        databases = list()
+        databases = []
         _databases_recursive(self, databases)
         partial_hexsha = force_text(partial_hexsha)
         len_partial_hexsha = len(partial_hexsha)

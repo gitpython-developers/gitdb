@@ -24,7 +24,7 @@ class ReferenceDB(CompoundDB):
 
     def _set_cache_(self, attr):
         if attr == '_dbs':
-            self._dbs = list()
+            self._dbs = []
             self._update_dbs_from_ref_file()
         else:
             super(ReferenceDB, self)._set_cache_(attr)
@@ -39,7 +39,7 @@ class ReferenceDB(CompoundDB):
         # END get db type
 
         # try to get as many as possible, don't fail if some are unavailable
-        ref_paths = list()
+        ref_paths = []
         try:
             with open(self._ref_file, 'r') as f:
                 ref_paths = [l.strip() for l in f]

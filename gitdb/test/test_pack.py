@@ -149,7 +149,7 @@ class TestPack(TestBase):
     #    because it is being used by another process: 'sss\\index_cc_wll5'
     @with_rw_directory
     def test_pack_entity(self, rw_dir):
-        pack_objs = list()
+        pack_objs = []
         for packinfo, indexinfo in ((self.packfile_v2_1, self.packindexfile_v1),
                                     (self.packfile_v2_2, self.packindexfile_v2),
                                     (self.packfile_v2_3_ascii, self.packindexfile_v2_3_ascii)):

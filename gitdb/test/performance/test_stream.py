@@ -48,7 +48,7 @@ class TestObjDBPerformance(TestBigRepoR):
     @with_rw_directory
     def test_large_data_streaming(self, path):
         ldb = LooseObjectDB(path)
-        string_ios = list()         # list of streams we previously created
+        string_ios = []         # list of streams we previously created
 
         # serial mode
         for randomize in range(2):
@@ -85,7 +85,7 @@ class TestObjDBPerformance(TestBigRepoR):
 
             # reading in chunks of 1 MiB
             cs = 512 * 1000
-            chunks = list()
+            chunks = []
             st = time()
             with ldb.stream(sha) as ostream:
                 while True:

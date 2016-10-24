@@ -293,7 +293,7 @@ class LazyMixin(object):
     return the cached value as stored in the Instance's dict or slot.
     """
 
-    __slots__ = tuple()
+    __slots__ = ()
 
     def __getattr__(self, attr):
         """
