@@ -4,6 +4,8 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Module with basic data structures - they are designed to be lightweight and fast"""
 from gitdb.util import bin_to_hex, suppress
+from collections import namedtuple
+
 
 from gitdb.fun import (
     type_id_to_type_map,
@@ -17,7 +19,7 @@ __all__ = ('OInfo', 'OPackInfo', 'ODeltaPackInfo',
 #{ ODB Bases
 
 
-class OInfo(tuple):
+class OInfo(namedtuple('OInfo', 'binsha, type, size')):
 
     """Carries information about an object in an ODB, providing information
     about the binary sha of the object, the type_string as well as the uncompressed size
@@ -30,40 +32,19 @@ class OInfo(tuple):
         assert dbi[2] == dbi.size
 
     The type is designed to be as lightweight as possible."""
-    __slots__ = tuple()
-
-    def __new__(cls, sha, type, size):
-        return tuple.__new__(cls, (sha, type, size))
-
-    def __init__(self, *args):
-        tuple.__init__(self)
-
-    #{ Interface
-    @property
-    def binsha(self):
-        """:return: our sha as binary, 20 bytes"""
-        return self[0]
+    __slots__ = ()
 
     @property
     def hexsha(self):
         """:return: our sha, hex encoded, 40 bytes"""
-        return bin_to_hex(self[0])
-
-    @property
-    def type(self):
-        return self[1]
+        return bin_to_hex(self.binsha)
 
     @property
     def type_id(self):
-        return type_to_type_id_map[self[1]]
-
-    @property
-    def size(self):
-        return self[2]
-    #} END interface
+        return type_to_type_id_map[self.type]
 
 
-class OPackInfo(tuple):
+class OPackInfo(namedtuple('OPackInfo', 'pack_offset, type_id, size')):
 
     """As OInfo, but provides a type_id property to retrieve the numerical type id, and
     does not include a sha.
@@ -71,68 +52,37 @@ class OPackInfo(tuple):
     Additionally, the pack_offset is the absolute offset into the packfile at which
     all object information is located. The data_offset property points to the absolute
     location in the pack at which that actual data stream can be found."""
-    __slots__ = tuple()
-
-    def __new__(cls, packoffset, type, size):
-        return tuple.__new__(cls, (packoffset, type, size))
-
-    def __init__(self, *args):
-        tuple.__init__(self)
-
-    #{ Interface
-
-    @property
-    def pack_offset(self):
-        return self[0]
+    __slots__ = ()
 
     @property
     def type(self):
-        return type_id_to_type_map[self[1]]
-
-    @property
-    def type_id(self):
-        return self[1]
-
-    @property
-    def size(self):
-        return self[2]
-
-    #} END interface
+        return type_id_to_type_map[self.type_id]
 
 
-class ODeltaPackInfo(OPackInfo):
+class ODeltaPackInfo(namedtuple('ODeltaPackInfo', 'pack_offset, type_id, size, delta_info')):
 
     """Adds delta specific information,
     Either the 20 byte sha which points to some object in the database,
     or the negative offset from the pack_offset, so that pack_offset - delta_info yields
     the pack offset of the base object"""
-    __slots__ = tuple()
+    __slots__ = ()
 
-    def __new__(cls, packoffset, type, size, delta_info):
-        return tuple.__new__(cls, (packoffset, type, size, delta_info))
-
-    #{ Interface
     @property
-    def delta_info(self):
-        return self[3]
-    #} END interface
+    def type(self):
+        return type_id_to_type_map[self.type_id]
 
 
-class OStream(OInfo):
-
+class OStream(namedtuple('OStream', 'binsha type size stream')):
     """Base for object streams retrieved from the database, providing additional
     information about the stream.
-    Generally, ODB streams are read-only as objects are immutable"""
-    __slots__ = tuple()
+    Generally, ODB streams are read-only as objects are immutable
 
-    def __new__(cls, sha, type, size, stream, *args, **kwargs):
-        """Helps with the initialization of subclasses"""
-        return tuple.__new__(cls, (sha, type, size, stream))
+    .. Note:
+       Is NOTE a :class:`OInfo` instance; for the effort required, see:
+       see http://stackoverflow.com/questions/20794182/how-to-make-a-file-like-class-work-with-isinstancecls-io-iobase
 
-    def __init__(self, *args, **kwargs):
-        tuple.__init__(self)
-
-    #{ Stream Reader Interface
+    """
+    __slots__ = ()
 
     def __enter__(self):
         return self
@@ -148,38 +98,26 @@ class OStream(OInfo):
         return self.stream.read(size)
 
     @property
-    def stream(self):
-        return self[3]
+    def hexsha(self):
+        """:return: our sha, hex encoded, 40 bytes"""
+        return bin_to_hex(self.binsha)
 
-    #} END stream reader interface
+    @property
+    def type_id(self):
+        return type_to_type_id_map[self.type]
 
 
 class ODeltaStream(OStream):
-
-    """Uses size info of its stream, delaying reads"""
-
-    def __new__(cls, sha, type, size, stream, *args, **kwargs):
-        """Helps with the initialization of subclasses"""
-        return tuple.__new__(cls, (sha, type, size, stream))
-
-    #{ Stream Reader Interface
-
     @property
     def size(self):
         return self[3].size
 
-    #} END stream reader interface
 
-
-class OPackStream(OPackInfo):
+class OPackStream(namedtuple('OPackStream', 'pack_offset, type_id, size, stream')):
 
     """Next to pack object information, a stream outputting an undeltified base object
     is provided"""
-    __slots__ = tuple()
-
-    def __new__(cls, packoffset, type, size, stream, *args):
-        """Helps with the initialization of subclasses"""
-        return tuple.__new__(cls, (packoffset, type, size, stream))
+    __slots__ = ()
 
     def __enter__(self):
         return self
@@ -191,23 +129,18 @@ class OPackStream(OPackInfo):
     def close(self):
         self.stream.close()
 
-    #{ Stream Reader Interface
     def read(self, size=-1):
         return self.stream.read(size)
 
     @property
-    def stream(self):
-        return self[3]
-    #} END stream reader interface
+    def type(self):
+        return type_id_to_type_map[self.type_id]
 
 
-class ODeltaPackStream(ODeltaPackInfo):
+class ODeltaPackStream(namedtuple('ODeltaPackStream', 'pack_offset, type_id, size, delta_info stream')):
 
     """Provides a stream outputting the uncompressed offset delta information"""
-    __slots__ = tuple()
-
-    def __new__(cls, packoffset, type, size, delta_info, stream):
-        return tuple.__new__(cls, (packoffset, type, size, delta_info, stream))
+    __slots__ = ()
 
     def __enter__(self):
         return self
@@ -219,14 +152,12 @@ class ODeltaPackStream(ODeltaPackInfo):
     def close(self):
         self.stream.close()
 
-    #{ Stream Reader Interface
     def read(self, size=-1):
         return self.stream.read(size)
 
     @property
-    def stream(self):
-        return self[4]
-    #} END stream reader interface
+    def type(self):
+        return type_id_to_type_map[self.type_id]
 
 
 class IStream(list):
@@ -238,7 +169,7 @@ class IStream(list):
     to blend in without prior conversion.
 
     The only method your content stream must support is 'read'"""
-    __slots__ = tuple()
+    __slots__ = ()
 
     def __new__(cls, type, size, stream, sha=None):
         return list.__new__(cls, (sha, type, size, stream, None))
@@ -325,7 +256,7 @@ class InvalidOInfo(tuple):
     """Carries information about a sha identifying an object which is invalid in
     the queried database. The exception attribute provides more information about
     the cause of the issue"""
-    __slots__ = tuple()
+    __slots__ = ()
 
     def __new__(cls, sha, exc):
         return tuple.__new__(cls, (sha, exc))
@@ -350,7 +281,7 @@ class InvalidOInfo(tuple):
 class InvalidOStream(InvalidOInfo):
 
     """Carries information about an invalid ODB stream"""
-    __slots__ = tuple()
+    __slots__ = ()
 
     def __enter__(self):
         return self

@@ -49,7 +49,7 @@ class TestDBBase(TestBase):
             assert db.has_object(istream.binsha)
 
             info = db.info(istream.binsha)
-            assert isinstance(info, OInfo)
+            assert isinstance(info, (OInfo, OStream))
             assert info.type == istream.type and info.size == istream.size
 
             with db.stream(istream.binsha) as stream:

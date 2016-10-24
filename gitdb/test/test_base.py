@@ -16,7 +16,6 @@ from gitdb.const import NULL_BIN_SHA
 from gitdb.test.lib import (
     TestBase,
     DummyStream,
-    DeriveTest,
 )
 from gitdb.typ import (
     str_blob_type
@@ -73,9 +72,6 @@ class TestBaseTypes(TestBase):
         dpostream.read(5)
         stream._assert()
         assert stream.bytes == 5
-
-        # derive with own args
-        DeriveTest(sha, str_blob_type, s, stream, 'mine', myarg=3)._assert()
 
         # test istream
         istream = IStream(str_blob_type, s, stream)

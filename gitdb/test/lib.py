@@ -18,7 +18,6 @@ import sys
 import tempfile
 import unittest
 
-from gitdb.base import OStream
 from gitdb.test import HIDE_WINDOWS_KNOWN_ERRORS
 from gitdb.util import rmtree, mman
 from gitdb.utils.compat import xrange
@@ -203,16 +202,5 @@ class DummyStream(object):
 
     def _assert(self):
         assert self.was_read
-
-
-class DeriveTest(OStream):
-
-    def __init__(self, sha, type, size, stream, *args, **kwargs):
-        self.myarg = kwargs.pop('myarg')
-        self.args = args
-
-    def _assert(self):
-        assert self.args
-        assert self.myarg
 
 #} END stream utilitiess
