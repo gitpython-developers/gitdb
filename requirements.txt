@@ -1,2 +1,5 @@
-smmap>=0.8.3
 contextlib2; python_version <= "2.7"
+#smmap>=2.1.0
+
+## DEV-requirements (FIXME: remove on release)
+-e git+https://github.com/ankostis/smmap.git@v2.1.0.dev1#egg=smmap
