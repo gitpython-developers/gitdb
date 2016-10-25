@@ -13,7 +13,8 @@ from gitdb.exc import BadObject, AmbiguousObjectName
 
 import os
 import random
-from gitdb.util import mman, HIDE_WINDOWS_KNOWN_ERRORS
+from gitdb.util import mman
+from gitdb.test import HIDE_WINDOWS_KNOWN_ERRORS
 
 
 class TestPackDB(TestDBBase):

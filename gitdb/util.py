@@ -84,11 +84,6 @@ is_darwin = (os.name == 'darwin')
 
 log = logging.getLogger(__name__)
 
-#: We need an easy way to see if Appveyor TCs start failing,
-#: so the errors marked with this var are considered "acknowledged" ones, awaiting remedy,
-#: till then, we wish to hide them.
-HIDE_WINDOWS_KNOWN_ERRORS = is_win and os.environ.get('HIDE_WINDOWS_KNOWN_ERRORS', True)
-
 #{ compatibility stuff ...
 
 

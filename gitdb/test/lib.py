@@ -3,6 +3,8 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Utilities used in ODB testing"""
+#{ Bases
+
 from array import array
 from functools import wraps
 import gc
@@ -16,12 +18,12 @@ import sys
 import tempfile
 import unittest
 
-from gitdb import OStream
-from gitdb.util import rmtree, mman, HIDE_WINDOWS_KNOWN_ERRORS
+from gitdb.base import OStream
+from gitdb.test import HIDE_WINDOWS_KNOWN_ERRORS
+from gitdb.util import rmtree, mman
 from gitdb.utils.compat import xrange
 
 
-#{ Bases
 log = logging.getLogger(__name__)
 
 
@@ -168,7 +170,7 @@ def make_bytes(size_in_bytes, randomize=False):
     return a.tostring()
 
 
-def make_object(type, data):
+def make_object(otype, data):
     """:return: bytes resembling an uncompressed object"""
     odata = "blob %i\0" % len(data)
     return odata.encode("ascii") + data
