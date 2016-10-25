@@ -18,7 +18,6 @@ from gitdb.typ import str_blob_type
 from gitdb.exc import UnsupportedOperation
 from gitdb.db.pack import PackedDB
 from gitdb.utils.compat import xrange
-from gitdb.test.lib import skip_on_travis_ci
 
 import sys
 import os
@@ -27,7 +26,6 @@ from time import time
 
 class TestPackedDBPerformance(TestBigRepoR):
 
-    @skip_on_travis_ci
     def test_pack_random_access(self):
         pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
 
@@ -80,7 +78,6 @@ class TestPackedDBPerformance(TestBigRepoR):
         print("PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" %
               (max_items, total_kib, total_kib / (elapsed or 1), elapsed, max_items / (elapsed or 1)), file=sys.stderr)
 
-    @skip_on_travis_ci
     def test_loose_correctness(self):
         """based on the pack(s) of our packed object DB, we will just copy and verify all objects in the back
         into the loose object db (memory).
@@ -108,7 +105,6 @@ class TestPackedDBPerformance(TestBigRepoR):
                 mdb._cache.clear()
         # end for each sha to copy
 
-    @skip_on_travis_ci
     def test_correctness(self):
         pdb = PackedDB(os.path.join(self.gitrepopath, "objects/pack"))
         # disabled for now as it used to work perfectly, checking big repositories takes a long time
