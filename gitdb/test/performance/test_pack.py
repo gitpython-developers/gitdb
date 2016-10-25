@@ -32,10 +32,10 @@ class TestPackedDBPerformance(TestBigRepoR):
         # sha lookup
         st = time()
         sha_list = list(pdb.sha_iter())
-        elapsed = time() - st
+        elapsed = max(time() - st, 0.001)  # prevent zero divison errors on windows
         ns = len(sha_list)
         print("PDB: looked up %i shas by index in %f s ( %f shas/s )" % (
-            ns, elapsed, ns / (elapsed or 1)), file=sys.stderr)
+            ns, elapsed, ns / elapsed), file=sys.stderr)
 
         # sha lookup: best-case and worst case access
         pdb_pack_info = pdb._pack_info
@@ -44,13 +44,13 @@ class TestPackedDBPerformance(TestBigRepoR):
         for sha in sha_list:
             pdb_pack_info(sha)
         # END for each sha to look up
-        elapsed = time() - st
+        elapsed = max(time() - st, 0.001)  # prevent zero divison errors on windows
 
         # discard cache
         del(pdb._entities)
         pdb.entities()
         print("PDB: looked up %i sha in %i packs in %f s ( %f shas/s )" %
-              (ns, len(pdb.entities()), elapsed, ns / (elapsed or 1)), file=sys.stderr)
+              (ns, len(pdb.entities()), elapsed, ns / elapsed), file=sys.stderr)
         # END for each random mode
 
         # query info and streams only
@@ -59,9 +59,9 @@ class TestPackedDBPerformance(TestBigRepoR):
             st = time()
             for sha in sha_list[:max_items]:
                 pdb_fun(sha)
-            elapsed = time() - st
+            elapsed = max(time() - st, 0.001)  # prevent zero divison errors on windows
             print("PDB: Obtained %i object %s by sha in %f s ( %f items/s )" %
-                  (max_items, pdb_fun.__name__.upper(), elapsed, max_items / (elapsed or 1)), file=sys.stderr)
+                  (max_items, pdb_fun.__name__.upper(), elapsed, max_items / elapsed), file=sys.stderr)
         # END for each function
 
         # retrieve stream and read all
@@ -74,11 +74,11 @@ class TestPackedDBPerformance(TestBigRepoR):
             read_len = len(stream.read())
             assert read_len == stream.size
             total_size += stream.size
-        elapsed = time() - st
+        elapsed = max(time() - st, 0.001)  # prevent zero divison errors on windows
         total_kib = total_size / 1000
         print("PDB: Obtained %i streams by sha and read all bytes "
               "totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" %
-              (max_items, total_kib, total_kib / (elapsed or 1), elapsed, max_items / (elapsed or 1)), file=sys.stderr)
+              (max_items, total_kib, total_kib / elapsed, elapsed, max_items / elapsed), file=sys.stderr)
 
     def test_loose_correctness(self):
         """based on the pack(s) of our packed object DB, we will just copy and verify all objects in the back
@@ -130,7 +130,7 @@ class TestPackedDBPerformance(TestBigRepoR):
                     # END ignore old indices
                 # END for each index
             # END for each entity
-            elapsed = time() - st
+            elapsed = max(time() - st, 0.001)  # prevent zero divison errors on windows
             print("PDB: verified %i objects (crc=%i) in %f s ( %f objects/s )" %
-                  (count, crc, elapsed, count / (elapsed or 1)), file=sys.stderr)
+                  (count, crc, elapsed, count / elapsed), file=sys.stderr)
         # END for each verify mode
