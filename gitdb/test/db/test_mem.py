@@ -2,13 +2,13 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
-from gitdb.test.db.lib import (
-    TestDBBase,
-    with_rw_directory
-)
 from gitdb.db import (
     MemoryDB,
     LooseObjectDB
+)
+from gitdb.test.db.lib import (
+    TestDBBase,
+    with_rw_directory
 )
 
 
@@ -30,5 +30,7 @@ class TestMemoryDB(TestDBBase):
         assert ldb.size() == mdb.size()
         for sha in mdb.sha_iter():
             assert ldb.has_object(sha)
-            assert ldb.stream(sha).read() == mdb.stream(sha).read()
+            with ldb.stream(sha) as st1:
+                with mdb.stream(sha) as st2:
+                    self.assertEqual(st1.read(), st2.read())
         # END verify objects where copied and are equal

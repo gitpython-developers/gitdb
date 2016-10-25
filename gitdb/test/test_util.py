@@ -3,14 +3,14 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Test for object db"""
-import tempfile
 import os
+import tempfile
 
+from gitdb.const import NULL_HEX_SHA
 from gitdb.test.lib import TestBase
 from gitdb.util import (
     to_hex_sha,
     to_bin_sha,
-    NULL_HEX_SHA,
     LockedFD
 )
 

@@ -15,6 +15,6 @@ __version__ = '.'.join(str(i) for i in version_info)
 
 
 # default imports
-from gitdb.base import *
-from gitdb.db import *
-from gitdb.stream import *
+from gitdb.base import *    # @IgnorePep8
+from gitdb.db import *      # @IgnorePep8
+from gitdb.stream import *  # @IgnorePep8

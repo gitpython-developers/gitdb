@@ -5,17 +5,17 @@
 """Specific test for pack streams only"""
 from __future__ import print_function
 
-from gitdb.test.performance.lib import (
-    TestBigRepoR
-)
-
-from gitdb.db.pack import PackedDB
-from gitdb.stream import NullStream
-from gitdb.pack import PackEntity
-
 import os
 import sys
 from time import time
+
+from gitdb.db.pack import PackedDB
+from gitdb.pack import PackEntity
+from gitdb.stream import NullStream
+from gitdb.test.performance.lib import (
+    TestBigRepoR
+)
+from gitdb.utils.compat import ExitStack
 
 
 class CountedNullStream(NullStream):
@@ -56,7 +56,10 @@ class TestPackStreamingPerformance(TestBigRepoR):
         st = time()
         ## We are leaking files here, but we don't care...
         #  and we need a `contextlib.ExitStack` to safely close them.
-        PackEntity.write_pack((pdb.stream(sha) for sha in pdb.sha_iter()), ostream.write, object_count=ni)
+        with ExitStack() as exs:
+            all_streams = [exs.enter_context(pdb.stream(sha))
+                           for sha in pdb.sha_iter()]
+            PackEntity.write_pack((all_streams), ostream.write, object_count=ni)
         elapsed = time() - st
         total_kb = ostream.bytes_written() / 1000
         print(sys.stderr, "PDB Streaming: Wrote pack of size %i kb in %f s (%f kb/s)" %
@@ -81,5 +84,6 @@ class TestPackStreamingPerformance(TestBigRepoR):
             count += 1
         elapsed = time() - st
         total_kib = total_size / 1000
-        print(sys.stderr, "PDB Streaming: Got %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" %
+        print(sys.stderr, "PDB Streaming: Got %i streams by sha and read all bytes "
+              "totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" %
               (ni, total_kib, total_kib / (elapsed or 1), elapsed, ni / (elapsed or 1)), sys.stderr)

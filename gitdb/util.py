@@ -19,11 +19,6 @@ from smmap import (
     SlidingWindowMapBuffer
 )
 
-from gitdb.const import (
-    NULL_BIN_SHA,
-    NULL_HEX_SHA
-)
-
 
 # initialize our global memory manager instance
 # Use it to free cached (and unused) resources.
@@ -32,24 +27,6 @@ if sys.version_info < (2, 6):
 else:
     mman = SlidingWindowMapManager()
 # END handle mman
-
-
-try:
-    from struct import unpack_from
-except ImportError:
-    from struct import unpack, calcsize
-    __calcsize_cache = dict()
-
-    def unpack_from(fmt, data, offset=0):
-        try:
-            size = __calcsize_cache[fmt]
-        except KeyError:
-            size = calcsize(fmt)
-            __calcsize_cache[fmt] = size
-        # END exception handling
-        return unpack(fmt, data[offset: offset + size])
-    # END own unpack_from implementation
-
 
 #{ Aliases
 
@@ -77,8 +54,6 @@ fsync = os.fsync
 
 is_win = (os.name == 'nt')
 is_darwin = (os.name == 'darwin')
-
-# Backwards compatibility imports
 
 #} END Aliases
 
@@ -136,7 +111,7 @@ def rmtree(path):
 
         try:
             func(path)  # Will scream if still not possible to delete.
-        except Exception as ex:
+        except Exception:
             raise
 
     return shutil.rmtree(path, False, onerror)
@@ -149,7 +124,7 @@ def make_sha(source=''.encode("ascii")):
     try:
         return hashlib.sha1(source)
     except NameError:
-        import sha
+        import sha  # @UnresolvedImport
         sha1 = sha.sha(source)
         return sha1
 

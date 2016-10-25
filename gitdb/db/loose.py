@@ -166,8 +166,8 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 
     def stream(self, sha):
         m = self._map_loose_object(sha)
-        type, size, stream = DecompressMemMapReader.new(m, close_on_deletion=True)
-        return OStream(sha, type, size, stream)
+        typ, size, stream = DecompressMemMapReader.new(m, close_on_deletion=True)
+        return OStream(sha, typ, size, stream)
 
     def has_object(self, sha):
         try:
@@ -247,7 +247,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
 
     def sha_iter(self):
         # find all files which look like an object, extract sha from there
-        for root, dirs, files in os.walk(self.root_path()):
+        for root, dirs, files in os.walk(self.root_path()):  # @UnusedVariable
             root_base = basename(root)
             if len(root_base) != 2:
                 continue
