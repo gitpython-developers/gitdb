@@ -3,31 +3,27 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Base classes for object db testing"""
-from gitdb.test.lib import (
-    with_rw_directory,
-    with_packs_rw,
-    fixture_path,
-    TestBase
-)
-
-from gitdb.stream import (
-    Sha1Writer,
-    ZippedStoreShaWriter
-)
+from io import BytesIO
+from struct import pack
 
 from gitdb.base import (
     IStream,
     OStream,
     OInfo
 )
-
 from gitdb.exc import BadObject
+from gitdb.stream import (
+    Sha1Writer,
+    ZippedStoreShaWriter
+)
+from gitdb.test.lib import (
+    with_rw_directory,  # @UnusedImport
+    with_packs_rw,      # @UnusedImport
+    fixture_path,       # @UnusedImport
+    TestBase
+)
 from gitdb.typ import str_blob_type
 from gitdb.utils.compat import xrange
-
-from io import BytesIO
-
-from struct import pack
 
 
 __all__ = ('TestDBBase', 'with_rw_directory', 'with_packs_rw', 'fixture_path')
@@ -98,10 +94,10 @@ class TestDBBase(TestBase):
                     assert str_blob_type == info.type
                     assert info.size == len(data)
 
-                    ostream = db.stream(sha)
-                    assert ostream.read() == data
-                    assert ostream.type == str_blob_type
-                    assert ostream.size == len(data)
+                    with db.stream(sha) as ostream:
+                        assert ostream.read() == data
+                        assert ostream.type == str_blob_type
+                        assert ostream.size == len(data)
                 else:
                     self.failUnlessRaises(BadObject, db.info, sha)
                     self.failUnlessRaises(BadObject, db.stream, sha)
@@ -120,10 +116,9 @@ class TestDBBase(TestBase):
                     db.set_ostream(ZippedStoreShaWriter())
                     db.store(istream)
                     assert istream.binsha == prev_sha
-                    new_ostream = db.ostream()
-
-                    # note: only works as long our store write uses the same compression
-                    # level, which is zip_best
-                    assert ostream.getvalue() == new_ostream.getvalue()
+                    with db.ostream() as new_ostream:
+                        # note: only works as long our store write uses the same compression
+                        # level, which is zip_best
+                        assert ostream.getvalue() == new_ostream.getvalue()
             # END for each data set
         # END for each dry_run mode

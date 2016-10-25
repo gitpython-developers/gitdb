@@ -3,12 +3,6 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Test for object db"""
-from gitdb.test.lib import (
-    TestBase,
-    DummyStream,
-    DeriveTest,
-)
-
 from gitdb import (
     OInfo,
     OPackInfo,
@@ -18,10 +12,12 @@ from gitdb import (
     ODeltaPackStream,
     IStream
 )
-from gitdb.util import (
-    NULL_BIN_SHA
+from gitdb.const import NULL_BIN_SHA
+from gitdb.test.lib import (
+    TestBase,
+    DummyStream,
+    DeriveTest,
 )
-
 from gitdb.typ import (
     str_blob_type
 )
@@ -56,7 +52,7 @@ class TestBaseTypes(TestBase):
 
         # test ostream
         stream = DummyStream()
-        ostream = OStream(*(info + (stream, )))
+        ostream = OStream(*(info + (stream,)))
         assert ostream.stream is stream
         ostream.read(15)
         stream._assert()
@@ -65,15 +61,15 @@ class TestBaseTypes(TestBase):
         assert stream.bytes == 20
 
         # test packstream
-        postream = OPackStream(*(pinfo + (stream, )))
+        postream = OPackStream(*(pinfo + (stream,)))
         assert postream.stream is stream
         postream.read(10)
         stream._assert()
         assert stream.bytes == 10
 
         # test deltapackstream
-        dpostream = ODeltaPackStream(*(dpinfo + (stream, )))
-        dpostream.stream is stream
+        dpostream = ODeltaPackStream(*(dpinfo + (stream,)))
+        assert dpostream.stream is stream
         dpostream.read(5)
         stream._assert()
         assert stream.bytes == 5
@@ -83,7 +79,7 @@ class TestBaseTypes(TestBase):
 
         # test istream
         istream = IStream(str_blob_type, s, stream)
-        assert istream.binsha == None
+        assert istream.binsha is None
         istream.binsha = sha
         assert istream.binsha == sha
 
@@ -92,7 +88,7 @@ class TestBaseTypes(TestBase):
 
         assert istream.size == s
         istream.size = s * 2
-        istream.size == s * 2
+        assert istream.size == s * 2
         assert istream.type == str_blob_type
         istream.type = "something"
         assert istream.type == "something"

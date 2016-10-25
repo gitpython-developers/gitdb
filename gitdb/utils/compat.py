@@ -1,10 +1,11 @@
 import sys
 
+
 PY3 = sys.version_info[0] == 3
 
 try:
     from itertools import izip
-    xrange = xrange
+    xrange = xrange         # @UndefinedVariable
 except ImportError:
     # py3
     izip = zip
@@ -13,8 +14,9 @@ except ImportError:
 
 try:
     # Python 2
-    buffer = buffer
-    memoryview = buffer
+    buffer = buffer         # @UndefinedVariable
+    memoryview = buffer     # @ReservedAssignment
+
     # Assume no memory view ...
     def to_bytes(i):
         return i
@@ -29,15 +31,37 @@ except NameError:
             # return memoryview(obj)[offset:offset+size]
             return obj[offset:offset + size]
     # end buffer reimplementation
-    # smmap can return memory view objects, which can't be compared as buffers/bytes can ... 
+    # smmap can return memory view objects, which can't be compared as buffers/bytes can ...
+
     def to_bytes(i):
         if isinstance(i, memoryview):
             return i.tobytes()
         return i
 
-    memoryview = memoryview
+    memoryview = memoryview     # @ReservedAssignment
 
 try:
-    MAXSIZE = sys.maxint
+    MAXSIZE = sys.maxint        # @UndefinedVariable
 except AttributeError:
     MAXSIZE = sys.maxsize
+
+try:
+    from contextlib import ExitStack
+except ImportError:
+    from contextlib2 import ExitStack   # @UnusedImport
+
+try:
+    from struct import unpack_from      # @UnusedImport
+except ImportError:
+    from struct import unpack, calcsize
+    __calcsize_cache = dict()
+
+    def unpack_from(fmt, data, offset=0):
+        try:
+            size = __calcsize_cache[fmt]
+        except KeyError:
+            size = calcsize(fmt)
+            __calcsize_cache[fmt] = size
+        # END exception handling
+        return unpack(fmt, data[offset: offset + size])
+    # END own unpack_from implementation

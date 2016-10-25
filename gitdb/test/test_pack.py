@@ -3,39 +3,36 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Test everything about packs reading and writing"""
-from gitdb.test.lib import (
-    TestBase,
-    with_rw_directory,
-    fixture_path
-)
+import os
+import tempfile
 
-from gitdb.stream import DeltaApplyReader
-
-from gitdb.pack import (
-    PackEntity,
-    PackIndexFile,
-    PackFile
-)
+from nose import SkipTest
 
 from gitdb.base import (
     OInfo,
     OStream,
 )
-
-from gitdb.fun import delta_types
 from gitdb.exc import UnsupportedOperation
+from gitdb.fun import delta_types
+from gitdb.pack import (
+    PackEntity,
+    PackIndexFile,
+    PackFile
+)
+from gitdb.stream import DeltaApplyReader
+from gitdb.test.lib import (
+    TestBase,
+    with_rw_directory,
+    fixture_path
+)
 from gitdb.util import to_bin_sha
-from gitdb.utils.compat import xrange
+from gitdb.utils.compat import xrange, ExitStack
+
 
 try:
     from itertools import izip
 except ImportError:
     izip = zip
-
-from nose import SkipTest
-
-import os
-import tempfile
 
 
 #{ Utilities
@@ -158,7 +155,7 @@ class TestPack(TestBase):
             with PackEntity(packfile) as entity:
                 assert entity.pack().path() == packfile
                 assert entity.index().path() == indexfile
-                pack_objs.extend(entity.stream_iter())
+                pack_objs.extend(entity.stream_iter())  # FIXME: How to context-manage these?
 
                 count = 0
                 for info, stream in izip(entity.info_iter(), entity.stream_iter()):
@@ -220,11 +217,13 @@ class TestPack(TestBase):
             iteration += 1
 
             with open(ppath, 'wb') as pfile:
-                pack_sha, index_sha = PackEntity.write_pack(pack_objs, pfile.write, iwrite, object_count=num_obj)
+                with ExitStack() as exs:
+                    pack_objs = [exs.enter_context(s) for s in pack_objs]
+                    pack_sha, index_sha = PackEntity.write_pack(pack_objs, pfile.write, iwrite, object_count=num_obj)
             assert os.path.getsize(ppath) > 100
 
             # verify pack
-            with PackFile(ppath) as pf:  # FIXME: Leaks file-pointer(s)!
+            with PackFile(ppath) as pf:
                 assert pf.size() == len(pack_objs)
                 assert pf.version() == PackFile.pack_version_default
                 assert pf.checksum() == pack_sha

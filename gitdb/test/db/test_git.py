@@ -3,13 +3,14 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 import os
+
+from gitdb.base import OStream, OInfo
+from gitdb.db import GitDB
+from gitdb.exc import BadObject
 from gitdb.test.db.lib import (
     TestDBBase,
     with_rw_directory
 )
-from gitdb.exc import BadObject
-from gitdb.db import GitDB
-from gitdb.base import OStream, OInfo
 from gitdb.util import bin_to_hex
 
 
@@ -25,7 +26,7 @@ class TestGitDB(TestDBBase):
         gitdb_sha = next(gdb.sha_iter())
         assert isinstance(gdb.info(gitdb_sha), OInfo)
         with gdb.stream(gitdb_sha) as stream:
-            assert isinstance(gdb.stream(gitdb_sha), OStream)
+            assert isinstance(stream, OStream)
         ni = 50
         assert gdb.size() >= ni
         sha_list = list(gdb.sha_iter())

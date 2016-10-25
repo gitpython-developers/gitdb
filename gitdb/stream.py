@@ -4,12 +4,12 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 
 from io import BytesIO
-
 import mmap
 import os
 import sys
 import zlib
 
+from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.fun import (
     msb_size,
     stream_copy,
@@ -17,7 +17,6 @@ from gitdb.fun import (
     connect_deltas,
     delta_types
 )
-
 from gitdb.util import (
     allocate_memory,
     LazyMixin,
@@ -27,9 +26,8 @@ from gitdb.util import (
     suppress,
     is_darwin,
 )
-
-from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.utils.compat import buffer
+
 
 has_perf_mod = False
 PY26 = sys.version_info[:2] < (2, 7)
@@ -157,7 +155,8 @@ class DecompressMemMapReader(LazyMixin):
     def close(self):
         """Close our underlying stream of compressed bytes if this was allowed during initialization
         :return: True if we closed the underlying stream
-        :note: can be called safely
+
+        .. note::  can be called safely
         """
         if self._close:
             if hasattr(self._m, 'close'):
@@ -196,7 +195,7 @@ class DecompressMemMapReader(LazyMixin):
             # but keep the window at its current position
             self._br = 0
             if hasattr(self._zip, 'status'):
-                while self._zip.status == zlib.Z_OK:
+                while self._zip.status == zlib.Z_OK:  # @UndefinedVariable
                     self.read(mmap.PAGESIZE)
                 # END scrub-loop custom zlib
             else:
@@ -762,7 +761,7 @@ class FDStream(object):
     __slots__ = ('_fd',
                  '_pos',
                  '_entered',
-    )
+                 )
 
     def __init__(self, fd):
         self._fd = fd
@@ -794,9 +793,9 @@ class FDStream(object):
             count = os.path.getsize(self._filepath)
         # END handle read everything
 
-        bytes = os.read(self._fd, count)
-        self._pos += len(bytes)
-        return bytes
+        bs = os.read(self._fd, count)
+        self._pos += len(bs)
+        return bs
 
     def fileno(self):
         return self._fd

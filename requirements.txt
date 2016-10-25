@@ -1,1 +1,2 @@
 smmap>=0.8.3
+contextlib2; python_version <= "2.7"

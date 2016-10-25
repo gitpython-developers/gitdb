@@ -3,23 +3,30 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Contains PackIndexFile and PackFile implementations"""
+import array
+from binascii import crc32
+import os
+from struct import pack
+import sys
+import tempfile
 import zlib
 
+from gitdb.base import (
+    OInfo,
+    OStream,
+    OPackInfo,
+    OPackStream,
+    ODeltaStream,
+    ODeltaPackInfo,
+    ODeltaPackStream,
+)
+from gitdb.const import NULL_BYTE
 from gitdb.exc import (
     BadObject,
     AmbiguousObjectName,
     UnsupportedOperation,
     ParseError
 )
-
-from gitdb.util import (
-    mman,
-    LazyMixin,
-    unpack_from,
-    bin_to_hex,
-    byte_ord,
-)
-
 from gitdb.fun import (
     create_pack_object_header,
     pack_object_header_info,
@@ -33,23 +40,6 @@ from gitdb.fun import (
     REF_DELTA,
     msb_size
 )
-
-try:
-    from gitdb_speedups._perf import PackIndexFile_sha_to_index
-except ImportError:
-    pass
-# END try c module
-
-from gitdb.base import (
-    OInfo,
-    OStream,
-    OPackInfo,
-    OPackStream,
-    ODeltaStream,
-    ODeltaPackInfo,
-    ODeltaPackStream,
-)
-
 from gitdb.stream import (
     DecompressMemMapReader,
     DeltaApplyReader,
@@ -57,22 +47,27 @@ from gitdb.stream import (
     NullStream,
     FlexibleSha1Writer
 )
-
-from struct import pack
-from binascii import crc32
-
-from gitdb.const import NULL_BYTE
+from gitdb.util import (
+    mman,
+    LazyMixin,
+    bin_to_hex,
+    byte_ord,
+)
 from gitdb.utils.compat import (
     izip,
     buffer,
     xrange,
-    to_bytes
+    to_bytes,
+    unpack_from,
 )
 
-import tempfile
-import array
-import os
-import sys
+
+try:
+    from gitdb_speedups._perf import PackIndexFile_sha_to_index
+except ImportError:
+    pass
+# END try c module
+
 
 __all__ = ('PackIndexFile', 'PackFile', 'PackEntity')
 
@@ -290,8 +285,9 @@ class PackIndexFile(LazyMixin):
 
         # We will assume that the index will always fully fit into memory !
         if mman.window_size() > 0 and cursor.file_size() > mman.window_size():
-            raise AssertionError("The index file at %s is too large to fit into a mapped window (%i > %i). This is a limitation of the implementation" % (
-                self._indexpath, cursor.file_size(), mman.window_size()))
+            raise AssertionError("The index file at %s is too large to fit into a mapped window (%i > %i). "
+                                 "This is a limitation of the hardware." % (
+                                     self._indexpath, cursor.file_size(), mman.window_size()))
 
         return cursor
 
@@ -528,7 +524,7 @@ class PackFile(LazyMixin):
                  '_size',
                  '_version',
                  '_entered',
-    )
+                 )
     pack_signature = 0x5041434b     # 'PACK'
     pack_version_default = 2
 
@@ -603,7 +599,11 @@ class PackFile(LazyMixin):
         """
         :return: read-only data of this pack. It provides random access and usually
             is a memory map.
-        :note: This method is unsafe as it returns a window into a file which might be larger than than the actual window size"""
+
+        .. note::
+            This method is unsafe as it returns a window into a file which might be larger
+            than than the actual window size
+        """
         # can use map as we are starting at offset 0. Otherwise we would have to use buffer()
         return self._cursor.use_region().map()
 
@@ -761,7 +761,8 @@ class PackEntity(LazyMixin):
             sha = self._index.sha(index)
         # END assure sha is present ( in output )
         offset = self._index.offset(index)
-        type_id, uncomp_size, data_rela_offset = pack_object_header_info(self._pack._cursor.use_region(offset).buffer())
+        type_id, uncomp_size, _ = pack_object_header_info(
+            self._pack._cursor.use_region(offset).buffer())
         if as_stream:
             if type_id not in delta_types:
                 packstream = self._pack.stream(offset)
@@ -784,7 +785,7 @@ class PackEntity(LazyMixin):
             # the actual target size, as opposed to the size of the delta data
             streams = self.collect_streams_at_offset(offset)
             buf = streams[0].read(512)
-            offset, src_size = msb_size(buf)
+            offset, src_size = msb_size(buf)  # @UnusedVariable
             offset, target_size = msb_size(buf, offset)
 
             # collect the streams to obtain the actual object type
@@ -1019,8 +1020,9 @@ class PackEntity(LazyMixin):
             # END for each object
 
             if actual_count != object_count:
-                raise ValueError(
-                    "Expected to write %i objects into pack, but received only %i from iterators" % (object_count, actual_count))
+                raise ValueError("Expected to write %i objects into pack, "
+                                 "but received only %i from iterators" %
+                                 (object_count, actual_count))
             # END count assertion
 
             # write footer
@@ -1049,7 +1051,8 @@ class PackEntity(LazyMixin):
         pack_write = lambda d: os.write(pack_fd, d)
         index_write = lambda d: os.write(index_fd, d)
 
-        pack_binsha, index_binsha = cls.write_pack(object_iter, pack_write, index_write, object_count, zlib_compression)
+        pack_binsha, _ = cls.write_pack(
+            object_iter, pack_write, index_write, object_count, zlib_compression)
         os.close(pack_fd)
         os.close(index_fd)
 

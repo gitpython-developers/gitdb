@@ -2,18 +2,14 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
+import os
+
+from gitdb.const import NULL_BIN_SHA
+from gitdb.db import ReferenceDB
 from gitdb.test.db.lib import (
     TestDBBase,
     with_rw_directory,
 )
-from gitdb.db import ReferenceDB
-
-from gitdb.util import (
-    NULL_BIN_SHA,
-    hex_to_bin
-)
-
-import os
 
 
 class TestReferenceDB(TestDBBase):

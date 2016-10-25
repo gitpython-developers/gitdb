@@ -34,7 +34,8 @@ class TestPackedDBPerformance(TestBigRepoR):
         sha_list = list(pdb.sha_iter())
         elapsed = time() - st
         ns = len(sha_list)
-        print("PDB: looked up %i shas by index in %f s ( %f shas/s )" % (ns, elapsed, ns / (elapsed or 1)), file=sys.stderr)
+        print("PDB: looked up %i shas by index in %f s ( %f shas/s )" % (
+            ns, elapsed, ns / (elapsed or 1)), file=sys.stderr)
 
         # sha lookup: best-case and worst case access
         pdb_pack_info = pdb._pack_info
@@ -75,16 +76,19 @@ class TestPackedDBPerformance(TestBigRepoR):
             total_size += stream.size
         elapsed = time() - st
         total_kib = total_size / 1000
-        print("PDB: Obtained %i streams by sha and read all bytes totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" %
+        print("PDB: Obtained %i streams by sha and read all bytes "
+              "totallying %i KiB ( %f KiB / s ) in %f s ( %f streams/s )" %
               (max_items, total_kib, total_kib / (elapsed or 1), elapsed, max_items / (elapsed or 1)), file=sys.stderr)
 
     def test_loose_correctness(self):
         """based on the pack(s) of our packed object DB, we will just copy and verify all objects in the back
         into the loose object db (memory).
-        This should help finding dormant issues like this one https://github.com/gitpython-developers/GitPython/issues/220
-        faster
-        :note: It doesn't seem this test can find the issue unless the given pack contains highly compressed
-        data files, like archives."""
+        This should help finding dormant issues like this one faster:
+         https://github.com/gitpython-developers/GitPython/issues/220
+
+        .. note::
+            It doesn't seem this test can find the issue unless the given pack contains highly compressed
+            data files, like archives."""
         from gitdb.util import bin_to_hex
         pdb = GitDB(os.path.join(self.gitrepopath, 'objects'))
         mdb = MemoryDB()
