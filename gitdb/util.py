@@ -14,19 +14,10 @@ import stat
 import sys
 
 from smmap import (
-    StaticWindowMapManager,
-    SlidingWindowMapManager,
+    managed_mmaps,
     SlidingWindowMapBuffer
 )
 
-
-# initialize our global memory manager instance
-# Use it to free cached (and unused) resources.
-if sys.version_info < (2, 6):
-    mman = StaticWindowMapManager()
-else:
-    mman = SlidingWindowMapManager()
-# END handle mman
 
 #{ Aliases
 
@@ -58,6 +49,9 @@ is_darwin = (os.name == 'darwin')
 #} END Aliases
 
 log = logging.getLogger(__name__)
+
+#: Global MemoryManager, remember to ``mman.collect()`` it.
+mman = managed_mmaps(check_entered=False)
 
 #{ compatibility stuff ...
 
