@@ -36,6 +36,9 @@ except NameError:
     def to_bytes(i):
         if isinstance(i, memoryview):
             return i.tobytes()
+            ## NOTE: `memoryview` leak resources with memmaps & delayed destructors
+            #  (i.e. PY3/Windows)
+            i.release()
         return i
 
     memoryview = memoryview     # @ReservedAssignment
