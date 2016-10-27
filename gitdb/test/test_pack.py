@@ -139,11 +139,6 @@ class TestPack(TestBase):
                 self._assert_pack_file(pack, version, size)
         # END for each pack to test
 
-    ## Unless HIDE_WINDOWS_KNOWN_ERRORS, on Windows fails with:
-    # File "D:\Work\gitdb.git\gitdb\util.py", line 141, in onerror
-    #     func(path)  # Will scream if still not possible to delete.
-    # PermissionError: [WinError 32] The process cannot access the file
-    #    because it is being used by another process: 'sss\\index_cc_wll5'
     @with_rw_directory
     def test_pack_entity(self, rw_dir):
         pack_objs = []

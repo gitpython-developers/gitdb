@@ -1,5 +1,5 @@
-contextlib2; python_version <= "2.7"
-#smmap>=2.1.0
+contextlib2; python_version<='2.7'
+#smmap2>=2.1.0
 
-## DEV-requirements (FIXME: remove on release)
--e git+https://github.com/ankostis/smmap.git@v2.1.0.dev1#egg=smmap
+## DEV-requirement: FIX memleak (FIXME: remove on release)
+-e git+https://github.com/ankostis/smmap.git@v2.1.0.dev4#egg=smmap2
