@@ -11,22 +11,15 @@ import mmap
 import os
 import shutil
 import stat
-import sys
 
 from smmap import (
-    StaticWindowMapManager,
     SlidingWindowMapManager,
     SlidingWindowMapBuffer
 )
 
-
-# initialize our global memory manager instance
-# Use it to free cached (and unused) resources.
-if sys.version_info < (2, 6):
-    mman = StaticWindowMapManager()
-else:
-    mman = SlidingWindowMapManager()
-# END handle mman
+#: The "global" memmap-manager; remember to `mman.collect()` it,
+#  to clean up resources and files.
+mman = SlidingWindowMapManager()
 
 #{ Aliases
 
