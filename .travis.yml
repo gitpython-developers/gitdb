@@ -12,11 +12,11 @@ git:
   depth: 1000
 install:
   - pip install coveralls
-    
+
     ## Install any dev-requirements (FIXME: remove on release)
-  - pip install -I git+https://github.com/ankostis/smmap.git@v2.1.0.dev1
+  - pip install -I git+https://github.com/ankostis/smmap.git@v2.1.1.dev0
   - pip install -r requirements.txt
-script: 
+script:
   - ulimit -n 48
   - ulimit -n
   - nosetests -v --with-coverage
