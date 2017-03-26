@@ -10,13 +10,17 @@ from gitdb.test.db.lib import (
 from gitdb.db import PackedDB
 
 from gitdb.exc import BadObject, AmbiguousObjectName
+from gitdb.util import mman
 
 import os
 import random
+import sys
 
+from unittest import skipIf
 
 class TestPackDB(TestDBBase):
 
+    @skipIf(sys.platform == "win32", "not supported on windows currently")
     @with_rw_directory
     @with_packs_rw
     def test_writing(self, path):
@@ -30,6 +34,11 @@ class TestPackDB(TestDBBase):
         # packs removed - rename a file, should affect the glob
         pack_path = pdb.entities()[0].pack().path()
         new_pack_path = pack_path + "renamed"
+        if sys.platform == "win32":
+            # This is just the beginning: While using thsi function, we are not
+            # allowed to have any handle to thsi path, which is currently not
+            # the case. The pack caching does have a handle :-(
+            mman.force_map_handle_removal_win(pack_path)
         os.rename(pack_path, new_pack_path)
 
         pdb.update_cache(force=True)
