@@ -104,5 +104,6 @@ class TestObjDBPerformance(TestBigRepoR):
                   (size_kib, desc, cs_kib, elapsed_readchunks, size_kib / (elapsed_readchunks or 1)), file=sys.stderr)
 
             # del db file so we keep something to do
+            ostream = None  # To release the file handle (win)
             remove(db_file)
         # END for each randomization factor
