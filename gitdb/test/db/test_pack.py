@@ -37,9 +37,9 @@ class TestPackDB(TestDBBase):
         pack_path = pdb.entities()[0].pack().path()
         new_pack_path = pack_path + "renamed"
         if sys.platform == "win32":
-            # This is just the beginning: While using thsi function, we are not
-            # allowed to have any handle to thsi path, which is currently not
-            # the case. The pack caching does have a handle :-(
+            # While using this function, we are not allowed to have any handle
+            # to this path, which is currently not the case. The pack caching
+            # does still have a handle :-(
             mman.force_map_handle_removal_win(pack_path)
         os.rename(pack_path, new_pack_path)
 
