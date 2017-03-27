@@ -217,10 +217,11 @@ class TestPack(TestBase):
             assert os.path.getsize(ppath) > 100
 
             # verify pack
-            pf = PackFile(ppath)  # FIXME: Leaks file-pointer(s)!
+            pf = PackFile(ppath)
             assert pf.size() == len(pack_objs)
             assert pf.version() == PackFile.pack_version_default
             assert pf.checksum() == pack_sha
+            pf.close()
 
             # verify index
             if ipath is not None:
@@ -231,6 +232,7 @@ class TestPack(TestBase):
                 assert idx.packfile_checksum() == pack_sha
                 assert idx.indexfile_checksum() == index_sha
                 assert idx.size() == len(pack_objs)
+                idx.close()
             # END verify files exist
         # END for each packpath, indexpath pair
 
@@ -245,7 +247,8 @@ class TestPack(TestBase):
             # END for each crc mode
         # END for each info
         assert count == len(pack_objs)
-
+        entity.close()
+        
     def test_pack_64(self):
         # TODO: hex-edit a pack helping us to verify that we can handle 64 byte offsets
         # of course without really needing such a huge pack
