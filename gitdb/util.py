@@ -72,7 +72,7 @@ def _retry(func, *args, **kwargs):
     # Wrapper around functions, that are problematic on "Windows". Sometimes
     # the OS or someone else has still a handle to the file
     if sys.platform == "win32":
-        for _ in xrange(10):
+        for _ in range(10):
             try:
                 return func(*args, **kwargs)
             except Exception:
