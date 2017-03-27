@@ -16,14 +16,16 @@ import os
 import random
 import sys
 
-from unittest import skipIf
+from nose.plugins.skip import SkipTest
 
 class TestPackDB(TestDBBase):
 
-    @skipIf(sys.platform == "win32", "not supported on windows currently")
     @with_rw_directory
     @with_packs_rw
     def test_writing(self, path):
+        if sys.platform == "win32":
+            raise SkipTest("FIXME: Currently fail on windows")
+
         pdb = PackedDB(path)
 
         # on demand, we init our pack cache
