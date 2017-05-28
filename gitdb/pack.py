@@ -266,6 +266,10 @@ class PackIndexFile(LazyMixin):
         super(PackIndexFile, self).__init__()
         self._indexpath = indexpath
 
+    def close(self):
+        mman.force_map_handle_removal_win(self._indexpath)
+        self._cursor = None
+        
     def _set_cache_(self, attr):
         if attr == "_packfile_checksum":
             self._packfile_checksum = self._cursor.map()[-40:-20]
@@ -527,6 +531,10 @@ class PackFile(LazyMixin):
     def __init__(self, packpath):
         self._packpath = packpath
 
+    def close(self):
+        mman.force_map_handle_removal_win(self._packpath)
+        self._cursor = None
+        
     def _set_cache_(self, attr):
         # we fill the whole cache, whichever attribute gets queried first
         self._cursor = mman.make_cursor(self._packpath).use_region()
@@ -667,6 +675,10 @@ class PackEntity(LazyMixin):
         basename, ext = os.path.splitext(pack_or_index_path)
         self._index = self.IndexFileCls("%s.idx" % basename)            # PackIndexFile instance
         self._pack = self.PackFileCls("%s.pack" % basename)         # corresponding PackFile instance
+
+    def close(self):
+        self._index.close()
+        self._pack.close()
 
     def _set_cache_(self, attr):
         # currently this can only be _offset_map

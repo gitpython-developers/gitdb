@@ -9,7 +9,7 @@ from gitdb.test.performance.lib import TestBigRepoR
 from gitdb.db import LooseObjectDB
 from gitdb import IStream
 
-from gitdb.util import bin_to_hex
+from gitdb.util import bin_to_hex, remove
 from gitdb.fun import chunk_size
 
 from time import time
@@ -104,5 +104,6 @@ class TestObjDBPerformance(TestBigRepoR):
                   (size_kib, desc, cs_kib, elapsed_readchunks, size_kib / (elapsed_readchunks or 1)), file=sys.stderr)
 
             # del db file so we keep something to do
-            os.remove(db_file)
+            ostream = None  # To release the file handle (win)
+            remove(db_file)
         # END for each randomization factor

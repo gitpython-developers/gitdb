@@ -6,6 +6,7 @@ import binascii
 import os
 import mmap
 import sys
+import time
 import errno
 
 from io import BytesIO
@@ -58,7 +59,6 @@ chmod = os.chmod
 isdir = os.path.isdir
 isfile = os.path.isfile
 rename = os.rename
-remove = os.remove
 dirname = os.path.dirname
 basename = os.path.basename
 join = os.path.join
@@ -66,6 +66,25 @@ read = os.read
 write = os.write
 close = os.close
 fsync = os.fsync
+
+
+def _retry(func, *args, **kwargs):
+    # Wrapper around functions, that are problematic on "Windows". Sometimes
+    # the OS or someone else has still a handle to the file
+    if sys.platform == "win32":
+        for _ in range(10):
+            try:
+                return func(*args, **kwargs)
+            except Exception:
+                time.sleep(0.1)
+        return func(*args, **kwargs)
+    else:
+        return func(*args, **kwargs)
+
+
+def remove(*args, **kwargs):
+    return _retry(os.remove, *args, **kwargs)
+
 
 # Backwards compatibility imports
 from gitdb.const import (
@@ -321,7 +340,7 @@ class LockedFD(object):
                 self._fd = os.open(self._filepath, os.O_RDONLY | binary)
             except:
                 # assure we release our lockfile
-                os.remove(self._lockfilepath())
+                remove(self._lockfilepath())
                 raise
             # END handle lockfile
         # END open descriptor for reading
@@ -365,7 +384,7 @@ class LockedFD(object):
             # on windows, rename does not silently overwrite the existing one
             if sys.platform == "win32":
                 if isfile(self._filepath):
-                    os.remove(self._filepath)
+                    remove(self._filepath)
                 # END remove if exists
             # END win32 special handling
             os.rename(lockfile, self._filepath)
@@ -376,7 +395,7 @@ class LockedFD(object):
             chmod(self._filepath, int("644", 8))
         else:
             # just delete the file so far, we failed
-            os.remove(lockfile)
+            remove(lockfile)
         # END successful handling
 
 #} END utilities
