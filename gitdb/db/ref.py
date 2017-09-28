@@ -2,6 +2,7 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
+import codecs
 from gitdb.db.base import (
     CompoundDB,
 )
@@ -41,7 +42,7 @@ class ReferenceDB(CompoundDB):
         # try to get as many as possible, don't fail if some are unavailable
         ref_paths = list()
         try:
-            with open(self._ref_file, 'r') as f:
+            with codecs.open(self._ref_file, 'r', encoding="utf-8") as f:
                 ref_paths = [l.strip() for l in f]
         except (OSError, IOError):
             pass
