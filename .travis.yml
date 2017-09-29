@@ -5,6 +5,7 @@ python:
   - "3.3"
   - "3.4"
   - "3.5"
+  - "3.6"
   # - "pypy" - won't work as smmap doesn't work (see smmap/.travis.yml for details)
 
 git:
