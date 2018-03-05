@@ -6,10 +6,10 @@ GitDB allows you to access bare git repositories for reading and writing. It aim
 Installation
 ============
 
-.. image:: https://pypip.in/version/gitdb/badge.svg
+.. image:: https://img.shields.io/pypi/v/gitdb.svg
     :target: https://pypi.python.org/pypi/gitdb/
     :alt: Latest Version
-.. image:: https://pypip.in/py_versions/gitdb/badge.svg
+.. image:: https://img.shields.io/pypi/pyversions/gitdb.svg
     :target: https://pypi.python.org/pypi/gitdb/
     :alt: Supported Python versions
 .. image:: https://readthedocs.org/projects/gitdb/badge/?version=latest
