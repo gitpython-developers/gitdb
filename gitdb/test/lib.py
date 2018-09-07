@@ -86,7 +86,7 @@ def with_rw_directory(func):
             try:
                 return func(self, path)
             except Exception:
-                sys.stderr.write("Test %s.%s failed, output is at %r\n" % (type(self).__name__, func.__name__, path))
+                sys.stderr.write("Test {}.{} failed, output is at {!r}\n".format(type(self).__name__, func.__name__, path))
                 keep = True
                 raise
         finally:

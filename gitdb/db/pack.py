@@ -148,7 +148,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
         # packs are supposed to be prefixed with pack- by git-convention
         # get all pack files, figure out what changed
         pack_files = set(glob.glob(os.path.join(self.root_path(), "pack-*.pack")))
-        our_pack_files = set(item[1].pack().path() for item in self._entities)
+        our_pack_files = {item[1].pack().path() for item in self._entities}
 
         # new packs
         for pack_file in (pack_files - our_pack_files):
