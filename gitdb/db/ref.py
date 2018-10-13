@@ -49,7 +49,7 @@ class ReferenceDB(CompoundDB):
         # END handle alternates
 
         ref_paths_set = set(ref_paths)
-        cur_ref_paths_set = set(db.root_path() for db in self._dbs)
+        cur_ref_paths_set = {db.root_path() for db in self._dbs}
 
         # remove existing
         for path in (cur_ref_paths_set - ref_paths_set):
