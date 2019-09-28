@@ -225,16 +225,12 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
             if not isdir(obj_dir):
                 mkdir(obj_dir)
             # END handle destination directory
-            # rename onto existing doesn't work on windows
-            if os.name == 'nt':
-                if isfile(obj_path):
-                    remove(tmp_path)
-                else:
-                    rename(tmp_path, obj_path)
-                # end rename only if needed
+            # rename onto existing doesn't work on NTFS
+            if isfile(obj_path):
+                remove(tmp_path)
             else:
                 rename(tmp_path, obj_path)
-            # END handle win32
+            # end rename only if needed
 
             # make sure its readable for all ! It started out as rw-- tmp file
             # but needs to be rwrr
