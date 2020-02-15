@@ -410,7 +410,7 @@ class PackIndexFile(LazyMixin):
         if self._version == 2:
             # read stream to array, convert to tuple
             a = array.array('I')    # 4 byte unsigned int, long are 8 byte on 64 bit it appears
-            a.fromstring(buffer(self._cursor.map(), self._pack_offset, self._pack_64_offset - self._pack_offset))
+            a.frombytes(buffer(self._cursor.map(), self._pack_offset, self._pack_64_offset - self._pack_offset))
 
             # networkbyteorder to something array likes more
             if sys.byteorder == 'little':

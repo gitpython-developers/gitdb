@@ -157,7 +157,7 @@ def make_bytes(size_in_bytes, randomize=False):
         random.shuffle(producer)
     # END randomize
     a = array('i', producer)
-    return a.tostring()
+    return a.tobytes()
 
 
 def make_object(type, data):
