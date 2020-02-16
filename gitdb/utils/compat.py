@@ -3,11 +3,9 @@ import sys
 PY3 = sys.version_info[0] == 3
 
 try:
-    from itertools import izip
     xrange = xrange
 except ImportError:
     # py3
-    izip = zip
     xrange = range
 # end handle python version
 

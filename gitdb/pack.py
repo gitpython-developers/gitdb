@@ -63,7 +63,6 @@ from binascii import crc32
 
 from gitdb.const import NULL_BYTE
 from gitdb.utils.compat import (
-    izip, 
     buffer, 
     xrange,
     to_bytes
@@ -696,7 +695,7 @@ class PackEntity(LazyMixin):
             iter_offsets = iter(offsets_sorted)
             iter_offsets_plus_one = iter(offsets_sorted)
             next(iter_offsets_plus_one)
-            consecutive = izip(iter_offsets, iter_offsets_plus_one)
+            consecutive = zip(iter_offsets, iter_offsets_plus_one)
 
             offset_map = dict(consecutive)
 

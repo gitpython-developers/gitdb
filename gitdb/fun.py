@@ -16,7 +16,7 @@ from functools import reduce
 
 from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.utils.encoding import force_text
-from gitdb.utils.compat import izip, buffer, xrange, PY3
+from gitdb.utils.compat import buffer, xrange, PY3
 from gitdb.typ import (
     str_blob_type,
     str_commit_type,
@@ -314,7 +314,7 @@ class DeltaChunkList(list):
         right.next()
         # this is very pythonic - we might have just use index based access here,
         # but this could actually be faster
-        for lft, rgt in izip(left, right):
+        for lft, rgt in zip(left, right):
             assert lft.rbound() == rgt.to
             assert lft.to + lft.ts == rgt.to
         # END for each pair
