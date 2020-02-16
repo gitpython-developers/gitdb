@@ -62,7 +62,6 @@ from struct import pack
 from binascii import crc32
 
 from gitdb.const import NULL_BYTE
-from gitdb.utils.compat import to_bytes
 
 import tempfile
 import array
@@ -877,7 +876,11 @@ class PackEntity(LazyMixin):
             stream = streams[-1]
             while stream.type_id in delta_types:
                 if stream.type_id == REF_DELTA:
-                    sindex = self._index.sha_to_index(to_bytes(stream.delta_info))
+                    # smmap can return memory view objects, which can't be compared as buffers/bytes can ...
+                    if isinstance(stream.delta_info, memoryview):
+                        sindex = self._index.sha_to_index(stream.delta_info.tobytes())
+                    else:
+                        sindex = self._index.sha_to_index(stream.delta_info)
                     if sindex is None:
                         break
                     stream = self._pack.stream(self._index.offset(sindex))
