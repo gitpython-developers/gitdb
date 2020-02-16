@@ -64,7 +64,6 @@ from binascii import crc32
 from gitdb.const import NULL_BYTE
 from gitdb.utils.compat import (
     buffer, 
-    xrange,
     to_bytes
 )
 
@@ -206,7 +205,7 @@ class IndexWriter(object):
         for t in self._objs:
             tmplist[byte_ord(t[0][0])] += 1
         # END prepare fanout
-        for i in xrange(255):
+        for i in range(255):
             v = tmplist[i]
             sha_write(pack('>L', v))
             tmplist[i + 1] += v
@@ -375,7 +374,7 @@ class PackIndexFile(LazyMixin):
         d = self._cursor.map()
         out = list()
         append = out.append
-        for i in xrange(256):
+        for i in range(256):
             append(unpack_from('>L', d, byte_offset + i * 4)[0])
         # END for each entry
         return out
@@ -416,7 +415,7 @@ class PackIndexFile(LazyMixin):
                 a.byteswap()
             return a
         else:
-            return tuple(self.offset(index) for index in xrange(self.size()))
+            return tuple(self.offset(index) for index in range(self.size()))
         # END handle version
 
     def sha_to_index(self, sha):
@@ -715,7 +714,7 @@ class PackEntity(LazyMixin):
         """Iterate over all objects in our index and yield their OInfo or OStream instences"""
         _sha = self._index.sha
         _object = self._object
-        for index in xrange(self._index.size()):
+        for index in range(self._index.size()):
             yield _object(_sha(index), as_stream, index)
         # END for each index
 

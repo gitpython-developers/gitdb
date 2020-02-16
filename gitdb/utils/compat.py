@@ -3,13 +3,6 @@ import sys
 PY3 = sys.version_info[0] == 3
 
 try:
-    xrange = xrange
-except ImportError:
-    # py3
-    xrange = range
-# end handle python version
-
-try:
     # Python 2
     buffer = buffer
     memoryview = buffer

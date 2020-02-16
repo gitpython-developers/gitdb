@@ -25,7 +25,6 @@ from gitdb.base import (
 from gitdb.fun import delta_types
 from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
-from gitdb.utils.compat import xrange
 
 from nose import SkipTest
 
@@ -58,7 +57,7 @@ class TestPack(TestBase):
         assert len(index.offsets()) == size
 
         # get all data of all objects
-        for oidx in xrange(index.size()):
+        for oidx in range(index.size()):
             sha = index.sha(oidx)
             assert oidx == index.sha_to_index(sha)
 

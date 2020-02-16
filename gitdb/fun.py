@@ -16,7 +16,7 @@ from functools import reduce
 
 from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.utils.encoding import force_text
-from gitdb.utils.compat import buffer, xrange, PY3
+from gitdb.utils.compat import buffer, PY3
 from gitdb.typ import (
     str_blob_type,
     str_commit_type,
@@ -264,7 +264,7 @@ class DeltaChunkList(list):
                     # if first_data_index is not None:
                     nd = StringIO()                     # new data
                     so = self[first_data_index].to      # start offset in target buffer
-                    for x in xrange(first_data_index, i - 1):
+                    for x in range(first_data_index, i - 1):
                         xdc = self[x]
                         nd.write(xdc.data[:xdc.ts])
                     # END collect data
