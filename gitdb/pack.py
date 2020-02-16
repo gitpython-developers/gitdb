@@ -62,10 +62,7 @@ from struct import pack
 from binascii import crc32
 
 from gitdb.const import NULL_BYTE
-from gitdb.utils.compat import (
-    buffer, 
-    to_bytes
-)
+from gitdb.utils.compat import to_bytes
 
 import tempfile
 import array
@@ -117,7 +114,7 @@ def pack_object_at(cursor, offset, as_stream):
     # END handle type id
     abs_data_offset = offset + total_rela_offset
     if as_stream:
-        stream = DecompressMemMapReader(buffer(data, total_rela_offset), False, uncomp_size)
+        stream = DecompressMemMapReader(data[total_rela_offset:], False, uncomp_size)
         if delta_info is None:
             return abs_data_offset, OPackStream(offset, type_id, uncomp_size, stream)
         else:
@@ -408,7 +405,7 @@ class PackIndexFile(LazyMixin):
         if self._version == 2:
             # read stream to array, convert to tuple
             a = array.array('I')    # 4 byte unsigned int, long are 8 byte on 64 bit it appears
-            a.frombytes(buffer(self._cursor.map(), self._pack_offset, self._pack_64_offset - self._pack_offset))
+            a.frombytes(self._cursor.map()[self._pack_offset:self._pack_64_offset])
 
             # networkbyteorder to something array likes more
             if sys.byteorder == 'little':
@@ -836,7 +833,7 @@ class PackEntity(LazyMixin):
             while cur_pos < next_offset:
                 rbound = min(cur_pos + chunk_size, next_offset)
                 size = rbound - cur_pos
-                this_crc_value = crc_update(buffer(pack_data, cur_pos, size), this_crc_value)
+                this_crc_value = crc_update(pack_data[cur_pos:cur_pos + size], this_crc_value)
                 cur_pos += size
             # END window size loop
 

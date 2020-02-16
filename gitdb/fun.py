@@ -16,7 +16,7 @@ from functools import reduce
 
 from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.utils.encoding import force_text
-from gitdb.utils.compat import buffer, PY3
+from gitdb.utils.compat import PY3
 from gitdb.typ import (
     str_blob_type,
     str_commit_type,
@@ -101,7 +101,7 @@ def delta_chunk_apply(dc, bbuf, write):
     :param write: write method to call with data to write"""
     if dc.data is None:
         # COPY DATA FROM SOURCE
-        write(buffer(bbuf, dc.so, dc.ts))
+        write(bbuf[dc.so:dc.so + dc.ts])
     else:
         # APPEND DATA
         # whats faster: if + 4 function calls or just a write with a slice ?
@@ -698,7 +698,7 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):
                 if (rbound < cp_size or
                         rbound > src_buf_size):
                     break
-                write(buffer(src_buf, cp_off, cp_size))
+                write(src_buf[cp_off:cp_off + cp_size])
             elif c:
                 write(db[i:i + c])
                 i += c
@@ -741,7 +741,7 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):
                 if (rbound < cp_size or
                         rbound > src_buf_size):
                     break
-                write(buffer(src_buf, cp_off, cp_size))
+                write(src_buf[cp_off:cp_off + cp_size])
             elif c:
                 write(db[i:i + c])
                 i += c

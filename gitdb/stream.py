@@ -27,7 +27,6 @@ from gitdb.util import (
 )
 
 from gitdb.const import NULL_BYTE, BYTE_SPACE
-from gitdb.utils.compat import buffer
 from gitdb.utils.encoding import force_bytes
 
 has_perf_mod = False
@@ -278,7 +277,7 @@ class DecompressMemMapReader(LazyMixin):
         # END adjust winsize
 
         # takes a slice, but doesn't copy the data, it says ...
-        indata = buffer(self._m, self._cws, self._cwe - self._cws)
+        indata = self._m[self._cws:self._cwe]
 
         # get the actual window end to be sure we don't use it for computations
         self._cwe = self._cws + len(indata)
@@ -414,7 +413,7 @@ class DeltaApplyReader(LazyMixin):
             buf = dstream.read(512)         # read the header information + X
             offset, src_size = msb_size(buf)
             offset, target_size = msb_size(buf, offset)
-            buffer_info_list.append((buffer(buf, offset), offset, src_size, target_size))
+            buffer_info_list.append((buf[offset:], offset, src_size, target_size))
             max_target_size = max(max_target_size, target_size)
         # END for each delta stream
 
