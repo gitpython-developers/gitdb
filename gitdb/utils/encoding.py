@@ -1,10 +1,8 @@
 from gitdb.utils import compat
 
 if compat.PY3:
-    string_types = (str, )
     text_type = str
 else:
-    string_types = (basestring, )
     text_type = unicode
 
 
@@ -12,7 +10,7 @@ def force_bytes(data, encoding="ascii"):
     if isinstance(data, bytes):
         return data
 
-    if isinstance(data, string_types):
+    if isinstance(data, str):
         return data.encode(encoding)
 
     return data
