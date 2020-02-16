@@ -27,11 +27,6 @@ from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
 from gitdb.utils.compat import xrange
 
-try:
-    from itertools import izip
-except ImportError:
-    izip = zip
-
 from nose import SkipTest
 
 import os
@@ -155,7 +150,7 @@ class TestPack(TestBase):
             pack_objs.extend(entity.stream_iter())
 
             count = 0
-            for info, stream in izip(entity.info_iter(), entity.stream_iter()):
+            for info, stream in zip(entity.info_iter(), entity.stream_iter()):
                 count += 1
                 assert info.binsha == stream.binsha
                 assert len(info.binsha) == 20
