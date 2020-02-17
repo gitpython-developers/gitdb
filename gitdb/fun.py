@@ -16,7 +16,6 @@ from functools import reduce
 
 from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.utils.encoding import force_text
-from gitdb.utils.compat import izip, buffer, xrange, PY3
 from gitdb.typ import (
     str_blob_type,
     str_commit_type,
@@ -101,7 +100,7 @@ def delta_chunk_apply(dc, bbuf, write):
     :param write: write method to call with data to write"""
     if dc.data is None:
         # COPY DATA FROM SOURCE
-        write(buffer(bbuf, dc.so, dc.ts))
+        write(bbuf[dc.so:dc.so + dc.ts])
     else:
         # APPEND DATA
         # whats faster: if + 4 function calls or just a write with a slice ?
@@ -264,7 +263,7 @@ class DeltaChunkList(list):
                     # if first_data_index is not None:
                     nd = StringIO()                     # new data
                     so = self[first_data_index].to      # start offset in target buffer
-                    for x in xrange(first_data_index, i - 1):
+                    for x in range(first_data_index, i - 1):
                         xdc = self[x]
                         nd.write(xdc.data[:xdc.ts])
                     # END collect data
@@ -314,7 +313,7 @@ class DeltaChunkList(list):
         right.next()
         # this is very pythonic - we might have just use index based access here,
         # but this could actually be faster
-        for lft, rgt in izip(left, right):
+        for lft, rgt in zip(left, right):
             assert lft.rbound() == rgt.to
             assert lft.to + lft.ts == rgt.to
         # END for each pair
@@ -424,20 +423,12 @@ def pack_object_header_info(data):
     type_id = (c >> 4) & 7          # numeric type
     size = c & 15                   # starting size
     s = 4                           # starting bit-shift size
-    if PY3:
-        while c & 0x80:
-            c = byte_ord(data[i])
-            i += 1
-            size += (c & 0x7f) << s
-            s += 7
-        # END character loop
-    else:
-        while c & 0x80:
-            c = ord(data[i])
-            i += 1
-            size += (c & 0x7f) << s
-            s += 7
-        # END character loop
+    while c & 0x80:
+        c = byte_ord(data[i])
+        i += 1
+        size += (c & 0x7f) << s
+        s += 7
+    # END character loop
     # end performance at expense of maintenance ...
     return (type_id, size, i)
 
@@ -450,28 +441,16 @@ def create_pack_object_header(obj_type, obj_size):
     :param obj_type: pack type_id of the object
     :param obj_size: uncompressed size in bytes of the following object stream"""
     c = 0       # 1 byte
-    if PY3:
-        hdr = bytearray()  # output string
+    hdr = bytearray()  # output string
 
-        c = (obj_type << 4) | (obj_size & 0xf)
-        obj_size >>= 4
-        while obj_size:
-            hdr.append(c | 0x80)
-            c = obj_size & 0x7f
-            obj_size >>= 7
-        # END until size is consumed
-        hdr.append(c)
-    else:
-        hdr = bytes()  # output string
-
-        c = (obj_type << 4) | (obj_size & 0xf)
-        obj_size >>= 4
-        while obj_size:
-            hdr += chr(c | 0x80)
-            c = obj_size & 0x7f
-            obj_size >>= 7
-        # END until size is consumed
-        hdr += chr(c)
+    c = (obj_type << 4) | (obj_size & 0xf)
+    obj_size >>= 4
+    while obj_size:
+        hdr.append(c | 0x80)
+        c = obj_size & 0x7f
+        obj_size >>= 7
+    # END until size is consumed
+    hdr.append(c)
     # end handle interpreter
     return hdr
 
@@ -484,26 +463,15 @@ def msb_size(data, offset=0):
     i = 0
     l = len(data)
     hit_msb = False
-    if PY3:
-        while i < l:
-            c = data[i + offset]
-            size |= (c & 0x7f) << i * 7
-            i += 1
-            if not c & 0x80:
-                hit_msb = True
-                break
-            # END check msb bit
-        # END while in range
-    else:
-        while i < l:
-            c = ord(data[i + offset])
-            size |= (c & 0x7f) << i * 7
-            i += 1
-            if not c & 0x80:
-                hit_msb = True
-                break
-            # END check msb bit
-        # END while in range
+    while i < l:
+        c = data[i + offset]
+        size |= (c & 0x7f) << i * 7
+        i += 1
+        if not c & 0x80:
+            hit_msb = True
+            break
+        # END check msb bit
+    # END while in range
     # end performance ...
     if not hit_msb:
         raise AssertionError("Could not find terminating MSB byte in data stream")
@@ -663,93 +631,48 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):
     **Note:** transcribed to python from the similar routine in patch-delta.c"""
     i = 0
     db = delta_buf
-    if PY3:
-        while i < delta_buf_size:
-            c = db[i]
-            i += 1
-            if c & 0x80:
-                cp_off, cp_size = 0, 0
-                if (c & 0x01):
-                    cp_off = db[i]
-                    i += 1
-                if (c & 0x02):
-                    cp_off |= (db[i] << 8)
-                    i += 1
-                if (c & 0x04):
-                    cp_off |= (db[i] << 16)
-                    i += 1
-                if (c & 0x08):
-                    cp_off |= (db[i] << 24)
-                    i += 1
-                if (c & 0x10):
-                    cp_size = db[i]
-                    i += 1
-                if (c & 0x20):
-                    cp_size |= (db[i] << 8)
-                    i += 1
-                if (c & 0x40):
-                    cp_size |= (db[i] << 16)
-                    i += 1
+    while i < delta_buf_size:
+        c = db[i]
+        i += 1
+        if c & 0x80:
+            cp_off, cp_size = 0, 0
+            if (c & 0x01):
+                cp_off = db[i]
+                i += 1
+            if (c & 0x02):
+                cp_off |= (db[i] << 8)
+                i += 1
+            if (c & 0x04):
+                cp_off |= (db[i] << 16)
+                i += 1
+            if (c & 0x08):
+                cp_off |= (db[i] << 24)
+                i += 1
+            if (c & 0x10):
+                cp_size = db[i]
+                i += 1
+            if (c & 0x20):
+                cp_size |= (db[i] << 8)
+                i += 1
+            if (c & 0x40):
+                cp_size |= (db[i] << 16)
+                i += 1
 
-                if not cp_size:
-                    cp_size = 0x10000
+            if not cp_size:
+                cp_size = 0x10000
 
-                rbound = cp_off + cp_size
-                if (rbound < cp_size or
-                        rbound > src_buf_size):
-                    break
-                write(buffer(src_buf, cp_off, cp_size))
-            elif c:
-                write(db[i:i + c])
-                i += c
-            else:
-                raise ValueError("unexpected delta opcode 0")
-            # END handle command byte
-        # END while processing delta data
-    else:
-        while i < delta_buf_size:
-            c = ord(db[i])
-            i += 1
-            if c & 0x80:
-                cp_off, cp_size = 0, 0
-                if (c & 0x01):
-                    cp_off = ord(db[i])
-                    i += 1
-                if (c & 0x02):
-                    cp_off |= (ord(db[i]) << 8)
-                    i += 1
-                if (c & 0x04):
-                    cp_off |= (ord(db[i]) << 16)
-                    i += 1
-                if (c & 0x08):
-                    cp_off |= (ord(db[i]) << 24)
-                    i += 1
-                if (c & 0x10):
-                    cp_size = ord(db[i])
-                    i += 1
-                if (c & 0x20):
-                    cp_size |= (ord(db[i]) << 8)
-                    i += 1
-                if (c & 0x40):
-                    cp_size |= (ord(db[i]) << 16)
-                    i += 1
-
-                if not cp_size:
-                    cp_size = 0x10000
-
-                rbound = cp_off + cp_size
-                if (rbound < cp_size or
-                        rbound > src_buf_size):
-                    break
-                write(buffer(src_buf, cp_off, cp_size))
-            elif c:
-                write(db[i:i + c])
-                i += c
-            else:
-                raise ValueError("unexpected delta opcode 0")
-            # END handle command byte
-        # END while processing delta data
-    # end save byte_ord call and prevent performance regression in py2
+            rbound = cp_off + cp_size
+            if (rbound < cp_size or
+                    rbound > src_buf_size):
+                break
+            write(src_buf[cp_off:cp_off + cp_size])
+        elif c:
+            write(db[i:i + c])
+            i += c
+        else:
+            raise ValueError("unexpected delta opcode 0")
+        # END handle command byte
+    # END while processing delta data
 
     # yes, lets use the exact same error message that git uses :)
     assert i == delta_buf_size, "delta replay has gone wild"

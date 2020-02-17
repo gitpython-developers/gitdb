@@ -56,10 +56,6 @@ DEVELOPMENT
     :target: https://ci.appveyor.com/project/ankostis/gitpython/branch/master)
 .. image:: https://coveralls.io/repos/gitpython-developers/gitdb/badge.png
     :target: https://coveralls.io/r/gitpython-developers/gitdb
-.. image:: http://www.issuestats.com/github/gitpython-developers/gitdb/badge/pr
-    :target: http://www.issuestats.com/github/gitpython-developers/gitdb
-.. image:: http://www.issuestats.com/github/gitpython-developers/gitdb/badge/issue
-    :target: http://www.issuestats.com/github/gitpython-developers/gitdb
 
 The library is considered mature, and not under active development. It's primary (known) use is in git-python.
 

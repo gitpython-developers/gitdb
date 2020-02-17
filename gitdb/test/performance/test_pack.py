@@ -17,7 +17,6 @@ from gitdb import (
 from gitdb.typ import str_blob_type
 from gitdb.exc import UnsupportedOperation
 from gitdb.db.pack import PackedDB
-from gitdb.utils.compat import xrange
 from gitdb.test.lib import skip_on_travis_ci
 
 import sys
@@ -118,7 +117,7 @@ class TestPackedDBPerformance(TestBigRepoR):
             for entity in pdb.entities():
                 pack_verify = entity.is_valid_stream
                 sha_by_index = entity.index().sha
-                for index in xrange(entity.index().size()):
+                for index in range(entity.index().size()):
                     try:
                         assert pack_verify(sha_by_index(index), use_crc=crc)
                         count += 1

@@ -25,12 +25,6 @@ from gitdb.base import (
 from gitdb.fun import delta_types
 from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
-from gitdb.utils.compat import xrange
-
-try:
-    from itertools import izip
-except ImportError:
-    izip = zip
 
 from nose import SkipTest
 
@@ -63,7 +57,7 @@ class TestPack(TestBase):
         assert len(index.offsets()) == size
 
         # get all data of all objects
-        for oidx in xrange(index.size()):
+        for oidx in range(index.size()):
             sha = index.sha(oidx)
             assert oidx == index.sha_to_index(sha)
 
@@ -155,7 +149,7 @@ class TestPack(TestBase):
             pack_objs.extend(entity.stream_iter())
 
             count = 0
-            for info, stream in izip(entity.info_iter(), entity.stream_iter()):
+            for info, stream in zip(entity.info_iter(), entity.stream_iter()):
                 count += 1
                 assert info.binsha == stream.binsha
                 assert len(info.binsha) == 20

@@ -23,7 +23,6 @@ from gitdb.base import (
 
 from gitdb.exc import BadObject
 from gitdb.typ import str_blob_type
-from gitdb.utils.compat import xrange
 
 from io import BytesIO
 
@@ -45,7 +44,7 @@ class TestDBBase(TestBase):
         # write a bunch of objects and query their streams and info
         null_objs = db.size()
         ni = 250
-        for i in xrange(ni):
+        for i in range(ni):
             data = pack(">L", i)
             istream = IStream(str_blob_type, len(data), BytesIO(data))
             new_istream = db.store(istream)
