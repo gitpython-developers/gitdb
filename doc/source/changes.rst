@@ -3,6 +3,12 @@ Changelog
 #########
 
 *****
+3.0.2
+*****
+
+* removed all python2 compatibility shims, GitDB now is a Python 3 program.
+
+*****
 0.6.1
 *****
 

@@ -7,7 +7,7 @@ from setuptools import setup
 __author__ = "Sebastian Thiel"
 __contact__ = "byronimo@gmail.com"
 __homepage__ = "https://github.com/gitpython-developers/gitdb"
-version_info = (2, 0, 5)
+version_info = (3, 0, 2)
 __version__ = '.'.join(str(i) for i in version_info)
 
 setup(
@@ -22,7 +22,7 @@ setup(
     zip_safe=False,
     install_requires=['smmap2 >= 2.0.0'],
     long_description="""GitDB is a pure-Python git object database""",
-    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*',
+    python_requires='>=3.4',
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -34,11 +34,10 @@ setup(
         "Operating System :: Microsoft :: Windows",
         "Operating System :: MacOS :: MacOS X",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7"
     ]
 )

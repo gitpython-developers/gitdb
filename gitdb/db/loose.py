@@ -50,11 +50,11 @@ from gitdb.fun import (
     stream_copy
 )
 
-from gitdb.utils.compat import MAXSIZE
 from gitdb.utils.encoding import force_bytes
 
 import tempfile
 import os
+import sys
 
 
 __all__ = ('LooseObjectDB', )
@@ -196,7 +196,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                 if istream.binsha is not None:
                     # copy as much as possible, the actual uncompressed item size might
                     # be smaller than the compressed version
-                    stream_copy(istream.read, writer.write, MAXSIZE, self.stream_chunk_size)
+                    stream_copy(istream.read, writer.write, sys.maxsize, self.stream_chunk_size)
                 else:
                     # write object with header, we have to make a new one
                     write_object(istream.type, istream.size, istream.read, writer.write,
@@ -225,16 +225,12 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
             if not isdir(obj_dir):
                 mkdir(obj_dir)
             # END handle destination directory
-            # rename onto existing doesn't work on windows
-            if os.name == 'nt':
-                if isfile(obj_path):
-                    remove(tmp_path)
-                else:
-                    rename(tmp_path, obj_path)
-                # end rename only if needed
+            # rename onto existing doesn't work on NTFS
+            if isfile(obj_path):
+                remove(tmp_path)
             else:
                 rename(tmp_path, obj_path)
-            # END handle win32
+            # end rename only if needed
 
             # make sure its readable for all ! It started out as rw-- tmp file
             # but needs to be rwrr

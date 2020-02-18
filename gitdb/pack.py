@@ -62,12 +62,6 @@ from struct import pack
 from binascii import crc32
 
 from gitdb.const import NULL_BYTE
-from gitdb.utils.compat import (
-    izip, 
-    buffer, 
-    xrange,
-    to_bytes
-)
 
 import tempfile
 import array
@@ -119,7 +113,7 @@ def pack_object_at(cursor, offset, as_stream):
     # END handle type id
     abs_data_offset = offset + total_rela_offset
     if as_stream:
-        stream = DecompressMemMapReader(buffer(data, total_rela_offset), False, uncomp_size)
+        stream = DecompressMemMapReader(data[total_rela_offset:], False, uncomp_size)
         if delta_info is None:
             return abs_data_offset, OPackStream(offset, type_id, uncomp_size, stream)
         else:
@@ -207,7 +201,7 @@ class IndexWriter(object):
         for t in self._objs:
             tmplist[byte_ord(t[0][0])] += 1
         # END prepare fanout
-        for i in xrange(255):
+        for i in range(255):
             v = tmplist[i]
             sha_write(pack('>L', v))
             tmplist[i + 1] += v
@@ -376,7 +370,7 @@ class PackIndexFile(LazyMixin):
         d = self._cursor.map()
         out = list()
         append = out.append
-        for i in xrange(256):
+        for i in range(256):
             append(unpack_from('>L', d, byte_offset + i * 4)[0])
         # END for each entry
         return out
@@ -410,14 +404,14 @@ class PackIndexFile(LazyMixin):
         if self._version == 2:
             # read stream to array, convert to tuple
             a = array.array('I')    # 4 byte unsigned int, long are 8 byte on 64 bit it appears
-            a.fromstring(buffer(self._cursor.map(), self._pack_offset, self._pack_64_offset - self._pack_offset))
+            a.frombytes(self._cursor.map()[self._pack_offset:self._pack_64_offset])
 
             # networkbyteorder to something array likes more
             if sys.byteorder == 'little':
                 a.byteswap()
             return a
         else:
-            return tuple(self.offset(index) for index in xrange(self.size()))
+            return tuple(self.offset(index) for index in range(self.size()))
         # END handle version
 
     def sha_to_index(self, sha):
@@ -696,7 +690,7 @@ class PackEntity(LazyMixin):
             iter_offsets = iter(offsets_sorted)
             iter_offsets_plus_one = iter(offsets_sorted)
             next(iter_offsets_plus_one)
-            consecutive = izip(iter_offsets, iter_offsets_plus_one)
+            consecutive = zip(iter_offsets, iter_offsets_plus_one)
 
             offset_map = dict(consecutive)
 
@@ -716,7 +710,7 @@ class PackEntity(LazyMixin):
         """Iterate over all objects in our index and yield their OInfo or OStream instences"""
         _sha = self._index.sha
         _object = self._object
-        for index in xrange(self._index.size()):
+        for index in range(self._index.size()):
             yield _object(_sha(index), as_stream, index)
         # END for each index
 
@@ -838,7 +832,7 @@ class PackEntity(LazyMixin):
             while cur_pos < next_offset:
                 rbound = min(cur_pos + chunk_size, next_offset)
                 size = rbound - cur_pos
-                this_crc_value = crc_update(buffer(pack_data, cur_pos, size), this_crc_value)
+                this_crc_value = crc_update(pack_data[cur_pos:cur_pos + size], this_crc_value)
                 cur_pos += size
             # END window size loop
 
@@ -882,7 +876,11 @@ class PackEntity(LazyMixin):
             stream = streams[-1]
             while stream.type_id in delta_types:
                 if stream.type_id == REF_DELTA:
-                    sindex = self._index.sha_to_index(to_bytes(stream.delta_info))
+                    # smmap can return memory view objects, which can't be compared as buffers/bytes can ...
+                    if isinstance(stream.delta_info, memoryview):
+                        sindex = self._index.sha_to_index(stream.delta_info.tobytes())
+                    else:
+                        sindex = self._index.sha_to_index(stream.delta_info)
                     if sindex is None:
                         break
                     stream = self._pack.stream(self._index.offset(sindex))

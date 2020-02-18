@@ -4,7 +4,6 @@
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Utilities used in ODB testing"""
 from gitdb import OStream
-from gitdb.utils.compat import xrange
 
 import sys
 import random
@@ -151,13 +150,13 @@ def make_bytes(size_in_bytes, randomize=False):
     """:return: string with given size in bytes
     :param randomize: try to produce a very random stream"""
     actual_size = size_in_bytes // 4
-    producer = xrange(actual_size)
+    producer = range(actual_size)
     if randomize:
         producer = list(producer)
         random.shuffle(producer)
     # END randomize
     a = array('i', producer)
-    return a.tostring()
+    return a.tobytes()
 
 
 def make_object(type, data):
