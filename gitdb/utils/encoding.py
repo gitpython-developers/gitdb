@@ -1,4 +1,4 @@
-def force_bytes(data, encoding="ascii"):
+def force_bytes(data, encoding="utf-8"):
     if isinstance(data, bytes):
         return data
 
