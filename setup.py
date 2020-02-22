@@ -20,7 +20,7 @@ setup(
     packages=('gitdb', 'gitdb.db', 'gitdb.utils', 'gitdb.test'),
     license="BSD License",
     zip_safe=False,
-    install_requires=['smmap2 >= 2.0.0'],
+    install_requires=['smmap2>=2,<3'],
     long_description="""GitDB is a pure-Python git object database""",
     python_requires='>=3.4',
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
