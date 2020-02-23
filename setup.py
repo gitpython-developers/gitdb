@@ -7,7 +7,7 @@ from setuptools import setup
 __author__ = "Sebastian Thiel"
 __contact__ = "byronimo@gmail.com"
 __homepage__ = "https://github.com/gitpython-developers/gitdb"
-version_info = (3, 0, 3)
+version_info = (4, 0, 0)
 __version__ = '.'.join(str(i) for i in version_info)
 
 setup(
@@ -20,7 +20,7 @@ setup(
     packages=('gitdb', 'gitdb.db', 'gitdb.utils', 'gitdb.test'),
     license="BSD License",
     zip_safe=False,
-    install_requires=['smmap2>=2,<3'],
+    install_requires=['smmap>=3'],
     long_description="""GitDB is a pure-Python git object database""",
     python_requires='>=3.4',
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
