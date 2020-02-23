@@ -2,6 +2,21 @@
 Changelog
 #########
 
+***********
+3.0.3.post1
+***********
+
+* Fixed changelogs for v3.0.2 and v3.0.3
+
+*****
+3.0.3
+*****
+
+* Changed ``force_bytes`` to use UTF-8 encoding by default
+  (`#49 <https://github.com/gitpython-developers/gitdb/pull/49>`_)
+* Restricted smmap2 version requirement to < 3
+* Updated requirements.txt
+
 *****
 3.0.2
 *****
