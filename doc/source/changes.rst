@@ -3,6 +3,12 @@ Changelog
 #########
 
 *****
+3.0.3
+*****
+
+* restrict smmap to versions < 3. See https://github.com/gitpython-developers/gitdb/issues/59 for details.
+
+*****
 3.0.2
 *****
 
