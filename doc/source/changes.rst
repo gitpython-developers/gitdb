@@ -2,6 +2,16 @@
 Changelog
 #########
 
+*****
+4.0.1
+*****
+
+* Switched back to the gitdb package name on PyPI and fixed the gitdb2 mirror package
+  (`#59 <https://github.com/gitpython-developers/gitdb/issues/59>`_)
+* Switched back to require smmap package and fixed version requirement to >= 3.0.1, < 4
+  (`#59 <https://github.com/gitpython-developers/gitdb/issues/59>`_)
+* Updated smmap submodule
+
 ***********
 3.0.3.post1
 ***********
