@@ -3,6 +3,13 @@ Changelog
 #########
 
 *****
+4.0.2
+*****
+
+* Updated to release as Pure Python Wheel rather than Universal Wheel
+  (`#62 <https://github.com/gitpython-developers/gitdb/pull/62>`_)
+
+*****
 4.0.1
 *****
 
