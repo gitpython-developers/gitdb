@@ -9,4 +9,5 @@ setup(
     long_description="This is a mirror package for `gitdb <https://pypi.org/project/gitdb/>`_. Consider installing it directly instead.",
     url="https://github.com/gitpython-developers/gitdb",
     install_requires=["gitdb>=4.0.1"],
+    python_requires='>=3.4',
 )
