@@ -52,8 +52,6 @@ DEVELOPMENT
 
 .. image:: https://github.com/gitpython-developers/gitdb/workflows/Python%20package/badge.svg
     :target: https://github.com/gitpython-developers/gitdb/actions
-.. image:: https://coveralls.io/repos/gitpython-developers/gitdb/badge.png
-    :target: https://coveralls.io/r/gitpython-developers/gitdb
 
 The library is considered mature, and not under active development. It's primary (known) use is in git-python.
 
