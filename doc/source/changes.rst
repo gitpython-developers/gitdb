@@ -3,6 +3,12 @@ Changelog
 #########
 
 *****
+4.0.3
+*****
+
+* Support for PyOxidizer
+
+*****
 4.0.2
 *****
 
