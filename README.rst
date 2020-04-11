@@ -52,8 +52,6 @@ DEVELOPMENT
 
 .. image:: https://github.com/gitpython-developers/gitdb/workflows/Python%20package/badge.svg
     :target: https://github.com/gitpython-developers/gitdb/actions
-.. image:: https://ci.appveyor.com/api/projects/status/2qa4km4ln7bfv76r/branch/master?svg=true&passingText=windows%20OK&failingText=windows%20failed
-    :target: https://ci.appveyor.com/project/ankostis/gitpython/branch/master)
 .. image:: https://coveralls.io/repos/gitpython-developers/gitdb/badge.png
     :target: https://coveralls.io/r/gitpython-developers/gitdb
 
