@@ -13,7 +13,8 @@ import os
 def _init_externals():
     """Initialize external projects by putting them into the path"""
     for module in ('smmap',):
-        sys.path.append(os.path.join(os.path.dirname(__file__), 'ext', module))
+        if 'PYOXIDIZER' not in os.environ:
+            sys.path.append(os.path.join(os.path.dirname(__file__), 'ext', module))
 
         try:
             __import__(module)
