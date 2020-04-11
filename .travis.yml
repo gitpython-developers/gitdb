@@ -1,3 +1,4 @@
+# NOT USED, just for reference. See github actions for CI configuration
 language: python
 python:
   - "3.4"
