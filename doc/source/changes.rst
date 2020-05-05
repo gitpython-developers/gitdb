@@ -3,6 +3,12 @@ Changelog
 #########
 
 *****
+4.0.5
+*****
+
+* Re-release of 4.0.4, with known signature
+
+*****
 4.0.4
 *****
 
