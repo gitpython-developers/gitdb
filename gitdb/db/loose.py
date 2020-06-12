@@ -138,12 +138,12 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                 # try again without noatime
                 try:
                     return file_contents_ro_filepath(db_path)
-                except OSError:
-                    raise BadObject(sha)
+                except OSError as new_e:
+                    raise BadObject(sha) from new_e
                 # didn't work because of our flag, don't try it again
                 self._fd_open_flags = 0
             else:
-                raise BadObject(sha)
+                raise BadObject(sha) from e
             # END handle error
         # END exception handling
 
