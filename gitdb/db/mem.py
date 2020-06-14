@@ -74,8 +74,8 @@ class MemoryDB(ObjectDBR, ObjectDBW):
             # rewind stream for the next one to read
             ostream.stream.seek(0)
             return ostream
-        except KeyError:
-            raise BadObject(sha)
+        except KeyError as e:
+            raise BadObject(sha) from e
         # END exception handling
 
     def size(self):
