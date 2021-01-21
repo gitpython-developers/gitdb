@@ -326,8 +326,8 @@ class LockedFD(object):
             else:
                 self._fd = fd
             # END handle file descriptor
-        except OSError:
-            raise IOError("Lock at %r could not be obtained" % self._lockfilepath())
+        except OSError as e:
+            raise IOError("Lock at %r could not be obtained" % self._lockfilepath()) from e
         # END handle lock retrieval
 
         # open actual file if required

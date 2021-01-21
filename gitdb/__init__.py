@@ -18,8 +18,8 @@ def _init_externals():
 
         try:
             __import__(module)
-        except ImportError:
-            raise ImportError("'%s' could not be imported, assure it is located in your PYTHONPATH" % module)
+        except ImportError as e:
+            raise ImportError("'%s' could not be imported, assure it is located in your PYTHONPATH" % module) from e
         # END verify import
     # END handel imports
 
