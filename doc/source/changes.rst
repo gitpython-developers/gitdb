@@ -3,6 +3,14 @@ Changelog
 #########
 
 *****
+4.0.6
+*****
+
+* Bumped upper bound for smmap requirement
+  (`#67 <https://github.com/gitpython-developers/gitdb/issues/67>`_,
+  `#68 <https://github.com/gitpython-developers/gitdb/pull/68>`_)
+
+*****
 4.0.5
 *****
 
