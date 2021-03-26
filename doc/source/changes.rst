@@ -3,6 +3,13 @@ Changelog
 #########
 
 *****
+4.0.7
+*****
+
+* Updated upper bound for smmap requirement in setup.py
+  (`#69 <https://github.com/gitpython-developers/gitdb/issues/69>`_)
+
+*****
 4.0.6
 *****
 
