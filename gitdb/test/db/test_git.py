@@ -43,7 +43,7 @@ class TestGitDB(TestDBBase):
             assert gdb.partial_to_complete_sha_hex(bin_to_hex(binsha)[:8 - (i % 2)]) == binsha
         # END for each sha
 
-        self.failUnlessRaises(BadObject, gdb.partial_to_complete_sha_hex, "0000")
+        self.assertRaises(BadObject, gdb.partial_to_complete_sha_hex, "0000")
 
     @with_rw_directory
     def test_writing(self, path):

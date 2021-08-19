@@ -135,7 +135,7 @@ class TestStream(TestBase):
             ostream.close()
 
             # its closed already
-            self.failUnlessRaises(OSError, os.close, fd)
+            self.assertRaises(OSError, os.close, fd)
 
             # read everything back, compare to data we zip
             fd = os.open(path, os.O_RDONLY | getattr(os, 'O_BINARY', 0))

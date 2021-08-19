@@ -32,5 +32,5 @@ class TestLooseDB(TestDBBase):
             assert bin_to_hex(ldb.partial_to_complete_sha_hex(short_sha)) == long_sha
         # END for each sha
 
-        self.failUnlessRaises(BadObject, ldb.partial_to_complete_sha_hex, '0000')
+        self.assertRaises(BadObject, ldb.partial_to_complete_sha_hex, '0000')
         # raises if no object could be found

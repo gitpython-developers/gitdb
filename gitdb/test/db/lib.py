@@ -102,8 +102,8 @@ class TestDBBase(TestBase):
                     assert ostream.type == str_blob_type
                     assert ostream.size == len(data)
                 else:
-                    self.failUnlessRaises(BadObject, db.info, sha)
-                    self.failUnlessRaises(BadObject, db.stream, sha)
+                    self.assertRaises(BadObject, db.info, sha)
+                    self.assertRaises(BadObject, db.stream, sha)
 
                     # DIRECT STREAM COPY
                     # our data hase been written in object format to the StringIO
