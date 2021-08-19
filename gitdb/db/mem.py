@@ -82,10 +82,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
         return len(self._cache)
 
     def sha_iter(self):
-        try:
-            return self._cache.iterkeys()
-        except AttributeError:
-            return self._cache.keys()
+        return self._cache.keys()
 
     #{ Interface
     def stream_copy(self, sha_iter, odb):
