@@ -30,7 +30,6 @@ from gitdb.const import NULL_BYTE, BYTE_SPACE
 from gitdb.utils.encoding import force_bytes
 
 has_perf_mod = False
-PY26 = sys.version_info[:2] < (2, 7)
 try:
     from gitdb_speedups._perf import apply_delta as c_apply_delta
     has_perf_mod = True
@@ -295,7 +294,7 @@ class DecompressMemMapReader(LazyMixin):
         # However, the zlib VERSIONs as well as the platform check is used to further match the entries in the 
         # table in the github issue. This is it ... it was the only way I could make this work everywhere.
         # IT's CERTAINLY GOING TO BITE US IN THE FUTURE ... .
-        if PY26 or ((zlib.ZLIB_VERSION == '1.2.7' or zlib.ZLIB_VERSION == '1.2.5') and not sys.platform == 'darwin'):
+        if zlib.ZLIB_VERSION in ('1.2.7', '1.2.5') and not sys.platform == 'darwin':
             unused_datalen = len(self._zip.unconsumed_tail)
         else:
             unused_datalen = len(self._zip.unconsumed_tail) + len(self._zip.unused_data)
