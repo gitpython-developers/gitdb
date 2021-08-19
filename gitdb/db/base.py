@@ -33,6 +33,9 @@ class ObjectDBR(object):
     #{ Query Interface
     def has_object(self, sha):
         """
+        Whether the object identified by the given 20 bytes
+            binary sha is contained in the database
+
         :return: True if the object identified by the given 20 bytes
             binary sha is contained in the database"""
         raise NotImplementedError("To be implemented in subclass")
@@ -82,6 +85,8 @@ class ObjectDBW(object):
 
     def ostream(self):
         """
+        Return the output stream
+
         :return: overridden output stream this instance will write to, or None
             if it will write to the default stream"""
         return self._ostream
