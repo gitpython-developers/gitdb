@@ -92,6 +92,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
         """Copy the streams as identified by sha's yielded by sha_iter into the given odb
         The streams will be copied directly
         **Note:** the object will only be written if it did not exist in the target db
+
         :return: amount of streams actually copied into odb. If smaller than the amount
             of input shas, one or more objects did already exist in odb"""
         count = 0
