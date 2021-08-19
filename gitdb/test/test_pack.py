@@ -73,7 +73,7 @@ class TestPack(TestBase):
                 assert index.partial_sha_to_index(sha[:l], l * 2) == oidx
 
         # END for each object index in indexfile
-        self.failUnlessRaises(ValueError, index.partial_sha_to_index, "\0", 2)
+        self.assertRaises(ValueError, index.partial_sha_to_index, "\0", 2)
 
     def _assert_pack_file(self, pack, version, size):
         assert pack.version() == 2

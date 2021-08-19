@@ -40,8 +40,8 @@ class TestUtils(TestBase):
             lockfilepath = lfd._lockfilepath()
 
             # cannot end before it was started
-            self.failUnlessRaises(AssertionError, lfd.rollback)
-            self.failUnlessRaises(AssertionError, lfd.commit)
+            self.assertRaises(AssertionError, lfd.rollback)
+            self.assertRaises(AssertionError, lfd.commit)
 
             # open for writing
             assert not os.path.isfile(lockfilepath)
@@ -77,7 +77,7 @@ class TestUtils(TestBase):
             wfdstream = lfd.open(write=True, stream=True)       # this time as stream
             assert os.path.isfile(lockfilepath)
             # another one fails
-            self.failUnlessRaises(IOError, olfd.open)
+            self.assertRaises(IOError, olfd.open)
 
             wfdstream.write(new_data.encode("ascii"))
             lfd.commit()
