@@ -3,6 +3,14 @@ Changelog
 #########
 
 *****
+4.0.8
+*****
+
+* drop support for python 3.4 and 3.5 due to EOL
+* Updated upper bound for smmap requirement in setup.py
+  (`#69 <https://github.com/gitpython-developers/gitdb/issues/76>`_)
+
+*****
 4.0.7
 *****
 
