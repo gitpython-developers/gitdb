@@ -182,7 +182,7 @@ def file_contents_ro(fd, stream=False, allow_mmap=True):
         pass
     # END exception handling
 
-    # read manully
+    # read manually
     contents = os.read(fd, os.fstat(fd).st_size)
     if stream:
         return _RandomAccessBytesIO(contents)
@@ -248,7 +248,7 @@ class LazyMixin(object):
     def __getattr__(self, attr):
         """
         Whenever an attribute is requested that we do not know, we allow it
-        to be created and set. Next time the same attribute is reqeusted, it is simply
+        to be created and set. Next time the same attribute is requested, it is simply
         returned from our dict/slots. """
         self._set_cache_(attr)
         # will raise in case the cache was not created
@@ -332,7 +332,7 @@ class LockedFD(object):
 
         # open actual file if required
         if self._fd is None:
-            # we could specify exlusive here, as we obtained the lock anyway
+            # we could specify exclusive here, as we obtained the lock anyway
             try:
                 self._fd = os.open(self._filepath, os.O_RDONLY | binary)
             except:

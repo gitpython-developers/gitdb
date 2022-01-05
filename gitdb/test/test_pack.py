@@ -101,7 +101,7 @@ class TestPack(TestBase):
                 dstream = DeltaApplyReader.new(streams)
             except ValueError:
                 # ignore these, old git versions use only ref deltas,
-                # which we havent resolved ( as we are without an index )
+                # which we haven't resolved ( as we are without an index )
                 # Also ignore non-delta streams
                 continue
             # END get deltastream

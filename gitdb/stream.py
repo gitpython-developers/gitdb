@@ -289,7 +289,7 @@ class DecompressMemMapReader(LazyMixin):
         # They are thorough, and I assume it is truly working.
         # Why is this logic as convoluted as it is ? Please look at the table in 
         # https://github.com/gitpython-developers/gitdb/issues/19 to learn about the test-results.
-        # Bascially, on py2.6, you want to use branch 1, whereas on all other python version, the second branch
+        # Basically, on py2.6, you want to use branch 1, whereas on all other python version, the second branch
         # will be the one that works. 
         # However, the zlib VERSIONs as well as the platform check is used to further match the entries in the 
         # table in the github issue. This is it ... it was the only way I could make this work everywhere.

@@ -80,7 +80,7 @@ class TestPackDB(TestDBBase):
         # END for each sha to find
 
         # we should have at least one ambiguous, considering the small sizes
-        # but in our pack, there is no ambigious ...
+        # but in our pack, there is no ambiguous ...
         # assert num_ambiguous
 
         # non-existing

@@ -21,7 +21,7 @@ def _init_externals():
         except ImportError as e:
             raise ImportError("'%s' could not be imported, assure it is located in your PYTHONPATH" % module) from e
         # END verify import
-    # END handel imports
+    # END handle imports
 
 #} END initialization
 
