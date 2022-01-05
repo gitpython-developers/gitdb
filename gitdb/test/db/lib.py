@@ -107,7 +107,7 @@ class TestDBBase(TestBase):
 
                     # DIRECT STREAM COPY
                     # our data hase been written in object format to the StringIO
-                    # we pasesd as output stream. No physical database representation
+                    # we passed as output stream. No physical database representation
                     # was created.
                     # Test direct stream copy of object streams, the result must be
                     # identical to what we fed in

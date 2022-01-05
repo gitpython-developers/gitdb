@@ -224,7 +224,7 @@ class IndexWriter(object):
             if ofs > 0x7fffffff:
                 tmplist.append(ofs)
                 ofs = 0x80000000 + len(tmplist) - 1
-            # END hande 64 bit offsets
+            # END handle 64 bit offsets
             sha_write(pack('>L', ofs & 0xffffffff))
         # END for each offset
 
@@ -506,7 +506,7 @@ class PackFile(LazyMixin):
     """A pack is a file written according to the Version 2 for git packs
 
     As we currently use memory maps, it could be assumed that the maximum size of
-    packs therefor is 32 bit on 32 bit systems. On 64 bit systems, this should be
+    packs therefore is 32 bit on 32 bit systems. On 64 bit systems, this should be
     fine though.
 
     **Note:** at some point, this might be implemented using streams as well, or

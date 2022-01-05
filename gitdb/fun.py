@@ -103,7 +103,7 @@ def delta_chunk_apply(dc, bbuf, write):
         write(bbuf[dc.so:dc.so + dc.ts])
     else:
         # APPEND DATA
-        # whats faster: if + 4 function calls or just a write with a slice ?
+        # what's faster: if + 4 function calls or just a write with a slice ?
         # Considering data can be larger than 127 bytes now, it should be worth it
         if dc.ts < len(dc.data):
             write(dc.data[:dc.ts])
@@ -292,7 +292,7 @@ class DeltaChunkList(list):
         """Verify the list has non-overlapping chunks only, and the total size matches
         target_size
         :param target_size: if not -1, the total size of the chain must be target_size
-        :raise AssertionError: if the size doen't match"""
+        :raise AssertionError: if the size doesn't match"""
         if target_size > -1:
             assert self[-1].rbound() == target_size
             assert reduce(lambda x, y: x + y, (d.ts for d in self), 0) == target_size
@@ -331,7 +331,7 @@ class TopdownDeltaChunkList(DeltaChunkList):
         cannot be changed by any of the upcoming bases anymore. Once all our
         chunks are marked like that, we can stop all processing
         :param bdcl: data chunk list being one of our bases. They must be fed in
-            consequtively and in order, towards the earliest ancestor delta
+            consecutively and in order, towards the earliest ancestor delta
         :return: True if processing was done. Use it to abort processing of
             remaining streams if False is returned"""
         nfc = 0                             # number of frozen chunks
@@ -624,7 +624,7 @@ def apply_delta_data(src_buf, src_buf_size, delta_buf, delta_buf_size, write):
 
     :param src_buf: random access data from which the delta was created
     :param src_buf_size: size of the source buffer in bytes
-    :param delta_buf_size: size fo the delta buffer in bytes
+    :param delta_buf_size: size for the delta buffer in bytes
     :param delta_buf: random access delta data
     :param write: write method taking a chunk of bytes
 
