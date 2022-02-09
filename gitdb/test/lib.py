@@ -65,8 +65,8 @@ def skip_on_travis_ci(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if 'TRAVIS' in os.environ:
-            import nose
-            raise nose.SkipTest("Cannot run on travis-ci")
+            import pytest
+            pytest.skip("Cannot run on travis-ci")
         # end check for travis ci
         return func(self, *args, **kwargs)
     # end wrapper

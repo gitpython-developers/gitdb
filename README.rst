@@ -30,7 +30,7 @@ If you want to go up to 20% faster, you can install gitdb-speedups with:
 REQUIREMENTS
 ============
 
-* Python  Nose - for running the tests
+* pytest - for running the tests
 
 SOURCE
 ======
@@ -45,7 +45,7 @@ Once the clone is complete, please be sure to initialize the submodules using
 
 Run the tests with
 
- nosetests
+ pytest
 
 DEVELOPMENT
 ===========
