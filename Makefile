@@ -1,6 +1,5 @@
 PYTHON = python
 SETUP = $(PYTHON) setup.py
-TESTRUNNER = $(shell which nosetests)
 TESTFLAGS =
 
 all::
@@ -37,5 +36,5 @@ clean::
 	rm -f *.so
 
 coverage:: build
-	PYTHONPATH=. $(PYTHON) $(TESTRUNNER) --cover-package=gitdb --with-coverage --cover-erase --cover-inclusive gitdb
+	PYTHONPATH=. $(PYTHON) -m pytest --cov=gitdb gitdb
 

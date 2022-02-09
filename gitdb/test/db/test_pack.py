@@ -16,7 +16,7 @@ import os
 import random
 import sys
 
-from nose.plugins.skip import SkipTest
+import pytest
 
 class TestPackDB(TestDBBase):
 
@@ -24,7 +24,7 @@ class TestPackDB(TestDBBase):
     @with_packs_rw
     def test_writing(self, path):
         if sys.platform == "win32":
-            raise SkipTest("FIXME: Currently fail on windows")
+            pytest.skip("FIXME: Currently fail on windows")
 
         pdb = PackedDB(path)
 

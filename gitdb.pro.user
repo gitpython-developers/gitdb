@@ -233,8 +233,7 @@
    </valuemap>
    <valuemap key="ProjectExplorer.Target.RunConfiguration.1" type="QVariantMap">
     <valuelist key="ProjectExplorer.CustomExecutableRunConfiguration.Arguments" type="QVariantList">
-     <value type="QString">/usr/bin/nosetests</value>
-     <value type="QString">-s</value>
+     <value type="QString">/usr/bin/pytest</value>
      <value type="QString">gitdb/test/test_pack.py</value>
     </valuelist>
     <value key="ProjectExplorer.CustomExecutableRunConfiguration.BaseEnvironmentBase" type="int">2</value>

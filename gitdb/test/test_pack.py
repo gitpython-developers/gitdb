@@ -26,7 +26,7 @@ from gitdb.fun import delta_types
 from gitdb.exc import UnsupportedOperation
 from gitdb.util import to_bin_sha
 
-from nose import SkipTest
+import pytest
 
 import os
 import tempfile
@@ -246,4 +246,4 @@ class TestPack(TestBase):
     def test_pack_64(self):
         # TODO: hex-edit a pack helping us to verify that we can handle 64 byte offsets
         # of course without really needing such a huge pack
-        raise SkipTest()
+        pytest.skip('not implemented')
