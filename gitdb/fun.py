@@ -113,7 +113,7 @@ def delta_chunk_apply(dc, bbuf, write):
     # END handle chunk mode
 
 
-class DeltaChunk(object):
+class DeltaChunk:
 
     """Represents a piece of a delta, it can either add new data, or copy existing
     one from a source buffer"""

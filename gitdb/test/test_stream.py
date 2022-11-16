@@ -115,13 +115,13 @@ class TestStream(TestBase):
 
     def test_sha_writer(self):
         writer = Sha1Writer()
-        assert 2 == writer.write("hi".encode("ascii"))
+        assert 2 == writer.write(b"hi")
         assert len(writer.sha(as_hex=1)) == 40
         assert len(writer.sha(as_hex=0)) == 20
 
         # make sure it does something ;)
         prev_sha = writer.sha()
-        writer.write("hi again".encode("ascii"))
+        writer.write(b"hi again")
         assert writer.sha() != prev_sha
 
     def test_compressed_writer(self):

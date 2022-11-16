@@ -32,7 +32,7 @@ class TestExamples(TestBase):
             pass
         # END ignore exception if there are no loose objects
 
-        data = "my data".encode("ascii")
+        data = b"my data"
         istream = IStream("blob", len(data), BytesIO(data))
 
         # the object does not yet have a sha

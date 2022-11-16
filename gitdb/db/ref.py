@@ -20,7 +20,7 @@ class ReferenceDB(CompoundDB):
     ObjectDBCls = None
 
     def __init__(self, ref_file):
-        super(ReferenceDB, self).__init__()
+        super().__init__()
         self._ref_file = ref_file
 
     def _set_cache_(self, attr):
@@ -28,7 +28,7 @@ class ReferenceDB(CompoundDB):
             self._dbs = list()
             self._update_dbs_from_ref_file()
         else:
-            super(ReferenceDB, self)._set_cache_(attr)
+            super()._set_cache_(attr)
         # END handle attrs
 
     def _update_dbs_from_ref_file(self):
@@ -44,7 +44,7 @@ class ReferenceDB(CompoundDB):
         try:
             with codecs.open(self._ref_file, 'r', encoding="utf-8") as f:
                 ref_paths = [l.strip() for l in f]
-        except (OSError, IOError):
+        except OSError:
             pass
         # END handle alternates
 
@@ -79,4 +79,4 @@ class ReferenceDB(CompoundDB):
     def update_cache(self, force=False):
         # re-read alternates and update databases
         self._update_dbs_from_ref_file()
-        return super(ReferenceDB, self).update_cache(force)
+        return super().update_cache(force)

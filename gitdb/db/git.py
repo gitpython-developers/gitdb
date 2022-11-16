@@ -39,7 +39,7 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
 
     def __init__(self, root_path):
         """Initialize ourselves on a git objects directory"""
-        super(GitDB, self).__init__(root_path)
+        super().__init__(root_path)
 
     def _set_cache_(self, attr):
         if attr == '_dbs' or attr == '_loose_db':
@@ -68,7 +68,7 @@ class GitDB(FileDBBase, ObjectDBW, CompoundDB):
             # finally set the value
             self._loose_db = loose_db
         else:
-            super(GitDB, self)._set_cache_(attr)
+            super()._set_cache_(attr)
         # END handle attrs
 
     #{ ObjectDBW interface

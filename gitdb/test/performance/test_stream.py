@@ -3,7 +3,6 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Performance data streaming performance"""
-from __future__ import print_function
 
 from gitdb.test.performance.lib import TestBigRepoR
 from gitdb.db import LooseObjectDB

@@ -40,7 +40,7 @@ class TestBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            super(TestBase, cls).setUpClass()
+            super().setUpClass()
         except AttributeError:
             pass
 
@@ -70,7 +70,7 @@ def with_rw_directory(func):
             try:
                 return func(self, path)
             except Exception:
-                sys.stderr.write("Test {}.{} failed, output is at {!r}\n".format(type(self).__name__, func.__name__, path))
+                sys.stderr.write(f"Test {type(self).__name__}.{func.__name__} failed, output is at {path!r}\n")
                 keep = True
                 raise
         finally:
@@ -161,7 +161,7 @@ def make_memory_file(size_in_bytes, randomize=False):
 #{ Stream Utilities
 
 
-class DummyStream(object):
+class DummyStream:
 
     def __init__(self):
         self.was_read = False

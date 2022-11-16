@@ -94,7 +94,7 @@ from gitdb.const import (
 #{ compatibility stuff ...
 
 
-class _RandomAccessBytesIO(object):
+class _RandomAccessBytesIO:
 
     """Wrapper to provide required functionality in case memory maps cannot or may
     not be used. This is only really required in python 2.4"""
@@ -131,7 +131,7 @@ def byte_ord(b):
 #{ Routines
 
 
-def make_sha(source=''.encode("ascii")):
+def make_sha(source=b''):
     """A python2.4 workaround for the sha/hashlib module fiasco
 
     **Note** From the dulwich project """
@@ -151,7 +151,7 @@ def allocate_memory(size):
 
     try:
         return mmap.mmap(-1, size)  # read-write by default
-    except EnvironmentError:
+    except OSError:
         # setup real memory instead
         # this of course may fail if the amount of memory is not available in
         # one chunk - would only be the case in python 2.4, being more likely on
@@ -174,7 +174,7 @@ def file_contents_ro(fd, stream=False, allow_mmap=True):
             # supports stream and random access
             try:
                 return mmap.mmap(fd, 0, access=mmap.ACCESS_READ)
-            except EnvironmentError:
+            except OSError:
                 # python 2.4 issue, 0 wants to be the actual size
                 return mmap.mmap(fd, os.fstat(fd).st_size, access=mmap.ACCESS_READ)
             # END handle python 2.4
@@ -234,7 +234,7 @@ def to_bin_sha(sha):
 
 #{ Utilities
 
-class LazyMixin(object):
+class LazyMixin:
 
     """
     Base class providing an interface to lazily retrieve attribute values upon
@@ -266,7 +266,7 @@ class LazyMixin(object):
         pass
 
 
-class LockedFD(object):
+class LockedFD:
 
     """
     This class facilitates a safe read and write operation to a file on disk.
@@ -327,7 +327,7 @@ class LockedFD(object):
                 self._fd = fd
             # END handle file descriptor
         except OSError as e:
-            raise IOError("Lock at %r could not be obtained" % self._lockfilepath()) from e
+            raise OSError("Lock at %r could not be obtained" % self._lockfilepath()) from e
         # END handle lock retrieval
 
         # open actual file if required

@@ -39,7 +39,7 @@ class PackedDB(FileDBBase, ObjectDBR, CachingDB, LazyMixin):
     _sort_interval = 500
 
     def __init__(self, root_path):
-        super(PackedDB, self).__init__(root_path)
+        super().__init__(root_path)
         # list of lists with three items:
         # * hits - number of times the pack was hit with a request
         # * entity - Pack entity instance
