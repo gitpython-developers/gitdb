@@ -23,7 +23,7 @@ class TestReferenceDB(TestDBBase):
         The list can be empty"""
         with open(alt_path, "wb") as alt_file:
             for alt in alt_list:
-                alt_file.write(alt.encode("utf-8") + "\n".encode("ascii"))
+                alt_file.write(alt.encode("utf-8") + b"\n")
 
     @with_rw_directory
     def test_writing(self, path):

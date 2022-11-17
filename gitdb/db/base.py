@@ -22,7 +22,7 @@ from functools import reduce
 __all__ = ('ObjectDBR', 'ObjectDBW', 'FileDBBase', 'CompoundDB', 'CachingDB')
 
 
-class ObjectDBR(object):
+class ObjectDBR:
 
     """Defines an interface for object database lookup.
     Objects are identified either by their 20 byte bin sha"""
@@ -63,7 +63,7 @@ class ObjectDBR(object):
     #} END query interface
 
 
-class ObjectDBW(object):
+class ObjectDBW:
 
     """Defines an interface to create objects in the database"""
 
@@ -105,7 +105,7 @@ class ObjectDBW(object):
     #} END edit interface
 
 
-class FileDBBase(object):
+class FileDBBase:
 
     """Provides basic facilities to retrieve files of interest, including
     caching facilities to help mapping hexsha's to objects"""
@@ -117,7 +117,7 @@ class FileDBBase(object):
         **Note:** The base will not perform any accessablity checking as the base
             might not yet be accessible, but become accessible before the first
             access."""
-        super(FileDBBase, self).__init__()
+        super().__init__()
         self._root_path = root_path
 
     #{ Interface
@@ -133,7 +133,7 @@ class FileDBBase(object):
     #} END interface
 
 
-class CachingDB(object):
+class CachingDB:
 
     """A database which uses caches to speed-up access"""
 
@@ -176,7 +176,7 @@ class CompoundDB(ObjectDBR, LazyMixin, CachingDB):
         elif attr == '_db_cache':
             self._db_cache = dict()
         else:
-            super(CompoundDB, self)._set_cache_(attr)
+            super()._set_cache_(attr)
 
     def _db_query(self, sha):
         """:return: database containing the given 20 byte sha

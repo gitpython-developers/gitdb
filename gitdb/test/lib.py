@@ -40,7 +40,7 @@ class TestBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            super(TestBase, cls).setUpClass()
+            super().setUpClass()
         except AttributeError:
             pass
 
@@ -58,21 +58,6 @@ class TestBase(unittest.TestCase):
 
 #{ Decorators
 
-def skip_on_travis_ci(func):
-    """All tests decorated with this one will raise SkipTest when run on travis ci.
-    Use it to workaround difficult to solve issues
-    NOTE: copied from bcore (https://github.com/Byron/bcore)"""
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        if 'TRAVIS' in os.environ:
-            import pytest
-            pytest.skip("Cannot run on travis-ci")
-        # end check for travis ci
-        return func(self, *args, **kwargs)
-    # end wrapper
-    return wrapper
-
-
 def with_rw_directory(func):
     """Create a temporary directory which can be written to, remove it if the
     test succeeds, but leave it otherwise to aid additional debugging"""
@@ -85,7 +70,7 @@ def with_rw_directory(func):
             try:
                 return func(self, path)
             except Exception:
-                sys.stderr.write("Test {}.{} failed, output is at {!r}\n".format(type(self).__name__, func.__name__, path))
+                sys.stderr.write(f"Test {type(self).__name__}.{func.__name__} failed, output is at {path!r}\n")
                 keep = True
                 raise
         finally:
@@ -176,7 +161,7 @@ def make_memory_file(size_in_bytes, randomize=False):
 #{ Stream Utilities
 
 
-class DummyStream(object):
+class DummyStream:
 
     def __init__(self):
         self.was_read = False

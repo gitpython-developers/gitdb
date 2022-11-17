@@ -170,7 +170,7 @@ def write_stream_to_pack(read, write, zstream, base_crc=None):
 #} END utilities
 
 
-class IndexWriter(object):
+class IndexWriter:
 
     """Utility to cache index information, allowing to write all information later
     in one go to the given stream
@@ -257,7 +257,7 @@ class PackIndexFile(LazyMixin):
     index_version_default = 2
 
     def __init__(self, indexpath):
-        super(PackIndexFile, self).__init__()
+        super().__init__()
         self._indexpath = indexpath
 
     def close(self):

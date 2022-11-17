@@ -219,13 +219,13 @@ class DecompressMemMapReader(LazyMixin):
         # END clamp size
 
         if size == 0:
-            return bytes()
+            return b''
         # END handle depletion
 
         # deplete the buffer, then just continue using the decompress object
         # which has an own buffer. We just need this to transparently parse the
         # header from the zlib stream
-        dat = bytes()
+        dat = b''
         if self._buf:
             if self._buflen >= size:
                 # have enough data
@@ -553,7 +553,7 @@ class DeltaApplyReader(LazyMixin):
 
 #{ W Streams
 
-class Sha1Writer(object):
+class Sha1Writer:
 
     """Simple stream writer which produces a sha whenever you like as it degests
     everything it is supposed to write"""
@@ -650,7 +650,7 @@ class FDCompressedSha1Writer(Sha1Writer):
     exc = IOError("Failed to write all bytes to filedescriptor")
 
     def __init__(self, fd):
-        super(FDCompressedSha1Writer, self).__init__()
+        super().__init__()
         self.fd = fd
         self.zip = zlib.compressobj(zlib.Z_BEST_SPEED)
 
@@ -677,7 +677,7 @@ class FDCompressedSha1Writer(Sha1Writer):
     #} END stream interface
 
 
-class FDStream(object):
+class FDStream:
 
     """A simple wrapper providing the most basic functions on a file descriptor
     with the fileobject interface. Cannot use os.fdopen as the resulting stream
@@ -711,7 +711,7 @@ class FDStream(object):
         close(self._fd)
 
 
-class NullStream(object):
+class NullStream:
 
     """A stream that does nothing but providing a stream interface.
     Use it like /dev/null"""

@@ -75,7 +75,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
         new_objects_mode = int("644", 8)
 
     def __init__(self, root_path):
-        super(LooseObjectDB, self).__init__(root_path)
+        super().__init__(root_path)
         self._hexsha_to_file = dict()
         # Additional Flags - might be set to 0 after the first failure
         # Depending on the root, this might work for some mounts, for others not, which
@@ -151,7 +151,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
         """:raise TypeError: if the stream does not support the Sha1Writer interface"""
         if stream is not None and not isinstance(stream, Sha1Writer):
             raise TypeError("Output stream musst support the %s interface" % Sha1Writer.__name__)
-        return super(LooseObjectDB, self).set_ostream(stream)
+        return super().set_ostream(stream)
 
     def info(self, sha):
         m = self._map_loose_object(sha)

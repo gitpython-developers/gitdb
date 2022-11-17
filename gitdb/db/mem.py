@@ -37,7 +37,7 @@ class MemoryDB(ObjectDBR, ObjectDBW):
     exists in the target storage before introducing actual IO"""
 
     def __init__(self):
-        super(MemoryDB, self).__init__()
+        super().__init__()
         self._db = LooseObjectDB("path/doesnt/matter")
 
         # maps 20 byte shas to their OStream objects

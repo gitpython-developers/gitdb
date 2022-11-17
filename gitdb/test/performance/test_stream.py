@@ -3,7 +3,6 @@
 # This module is part of GitDB and is released under
 # the New BSD License: http://www.opensource.org/licenses/bsd-license.php
 """Performance data streaming performance"""
-from __future__ import print_function
 
 from gitdb.test.performance.lib import TestBigRepoR
 from gitdb.db import LooseObjectDB
@@ -20,7 +19,6 @@ import sys
 from gitdb.test.lib import (
     make_memory_file,
     with_rw_directory,
-    skip_on_travis_ci
 )
 
 
@@ -44,7 +42,6 @@ class TestObjDBPerformance(TestBigRepoR):
     large_data_size_bytes = 1000 * 1000 * 50        # some MiB should do it
     moderate_data_size_bytes = 1000 * 1000 * 1      # just 1 MiB
 
-    @skip_on_travis_ci
     @with_rw_directory
     def test_large_data_streaming(self, path):
         ldb = LooseObjectDB(path)
