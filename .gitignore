@@ -7,3 +7,4 @@ dist/
 *.so
 .noseids
 *.sublime-workspace
+*.egg-info
