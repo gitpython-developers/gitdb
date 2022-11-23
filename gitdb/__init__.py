@@ -18,6 +18,7 @@ def _init_externals():
             sys.path.append(where)
 
     import smmap
+    del smmap
     # END handle imports
 
 #} END initialization
