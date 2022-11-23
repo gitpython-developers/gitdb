@@ -12,15 +12,12 @@ import os
 
 def _init_externals():
     """Initialize external projects by putting them into the path"""
-    for module in ('smmap',):
-        if 'PYOXIDIZER' not in os.environ:
-            sys.path.append(os.path.join(os.path.dirname(__file__), 'ext', module))
+    if 'PYOXIDIZER' not in os.environ:
+        where = os.path.join(os.path.dirname(__file__), 'ext', 'smmap')
+        if os.path.exists(where):
+            sys.path.append(where)
 
-        try:
-            __import__(module)
-        except ImportError as e:
-            raise ImportError("'%s' could not be imported, assure it is located in your PYTHONPATH" % module) from e
-        # END verify import
+    import smmap
     # END handle imports
 
 #} END initialization
