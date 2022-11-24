@@ -2,6 +2,12 @@
 Changelog
 #########
 
+******
+4.0.10
+******
+
+- improvements to the way external packages are imported.
+
 *****
 4.0.9
 *****
