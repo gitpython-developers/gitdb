@@ -22,7 +22,7 @@ setup(
     zip_safe=False,
     install_requires=['smmap>=3.0.1,<6'],
     long_description="""GitDB is a pure-Python git object database""",
-    python_requires='>=3.7',
+    python_requires='>=3.8',
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -35,7 +35,6 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
