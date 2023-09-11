@@ -8,7 +8,6 @@ from gitdb.db.base import (
     ObjectDBW
 )
 
-
 from gitdb.exc import (
     BadObject,
     AmbiguousObjectName
@@ -33,10 +32,8 @@ from gitdb.util import (
     bin_to_hex,
     exists,
     chmod,
-    isdir,
     isfile,
     remove,
-    mkdir,
     rename,
     dirname,
     basename,
@@ -222,8 +219,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
         if tmp_path:
             obj_path = self.db_path(self.object_path(hexsha))
             obj_dir = dirname(obj_path)
-            if not isdir(obj_dir):
-                mkdir(obj_dir)
+            os.makedirs(obj_dir, exist_ok=True)
             # END handle destination directory
             # rename onto existing doesn't work on NTFS
             if isfile(obj_path):
