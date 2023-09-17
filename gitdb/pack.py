@@ -1,7 +1,7 @@
 # Copyright (C) 2010, 2011 Sebastian Thiel (byronimo@gmail.com) and contributors
 #
 # This module is part of GitDB and is released under
-# the New BSD License: http://www.opensource.org/licenses/bsd-license.php
+# the New BSD License: https://opensource.org/license/bsd-3-clause/
 """Contains PackIndexFile and PackFile implementations"""
 import zlib
 
@@ -263,7 +263,7 @@ class PackIndexFile(LazyMixin):
     def close(self):
         mman.force_map_handle_removal_win(self._indexpath)
         self._cursor = None
-        
+
     def _set_cache_(self, attr):
         if attr == "_packfile_checksum":
             self._packfile_checksum = self._cursor.map()[-40:-20]
@@ -528,7 +528,7 @@ class PackFile(LazyMixin):
     def close(self):
         mman.force_map_handle_removal_win(self._packpath)
         self._cursor = None
-        
+
     def _set_cache_(self, attr):
         # we fill the whole cache, whichever attribute gets queried first
         self._cursor = mman.make_cursor(self._packpath).use_region()
