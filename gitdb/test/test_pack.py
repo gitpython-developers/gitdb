@@ -1,7 +1,7 @@
 # Copyright (C) 2010, 2011 Sebastian Thiel (byronimo@gmail.com) and contributors
 #
 # This module is part of GitDB and is released under
-# the New BSD License: http://www.opensource.org/licenses/bsd-license.php
+# the New BSD License: https://opensource.org/license/bsd-3-clause/
 """Test everything about packs reading and writing"""
 from gitdb.test.lib import (
     TestBase,
@@ -242,7 +242,7 @@ class TestPack(TestBase):
         # END for each info
         assert count == len(pack_objs)
         entity.close()
-        
+
     def test_pack_64(self):
         # TODO: hex-edit a pack helping us to verify that we can handle 64 byte offsets
         # of course without really needing such a huge pack

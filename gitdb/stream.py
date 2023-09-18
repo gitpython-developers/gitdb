@@ -1,7 +1,7 @@
 # Copyright (C) 2010, 2011 Sebastian Thiel (byronimo@gmail.com) and contributors
 #
 # This module is part of GitDB and is released under
-# the New BSD License: http://www.opensource.org/licenses/bsd-license.php
+# the New BSD License: https://opensource.org/license/bsd-3-clause/
 
 from io import BytesIO
 
@@ -140,7 +140,7 @@ class DecompressMemMapReader(LazyMixin):
     def close(self):
         """Close our underlying stream of compressed bytes if this was allowed during initialization
         :return: True if we closed the underlying stream
-        :note: can be called safely 
+        :note: can be called safely
         """
         if self._close:
             if hasattr(self._m, 'close'):
@@ -287,11 +287,11 @@ class DecompressMemMapReader(LazyMixin):
         # if we hit the end of the stream
         # NOTE: Behavior changed in PY2.7 onward, which requires special handling to make the tests work properly.
         # They are thorough, and I assume it is truly working.
-        # Why is this logic as convoluted as it is ? Please look at the table in 
+        # Why is this logic as convoluted as it is ? Please look at the table in
         # https://github.com/gitpython-developers/gitdb/issues/19 to learn about the test-results.
         # Basically, on py2.6, you want to use branch 1, whereas on all other python version, the second branch
-        # will be the one that works. 
-        # However, the zlib VERSIONs as well as the platform check is used to further match the entries in the 
+        # will be the one that works.
+        # However, the zlib VERSIONs as well as the platform check is used to further match the entries in the
         # table in the github issue. This is it ... it was the only way I could make this work everywhere.
         # IT's CERTAINLY GOING TO BITE US IN THE FUTURE ... .
         if getattr(zlib, 'ZLIB_RUNTIME_VERSION', zlib.ZLIB_VERSION) in ('1.2.7', '1.2.5') and not sys.platform == 'darwin':
