@@ -5,6 +5,17 @@
 """Module with common exceptions"""
 from gitdb.util import to_hex_sha
 
+__all__ = [
+    'AmbiguousObjectName',
+    'BadName',
+    'BadObject',
+    'BadObjectType',
+    'InvalidDBRoot',
+    'ODBError',
+    'ParseError',
+    'UnsupportedOperation',
+    'to_hex_sha',
+]
 
 class ODBError(Exception):
     """All errors thrown by the object database"""
