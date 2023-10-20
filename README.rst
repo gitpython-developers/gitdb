@@ -16,34 +16,38 @@ Installation
     :target: https://readthedocs.org/projects/gitdb/?badge=latest
     :alt: Documentation Status
 
-From `PyPI <https://pypi.python.org/pypi/gitdb>`_
+From `PyPI <https://pypi.python.org/pypi/gitdb>`_::
 
  pip install gitdb
 
 SPEEDUPS
 ========
 
-If you want to go up to 20% faster, you can install gitdb-speedups with:
+If you want to go up to 20% faster, you can install gitdb-speedups with::
 
  pip install gitdb-speedups
+
+However, please note that gitdb-speedups is not currently maintained.
 
 REQUIREMENTS
 ============
 
+* smmap - declared as a dependency, automatically installed
 * pytest - for running the tests
 
 SOURCE
 ======
-The source is available in a git repository at gitorious and github:
+
+The source is available in a git repository on GitHub:
 
 https://github.com/gitpython-developers/gitdb
 
-Once the clone is complete, please be sure to initialize the submodules using
+Once the clone is complete, please be sure to initialize the submodule using::
 
  cd gitdb
  git submodule update --init
 
-Run the tests with
+Run the tests with::
 
  pytest
 
@@ -53,13 +57,13 @@ DEVELOPMENT
 .. image:: https://github.com/gitpython-developers/gitdb/workflows/Python%20package/badge.svg
     :target: https://github.com/gitpython-developers/gitdb/actions
 
-The library is considered mature, and not under active development. It's primary (known) use is in git-python.
+The library is considered mature, and not under active development. Its primary (known) use is in GitPython.
 
 INFRASTRUCTURE
 ==============
 
-* Mailing List
-    * http://groups.google.com/group/git-python
+* Discussions
+    * https://github.com/gitpython-developers/GitPython/discussions
 
 * Issue Tracker
     * https://github.com/gitpython-developers/gitdb/issues
