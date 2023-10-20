@@ -4,33 +4,11 @@
 # the New BSD License: https://opensource.org/license/bsd-3-clause/
 """Initialize the object database module"""
 
-import sys
-import os
-
-#{ Initialization
-
-
-def _init_externals():
-    """Initialize external projects by putting them into the path"""
-    if 'PYOXIDIZER' not in os.environ:
-        where = os.path.join(os.path.dirname(__file__), 'ext', 'smmap')
-        if os.path.exists(where):
-            sys.path.append(where)
-
-    import smmap
-    del smmap
-    # END handle imports
-
-#} END initialization
-
-_init_externals()
-
 __author__ = "Sebastian Thiel"
 __contact__ = "byronimo@gmail.com"
 __homepage__ = "https://github.com/gitpython-developers/gitdb"
 version_info = (4, 0, 11)
 __version__ = '.'.join(str(i) for i in version_info)
-
 
 # default imports
 from gitdb.base import *
