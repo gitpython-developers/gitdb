@@ -3,6 +3,12 @@ Changelog
 #########
 
 ******
+4.0.11
+******
+
+- various improvements - please see the release on GitHub for details.
+
+******
 4.0.10
 ******
 
