@@ -15,7 +15,7 @@ release:: clean
 
 force_release:: clean
 	git push --tags
-	python3 setup.py sdist bdist_wheel
+	python3 -m build --sdist --wheel
 	twine upload dist/*
 
 doc:: 
