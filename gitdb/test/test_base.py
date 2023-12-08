@@ -73,7 +73,7 @@ class TestBaseTypes(TestBase):
 
         # test deltapackstream
         dpostream = ODeltaPackStream(*(dpinfo + (stream, )))
-        dpostream.stream is stream
+        assert dpostream.stream is stream
         dpostream.read(5)
         stream._assert()
         assert stream.bytes == 5
@@ -92,7 +92,7 @@ class TestBaseTypes(TestBase):
 
         assert istream.size == s
         istream.size = s * 2
-        istream.size == s * 2
+        assert istream.size == s * 2
         assert istream.type == str_blob_type
         istream.type = "something"
         assert istream.type == "something"
