@@ -2,6 +2,8 @@
 #
 # This module is part of GitDB and is released under
 # the New BSD License: https://opensource.org/license/bsd-3-clause/
+from contextlib import suppress
+
 from gitdb.db.base import (
     FileDBBase,
     ObjectDBR,
@@ -90,10 +92,8 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
         """
         :return: readable object path to the object identified by hexsha
         :raise BadObject: If the object file does not exist"""
-        try:
+        with suppress(KeyError):
             return self._hexsha_to_file[hexsha]
-        except KeyError:
-            pass
         # END ignore cache misses
 
         # try filesystem
