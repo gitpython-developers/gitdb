@@ -245,9 +245,6 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                     "Impossible to apply `chmod` to file {}".format(obj_path)
                 )
 
-            # Cleanup
-            with suppress(FileNotFoundError):
-                remove(tmp_path)
         # END handle dry_run
 
         istream.binsha = hex_to_bin(hexsha)
