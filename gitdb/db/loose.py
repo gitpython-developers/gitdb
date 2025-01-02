@@ -54,6 +54,7 @@ from gitdb.utils.encoding import force_bytes
 import tempfile
 import os
 import sys
+import time
 
 
 __all__ = ('LooseObjectDB', )
@@ -205,7 +206,7 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
             # END assure target stream is closed
         except:
             if tmp_path:
-                os.remove(tmp_path)
+                remove(tmp_path)
             raise
         # END assure tmpfile removal on error
 
@@ -228,9 +229,22 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
                 rename(tmp_path, obj_path)
             # end rename only if needed
 
-            # make sure its readable for all ! It started out as rw-- tmp file
-            # but needs to be rwrr
-            chmod(obj_path, self.new_objects_mode)
+            # Ensure rename is actually done and file is stable
+            # Retry up to 14 times - exponential wait & retry in ms.
+            # The total maximum wait time is 1000ms, which should be vastly enough for the
+            # OS to return and commit the file to disk.
+            for exp_backoff_ms in [1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 181]:
+                with suppress(PermissionError):
+                    # make sure its readable for all ! It started out as rw-- tmp file
+                    # but needs to be rwrr
+                    chmod(obj_path, self.new_objects_mode)
+                    break
+                time.sleep(exp_backoff_ms / 1000.0)
+            else:
+                raise PermissionError(
+                    "Impossible to apply `chmod` to file {}".format(obj_path)
+                )
+
         # END handle dry_run
 
         istream.binsha = hex_to_bin(hexsha)
