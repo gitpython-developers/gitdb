@@ -230,16 +230,16 @@ class LooseObjectDB(FileDBBase, ObjectDBR, ObjectDBW):
             # end rename only if needed
 
             # Ensure rename is actually done and file is stable
-            # Retry up to 14 times - exponential wait & retry in ms.
+            # Retry up to 14 times - quadratic wait & retry in ms.
             # The total maximum wait time is 1000ms, which should be vastly enough for the
             # OS to return and commit the file to disk.
-            for exp_backoff_ms in [1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 181]:
+            for backoff_ms in [1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 181]:
                 with suppress(PermissionError):
                     # make sure its readable for all ! It started out as rw-- tmp file
                     # but needs to be rwrr
                     chmod(obj_path, self.new_objects_mode)
                     break
-                time.sleep(exp_backoff_ms / 1000.0)
+                time.sleep(backoff_ms / 1000.0)
             else:
                 raise PermissionError(
                     "Impossible to apply `chmod` to file {}".format(obj_path)
