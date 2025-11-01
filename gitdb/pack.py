@@ -267,8 +267,6 @@ class PackIndexFile(LazyMixin):
     def _set_cache_(self, attr):
         if attr == "_packfile_checksum":
             self._packfile_checksum = self._cursor.map()[-40:-20]
-        elif attr == "_packfile_checksum":
-            self._packfile_checksum = self._cursor.map()[-20:]
         elif attr == "_cursor":
             # Note: We don't lock the file when reading as we cannot be sure
             # that we can actually write to the location - it could be a read-only
@@ -848,7 +846,6 @@ class PackEntity(LazyMixin):
             assert shawriter.sha(as_hex=False) == sha
             return shawriter.sha(as_hex=False) == sha
         # END handle crc/sha verification
-        return True
 
     def info_iter(self):
         """
